@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { WorldStates, WorldState, TreeInfoPayload } from '../types';
+import type { WorldStates, WorldState, TreeInfoPayload, SpawnTreeInfo } from '../types';
 import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
 
 const STORAGE_KEY = 'evilTree_worldStates';
@@ -82,7 +82,7 @@ export function useWorldStates() {
     return () => clearInterval(id);
   }, []);
 
-  const setSpawnTimer = useCallback((worldId: number, msFromNow: number) => {
+  const setSpawnTimer = useCallback((worldId: number, msFromNow: number, treeInfo?: SpawnTreeInfo) => {
     const now = Date.now();
     setWorldStates(prev => ({
       ...prev,
@@ -90,6 +90,8 @@ export function useWorldStates() {
         treeStatus: 'none',
         nextSpawnTarget: now + msFromNow,
         spawnSetAt: now,
+        treeHint: treeInfo?.treeHint,
+        treeExactLocation: treeInfo?.treeExactLocation,
       },
     }));
   }, []);

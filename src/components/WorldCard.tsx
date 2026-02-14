@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { WorldConfig, WorldState, TreeInfoPayload } from '../types';
+import type { WorldConfig, WorldState, TreeInfoPayload, SpawnTreeInfo } from '../types';
 import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
 import { TreeInfoTool } from './TreeInfoTool';
@@ -8,7 +8,7 @@ import { TreeDeadTool } from './TreeDeadTool';
 interface Props {
   world: WorldConfig;
   state: WorldState;
-  onSetSpawn: (ms: number) => void;
+  onSetSpawn: (ms: number, treeInfo?: SpawnTreeInfo) => void;
   onSetTree: (info: TreeInfoPayload) => void;
   onMarkDead: () => void;
   tick: number;

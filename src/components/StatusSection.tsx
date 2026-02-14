@@ -104,8 +104,13 @@ export function StatusSection({ state, tick: _tick }: Props) {
     const remaining = state.nextSpawnTarget - now;
     if (remaining > 0) {
       return (
-        <div className="flex items-center h-full">
-          <span className="text-blue-300 text-[10px]">Next: {formatMs(remaining)}</span>
+        <div className={`flex ${state.treeHint ? 'flex-col justify-center' : 'items-center'} h-full`}>
+          {state.treeHint && (
+            <div className="text-gray-400 text-[9px] leading-tight truncate">
+              {abbreviateHint(state.treeHint)}
+            </div>
+          )}
+          <div className="text-blue-300 text-[10px] leading-tight">Next: {formatMs(remaining)}</div>
         </div>
       );
     }

@@ -24,3 +24,8 @@ export interface TreeInfoPayload {
   treeHint: string;
   treeExactLocation?: string;
 }
+
+export interface SpawnTreeInfo {
+  treeHint?: string;
+  treeExactLocation?: string;
+}

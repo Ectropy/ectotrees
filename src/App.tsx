@@ -31,7 +31,7 @@ export default function App() {
             key={world.id}
             world={world}
             state={worldStates[world.id] ?? { treeStatus: 'none' }}
-            onSetSpawn={(ms) => setSpawnTimer(world.id, ms)}
+            onSetSpawn={(ms, treeInfo) => setSpawnTimer(world.id, ms, treeInfo)}
             onSetTree={(info) => setTreeInfo(world.id, info)}
             onMarkDead={() => markDead(world.id)}
             tick={tick}

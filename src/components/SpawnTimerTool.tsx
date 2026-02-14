@@ -1,12 +1,12 @@
 import { TimePickerModal } from './TimePickerModal';
-import type { WorldState } from '../types';
+import type { WorldState, SpawnTreeInfo } from '../types';
 
 interface Props {
   state: WorldState;
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
-  onSubmit: (msFromNow: number) => void;
+  onSubmit: (msFromNow: number, treeInfo?: SpawnTreeInfo) => void;
 }
 
 export function SpawnTimerTool({ state: _state, isOpen, onOpen, onClose, onSubmit }: Props) {
