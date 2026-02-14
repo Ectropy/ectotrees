@@ -57,7 +57,7 @@ CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×10
 
 ### State Invariants
 - `nextSpawnTarget` and any active tree state are **mutually exclusive** (game mechanic: dead tree = no known next spawn). `markDead`, `setTreeInfo`, and auto-transitions all enforce this.
-- Tool 1 (spawn timer) is **always enabled** — using it while dead clears the dead state (correction path).
+- All three tools are **always enabled** — each serves as a correction path from any state.
 - Auto-transitions use exact timestamps for `deadAt` (e.g., `matureAt + 30min`), not `Date.now()`, to avoid drift from the 10-second poll interval.
 
 ### Auto-Transitions (checked every 10 seconds via `setInterval`)
@@ -72,7 +72,7 @@ CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×10
 | Tool | Enabled when |
 |---|---|
 | ⏱ Spawn timer | Always |
-| 🌳 Tree info | `none`, `mature`, `alive` |
+| 🌳 Tree info | Always |
 | ☠ Mark dead | Always |
 
 ## Adding/Removing Worlds
