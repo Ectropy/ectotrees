@@ -39,7 +39,7 @@ export function StatusSection({ state, tick: _tick }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className="text-red-400 text-[11px] font-bold leading-tight">R.I.P.</div>
         <div className="text-gray-400 text-[9px] leading-tight">
-          {remaining > 0 ? `clears ${formatMs(remaining)}` : 'clearing...'}
+          {`Clears ${formatMs(remaining)}`}
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export function StatusSection({ state, tick: _tick }: Props) {
           </div>
         )}
         <div className="text-yellow-300 text-[9px] leading-tight">
-          {remaining > 0 ? `matures ${formatMs(remaining)}` : 'maturing...'}
+          {`Matures in ~${formatMs(remaining)}`}
         </div>
       </div>
     );
@@ -75,7 +75,7 @@ export function StatusSection({ state, tick: _tick }: Props) {
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
-          {remaining > 0 ? `dies ${formatMs(remaining)}` : 'dying...'}
+          {`Dies in ~${formatMs(remaining)}`}
         </div>
       </div>
     );
@@ -94,7 +94,7 @@ export function StatusSection({ state, tick: _tick }: Props) {
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
-          {remaining > 0 ? `dies ${formatMs(remaining)}` : 'dying...'}
+          {`Dies in ~${formatMs(remaining)}`}
         </div>
       </div>
     );
