@@ -12,7 +12,7 @@ export default function App() {
     <div className="flex flex-col min-h-screen p-1.5 gap-1.5">
       <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
         <h1 className="text-base font-bold text-amber-400 tracking-wide">
-          Evil Tree Tracker
+          Ecto Trees
         </h1>
         <span className="text-[10px] text-gray-500">{worlds.length} worlds</span>
       </header>
