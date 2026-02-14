@@ -36,7 +36,7 @@ export function TreeDeadTool({ state, isOpen, onOpen, onClose, onConfirm }: Prop
 
       {isOpen && enabled && (
         <div
-          className="absolute z-50 bottom-full left-0 mb-1 bg-gray-700 border border-red-600
+          className="absolute z-50 top-full mt-1 lg:top-auto lg:bottom-full lg:mt-0 lg:mb-1 bg-gray-700 border border-red-600
             rounded shadow-xl p-2 w-32"
           onClick={e => e.stopPropagation()}
         >

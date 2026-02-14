@@ -36,7 +36,7 @@ export function TreeInfoModal({ onSubmit, onClose }: Props) {
 
   return (
     <div
-      className="absolute z-50 bottom-full left-0 mb-1 bg-gray-700 border border-gray-500
+      className="absolute z-50 top-full mt-1 lg:top-auto lg:bottom-full lg:mt-0 lg:mb-1 bg-gray-700 border border-gray-500
         rounded shadow-xl p-2 w-64"
       onClick={e => e.stopPropagation()}
     >
