@@ -68,7 +68,6 @@ export function WorldCard({ world, state, onSetSpawn, onSetTree, onMarkDead, tic
             onSubmit={onSetTree}
           />
           <TreeDeadTool
-            state={state}
             isOpen={openTool === 'dead'}
             onOpen={() => open('dead')}
             onClose={() => setOpenTool(null)}

@@ -15,6 +15,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 npm run dev      # start dev server (Vite, usually http://localhost:5173)
 npm run build    # tsc -b && vite build
 npm run lint     # eslint
+npx tsc --noEmit # type-check only (run after every change)
 ```
 
 ## Project Structure
@@ -72,7 +73,7 @@ CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×10
 |---|---|
 | ⏱ Spawn timer | Always |
 | 🌳 Tree info | `none`, `mature`, `alive` |
-| ☠ Mark dead | `sapling`, `mature`, `alive` |
+| ☠ Mark dead | Always |
 
 ## Adding/Removing Worlds
 Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
