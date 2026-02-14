@@ -1,50 +1,50 @@
-# React + TypeScript + Vite
+# Ectotrees — Evil Tree Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A RuneScape 3 dashboard for coordinating the **Evil Trees** Distraction & Diversion across all 137 worlds in real time.
 
-Currently, two official plugins are available:
+## What it does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Evil Trees spawn in waves across RS3 worlds. This tool lets you (and potentially a group of players) track the state of every world's tree on one screen:
 
-## Expanding the ESLint configuration
+- **137 world cards** displayed in a compact grid — all visible at once on a 1080p monitor
+- Per-world **status tracking**: no tree → sapling → mature → alive → dead → (cycle repeats)
+- **Automatic state transitions** based on known game timings (sapling matures at 5 min, tree dies at 30 min, fallen tree despawns at 30 min after death)
+- Three tools on every card:
+  - **Spawn timer** — set a countdown to the next expected spawn
+  - **Tree info** — record tree type, location hint, and exact location
+  - **Mark dead** — mark a tree as dead with one click (with confirmation)
+- State persists in `localStorage` between sessions
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Getting started
 
-- Configure the top-level `parserOptions` property like this:
+**Prerequisites:** Node.js 18+
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+# Install dependencies
+npm install
+
+# Start the dev server (http://localhost:5173)
+npm run dev
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Other commands
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+```bash
+npm run build   # production build (output in dist/)
+npm run lint    # run ESLint
+npx tsc --noEmit  # type-check without building
 ```
+
+## Customising worlds
+
+Edit [src/data/worlds.json](src/data/worlds.json) to add or remove worlds:
+
+```json
+{ "worlds": [{ "id": 1, "type": "P2P" }, { "id": 2, "type": "F2P" }] }
+```
+
+## Tech stack
+
+- React 18 + TypeScript + Vite 5
+- Tailwind CSS v3
+- No backend — all state is local (`localStorage`)
