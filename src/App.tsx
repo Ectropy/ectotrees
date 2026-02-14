@@ -13,6 +13,7 @@ export default function App() {
       <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
         <h1 className="text-base font-bold text-amber-400 tracking-wide">
           Ecto Trees
+          <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
         </h1>
         <span className="text-[10px] text-gray-500">{worlds.length} worlds</span>
       </header>
