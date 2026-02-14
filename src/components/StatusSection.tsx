@@ -1,5 +1,5 @@
 import type { WorldState } from '../types';
-import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
+import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWNED_CLEAR_MS } from '../constants/evilTree';
 
 interface Props {
   state: WorldState;
@@ -114,9 +114,13 @@ export function StatusSection({ state, tick: _tick }: Props) {
         </div>
       );
     }
+    const clearAt = state.nextSpawnTarget + SPAWNED_CLEAR_MS;
     return (
-      <div className="flex items-center h-full">
-        <span className="text-green-300 text-[10px] font-bold">Spawned!</span>
+      <div className="flex flex-col justify-center h-full">
+        <div className="text-green-300 text-[10px] font-bold leading-tight">Spawned!</div>
+        <div className="text-gray-400 text-[9px] leading-tight">
+          {`Clears ${formatMs(clearAt - now)}`}
+        </div>
       </div>
     );
   }

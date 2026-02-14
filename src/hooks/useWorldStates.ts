@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { WorldStates, WorldState, TreeInfoPayload, SpawnTreeInfo } from '../types';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
+import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWNED_CLEAR_MS } from '../constants/evilTree';
 
 const STORAGE_KEY = 'evilTree_worldStates';
 
@@ -41,6 +41,14 @@ function applyTransitions(states: WorldStates, now: number): WorldStates {
       s.treeStatus === 'dead' &&
       s.deadAt !== undefined &&
       now >= s.deadAt + DEAD_CLEAR_MS
+    ) {
+      s = { treeStatus: 'none' };
+      dirty = true;
+    }
+
+    if (
+      s.nextSpawnTarget !== undefined &&
+      now >= s.nextSpawnTarget + SPAWNED_CLEAR_MS
     ) {
       s = { treeStatus: 'none' };
       dirty = true;
