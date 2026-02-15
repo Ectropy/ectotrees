@@ -1,6 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { LOCATION_HINTS } from '../constants/evilTree';
+import { ScrollPicker } from './ScrollPicker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
+
+const HOUR_VALUES = Array.from({ length: 13 }, (_, i) => i);      // [0..12]
+const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
+
+function clampToValues(typed: number, values: number[]): number {
+  if (values.includes(typed)) return typed;
+  return values.reduce((closest, v) =>
+    Math.abs(v - typed) < Math.abs(closest - typed) ? v : closest
+  );
+}
 
 interface Props {
   world: WorldConfig;
@@ -14,6 +25,43 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const [hint, setHint] = useState('');
   const isP2P = world.type === 'P2P';
 
+  const [hoursText, setHoursText] = useState('0');
+  const [minutesText, setMinutesText] = useState('30');
+  const hoursFocused = useRef(false);
+  const minutesFocused = useRef(false);
+
+  // Sync text fields when values change from scroll picker
+  function handleHoursChange(v: number) {
+    setHours(v);
+    if (!hoursFocused.current) setHoursText(String(v));
+  }
+  function handleMinutesChange(v: number) {
+    setMinutes(v);
+    if (!minutesFocused.current) setMinutesText(String(v));
+  }
+
+  function commitHours() {
+    const typed = parseInt(hoursText, 10);
+    if (isNaN(typed) || hoursText.trim() === '') {
+      setHoursText(String(hours));
+      return;
+    }
+    const clamped = clampToValues(typed, HOUR_VALUES);
+    setHours(clamped);
+    setHoursText(String(clamped));
+  }
+
+  function commitMinutes() {
+    const typed = parseInt(minutesText, 10);
+    if (isNaN(typed) || minutesText.trim() === '') {
+      setMinutesText(String(minutes));
+      return;
+    }
+    const clamped = clampToValues(typed, MINUTE_VALUES);
+    setMinutes(clamped);
+    setMinutesText(String(clamped));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const totalMs = ((hours * 60) + minutes) * 60 * 1000;
@@ -25,7 +73,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   }
 
   const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
-  const inputClass = 'bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
+  const inputClass = 'bg-gray-600 text-white text-center text-lg font-semibold rounded px-2 py-1.5 border border-gray-500 focus:border-blue-400 focus:outline-none w-full';
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
@@ -60,30 +108,55 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
           {/* Time inputs */}
           <div className="space-y-3">
             <label className="block text-sm font-semibold text-gray-200">Time until spawn</label>
-            <div className="flex gap-4">
+
+            {/* Text entry row */}
+            <div className="flex items-center gap-2">
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Hours</label>
                 <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={hours}
-                  onChange={e => setHours(Math.max(0, Math.min(23, Number(e.target.value))))}
+                  type="text"
+                  inputMode="numeric"
+                  value={hoursText}
+                  onFocus={e => { hoursFocused.current = true; e.target.select(); }}
+                  onBlur={() => { hoursFocused.current = false; commitHours(); }}
+                  onChange={e => setHoursText(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
                   className={inputClass}
                 />
               </div>
+              <span className="text-2xl text-gray-400 font-bold pt-4 select-none">:</span>
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Minutes</label>
                 <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={minutes}
-                  onChange={e => setMinutes(Math.max(0, Math.min(59, Number(e.target.value))))}
+                  type="text"
+                  inputMode="numeric"
+                  value={minutesText}
+                  onFocus={e => { minutesFocused.current = true; e.target.select(); }}
+                  onBlur={() => { minutesFocused.current = false; commitMinutes(); }}
+                  onChange={e => setMinutesText(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
                   className={inputClass}
                 />
               </div>
             </div>
+
+            {/* Scroll picker columns */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700 flex overflow-hidden">
+              <ScrollPicker
+                label="Hours"
+                values={HOUR_VALUES}
+                value={hours}
+                onChange={handleHoursChange}
+              />
+              <div className="w-px bg-gray-700 self-stretch" />
+              <ScrollPicker
+                label="Minutes"
+                values={MINUTE_VALUES}
+                value={minutes}
+                onChange={handleMinutesChange}
+              />
+            </div>
+
             <p className="text-xs text-gray-500 mt-2">
               💡 There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.
             </p>
