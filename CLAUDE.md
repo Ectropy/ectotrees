@@ -61,6 +61,7 @@ Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) 
   treeType?: TreeType
   treeHint?: string
   treeExactLocation?: string
+  treeHealth?: number         // 5–100 in increments of 5 (optional)
   treeSetAt?: number        // ms timestamp — when tree info was recorded
   matureAt?: number
   deadAt?: number

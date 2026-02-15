@@ -57,7 +57,9 @@ export function StatusSection({ state }: Props) {
     const remaining = autoDeadAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-yellow-300 text-[10px] font-bold leading-tight">Mature</div>
+        <div className="text-yellow-300 text-[10px] font-bold leading-tight">
+          Mature{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
+        </div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}
@@ -76,7 +78,9 @@ export function StatusSection({ state }: Props) {
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Tree';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-emerald-400 text-[10px] font-bold leading-tight">{label}</div>
+        <div className="text-emerald-400 text-[10px] font-bold leading-tight">
+          {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
+        </div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}

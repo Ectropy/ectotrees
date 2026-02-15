@@ -13,6 +13,7 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
   const [treeType, setTreeType] = useState<TreeType>('tree');
   const [hint, setHint] = useState('');
   const [exactLocation, setExactLocation] = useState('');
+  const [health, setHealth] = useState<number | null>(null);
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
@@ -30,6 +31,7 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
       treeType,
       treeHint: hint,
       treeExactLocation: exactLocation || undefined,
+      treeHealth: health ?? undefined,
     });
   }
 
@@ -130,6 +132,32 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
               </p>
             </div>
           )}
+
+          {/* Health remaining */}
+          <div>
+            <label className="text-xs text-gray-400 block mb-2 font-semibold">
+              Health remaining <span className="text-gray-500 font-normal">(optional)</span>
+            </label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {Array.from({ length: 20 }, (_, i) => (100 - i * 5)).map(pct => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setHealth(health === pct ? null : pct)}
+                  className={`text-xs font-medium rounded py-1.5 transition-colors ${
+                    health === pct
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Approximate health of the tree, if known. Tap again to deselect.
+            </p>
+          </div>
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-4">

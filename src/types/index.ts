@@ -12,6 +12,7 @@ export interface WorldState {
   treeType?: TreeType;
   treeHint?: string;
   treeExactLocation?: string;
+  treeHealth?: number;
   treeSetAt?: number;
   matureAt?: number;
   deadAt?: number;
@@ -23,6 +24,7 @@ export interface TreeInfoPayload {
   treeType: TreeType;
   treeHint: string;
   treeExactLocation?: string;
+  treeHealth?: number;
 }
 
 export interface SpawnTreeInfo {

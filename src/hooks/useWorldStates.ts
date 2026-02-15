@@ -127,6 +127,7 @@ export function useWorldStates() {
           treeType: info.treeType,
           treeHint: info.treeHint,
           treeExactLocation: info.treeExactLocation,
+          treeHealth: info.treeHealth,
           treeSetAt: now,
           matureAt: isSapling ? now + SAPLING_MATURE_MS : now,
           treeStatus: isSapling ? 'sapling' : isMatureUnknown ? 'mature' : 'alive',

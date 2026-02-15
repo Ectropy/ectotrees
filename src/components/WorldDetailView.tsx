@@ -96,6 +96,12 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </Row>
                 )}
 
+                {state.treeHealth !== undefined && (
+                  <Row label="Health">
+                    <span className="text-gray-100">{state.treeHealth}%</span>
+                  </Row>
+                )}
+
                 {state.treeStatus === 'sapling' && state.treeSetAt !== undefined && (() => {
                   const remaining = (state.treeSetAt + SAPLING_MATURE_MS) - now;
                   return (
