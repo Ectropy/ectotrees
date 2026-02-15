@@ -1,6 +1,6 @@
 import { FILTERABLE_TREE_TYPES } from '../constants/evilTree';
 
-export type SortMode = 'world' | 'active' | 'spawn' | 'ending' | 'fav';
+export type SortMode = 'world' | 'active' | 'spawn' | 'ending' | 'fav' | 'health';
 
 export interface Filters {
   favorites: boolean;
@@ -35,12 +35,19 @@ const SORT_BUTTONS: { mode: SortMode; label: string }[] = [
   { mode: 'spawn', label: 'Spawn' },
   { mode: 'ending', label: 'Ending' },
   { mode: 'fav', label: 'Favorite' },
+  { mode: 'health', label: 'Health' },
 ];
 
 export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filters, setFilters }: Props) {
   const handleSortClick = (mode: SortMode) => {
     if (mode === sortMode) {
-      setSortAsc(!sortAsc);
+      // Health acts as a filter too — 3rd click deselects: asc → desc → off
+      if (mode === 'health' && !sortAsc) {
+        setSortMode('world');
+        setSortAsc(true);
+      } else {
+        setSortAsc(!sortAsc);
+      }
     } else {
       setSortMode(mode);
       setSortAsc(true);

@@ -81,6 +81,9 @@ export default function App() {
           if (!filters.treeTypes.includes(state.treeType!)) return false;
         }
       }
+      // Health sort: only show worlds with known health
+      if (sortMode === 'health' && state.treeHealth === undefined) return false;
+
       return true;
     });
 
@@ -138,6 +141,11 @@ export default function App() {
           const favA = favorites.has(a.id) ? 0 : 1;
           const favB = favorites.has(b.id) ? 0 : 1;
           cmp = favA - favB || a.id - b.id;
+          break;
+        }
+
+        case 'health': {
+          cmp = (stateA.treeHealth ?? 0) - (stateB.treeHealth ?? 0) || a.id - b.id;
           break;
         }
       }
