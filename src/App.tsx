@@ -46,7 +46,7 @@ function loadFilters(): Filters {
 }
 
 export default function App() {
-  const { worldStates, setSpawnTimer, setTreeInfo, markDead, clearWorld } = useWorldStates();
+  const { worldStates, setSpawnTimer, setTreeInfo, updateHealth, markDead, clearWorld } = useWorldStates();
   const { favorites, toggleFavorite } = useFavorites();
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
@@ -196,6 +196,7 @@ export default function App() {
         isFavorite={favorites.has(worldId)}
         onToggleFavorite={() => toggleFavorite(worldId)}
         onClear={() => { clearWorld(worldId); handleBack(); }}
+        onUpdateHealth={(health) => updateHealth(worldId, health)}
         onBack={handleBack}
         onOpenTool={(tool) => handleOpenTool(worldId, tool)}
       />;

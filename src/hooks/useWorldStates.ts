@@ -139,6 +139,14 @@ export function useWorldStates() {
     });
   }, []);
 
+  const updateHealth = useCallback((worldId: number, health: number | undefined) => {
+    setWorldStates(prev => {
+      const current = prev[worldId];
+      if (!current) return prev;
+      return { ...prev, [worldId]: { ...current, treeHealth: health } };
+    });
+  }, []);
+
   const markDead = useCallback((worldId: number) => {
     setWorldStates(prev => {
       const current = prev[worldId] ?? { treeStatus: 'none' };
@@ -163,5 +171,5 @@ export function useWorldStates() {
     });
   }, []);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, markDead, clearWorld, tick };
+  return { worldStates, setSpawnTimer, setTreeInfo, updateHealth, markDead, clearWorld, tick };
 }

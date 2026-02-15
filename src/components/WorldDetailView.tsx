@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { WorldConfig, WorldState } from '../types';
 import { TREE_TYPE_LABELS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import { HealthButtonGrid } from './HealthButtonGrid';
 
 interface Props {
   world: WorldConfig;
@@ -8,6 +9,7 @@ interface Props {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onClear: () => void;
+  onUpdateHealth: (health: number | undefined) => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
 }
@@ -26,7 +28,7 @@ const STATUS_LABELS: Record<string, string> = {
   dead:    'Dead',
 };
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onBack, onOpenTool }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onBack, onOpenTool }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const isP2P = world.type === 'P2P';
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
@@ -142,6 +144,20 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               </dl>
             )}
           </div>
+
+          {/* Health update (alive trees only) */}
+          {(state.treeStatus === 'alive' || state.treeStatus === 'mature') && (
+            <div className="bg-gray-800 border border-gray-700 rounded p-4">
+              <p className="text-xs text-gray-400 font-semibold mb-2">Update health</p>
+              <HealthButtonGrid
+                value={state.treeHealth}
+                onChange={onUpdateHealth}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Tap to update, tap again to clear. Won't reset timers.
+              </p>
+            </div>
+          )}
 
           {/* Quick tool actions */}
           <div className="flex gap-2">
