@@ -126,5 +126,5 @@ export const LOCATION_HINTS: LocationHint[] = [
 
 export const SAPLING_MATURE_MS  = 5 * 60 * 1000;
 export const ALIVE_DEAD_MS      = 30 * 60 * 1000;
-export const DEAD_CLEAR_MS      = 30 * 60 * 1000;
+export const DEAD_CLEAR_MS      = 10 * 60 * 1000;
 export const SPAWNED_CLEAR_MS   = 35 * 60 * 1000;
