@@ -68,6 +68,9 @@ Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) 
 }
 ```
 
+### SpawnTimerView
+SpawnTimerView only allows setting a location **hint**, not an exact location. The exact location cannot be known before a tree spawns — only the hint is available pre-spawn.
+
 ### State Invariants
 - `nextSpawnTarget` and any active tree state are **mutually exclusive** (game mechanic: dead tree = no known next spawn). `markDead`, `setTreeInfo`, and auto-transitions all enforce this.
 - All three tools are **always enabled** — each serves as a correction path from any state.

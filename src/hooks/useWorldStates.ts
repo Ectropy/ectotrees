@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { WorldStates, WorldState, TreeInfoPayload, SpawnTreeInfo } from '../types';
+import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from '../types';
 import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
 
 const STORAGE_KEY = 'evilTree_worldStates';
+const ALIVE_TREE_TYPES: ReadonlySet<string> = new Set(['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder']);
 
 function applyTransitions(states: WorldStates, now: number): WorldStates {
   let changed = false;
@@ -109,7 +110,6 @@ export function useWorldStates() {
         nextSpawnTarget: now + msFromNow,
         spawnSetAt: now,
         treeHint: treeInfo?.treeHint,
-        treeExactLocation: treeInfo?.treeExactLocation,
       },
     }));
   }, []);
@@ -147,6 +147,27 @@ export function useWorldStates() {
     });
   }, []);
 
+  const updateTreeFields = useCallback((worldId: number, fields: TreeFieldsPayload) => {
+    setWorldStates(prev => {
+      const current = prev[worldId];
+      if (!current) return prev;
+
+      let nextStatus = current.treeStatus;
+      if (
+        fields.treeType !== undefined &&
+        ALIVE_TREE_TYPES.has(fields.treeType) &&
+        (current.treeStatus === 'sapling' || current.treeStatus === 'mature')
+      ) {
+        nextStatus = 'alive';
+      }
+
+      return {
+        ...prev,
+        [worldId]: { ...current, ...fields, treeStatus: nextStatus },
+      };
+    });
+  }, []);
+
   const markDead = useCallback((worldId: number) => {
     setWorldStates(prev => {
       const current = prev[worldId] ?? { treeStatus: 'none' };
@@ -171,5 +192,5 @@ export function useWorldStates() {
     });
   }, []);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, updateHealth, markDead, clearWorld, tick };
+  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, tick };
 }

@@ -27,7 +27,13 @@ export interface TreeInfoPayload {
   treeHealth?: number;
 }
 
-export interface SpawnTreeInfo {
+export interface TreeFieldsPayload {
+  treeType?: TreeType;
   treeHint?: string;
   treeExactLocation?: string;
+  treeHealth?: number;
+}
+
+export interface SpawnTreeInfo {
+  treeHint?: string;
 }

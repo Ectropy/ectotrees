@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { WorldConfig, WorldState } from '../types';
-import { TREE_TYPE_LABELS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
+import type { TreeType } from '../constants/evilTree';
+import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   onToggleFavorite: () => void;
   onClear: () => void;
   onUpdateHealth: (health: number | undefined) => void;
+  onUpdateFields: (fields: TreeFieldsPayload) => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
 }
@@ -28,10 +30,21 @@ const STATUS_LABELS: Record<string, string> = {
   dead:    'Dead',
 };
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onBack, onOpenTool }: Props) {
+type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
+
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [editingField, setEditingField] = useState<EditingField>(null);
   const isP2P = world.type === 'P2P';
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
+  const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+
+  const inlineSelectClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
+
+  function commitField(fields: TreeFieldsPayload) {
+    onUpdateFields(fields);
+    setEditingField(null);
+  }
   const now = Date.now();
 
   return (
@@ -80,23 +93,99 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </Row>
                 )}
 
-                {state.treeType && (
+                {(state.treeType || hasActiveTree) && (
                   <Row label="Tree type">
-                    <span className="text-gray-100">{TREE_TYPE_LABELS[state.treeType]}</span>
+                    {editingField === 'treeType' ? (
+                      <span className="flex items-center gap-1">
+                        <select
+                          autoFocus
+                          defaultValue={state.treeType ?? 'tree'}
+                          onChange={e => commitField({ treeType: e.target.value as TreeType })}
+                          className={inlineSelectClass}
+                        >
+                          {TREE_TYPES.map(t => (
+                            <option key={t} value={t}>{TREE_TYPE_LABELS[t]}</option>
+                          ))}
+                        </select>
+                        <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
+                      </span>
+                    ) : hasActiveTree ? (
+                      <button type="button" onClick={() => setEditingField('treeType')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
+                        <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
+                        <span className="text-xs text-gray-500 leading-none">✎</span>
+                      </button>
+                    ) : (
+                      <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
+                    )}
                   </Row>
                 )}
 
-                {state.treeHint && (
+                {(state.treeHint || hasActiveTree) && (
                   <Row label="Hint">
-                    <span className="text-gray-100">{state.treeHint}</span>
+                    {editingField === 'treeHint' ? (
+                      <span className="flex items-center gap-1">
+                        <select
+                          autoFocus
+                          defaultValue={state.treeHint ?? ''}
+                          onChange={e => {
+                            const newHint = e.target.value;
+                            if (!newHint) { setEditingField(null); return; }
+                            commitField({
+                              treeHint: newHint,
+                              ...(newHint !== state.treeHint ? { treeExactLocation: undefined } : {}),
+                            });
+                          }}
+                          className={inlineSelectClass}
+                        >
+                          <option value="">— select hint —</option>
+                          {LOCATION_HINTS.map(lh => (
+                            <option key={lh.hint} value={lh.hint}>{lh.hint}</option>
+                          ))}
+                        </select>
+                        <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
+                      </span>
+                    ) : hasActiveTree ? (
+                      <button type="button" onClick={() => setEditingField('treeHint')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
+                        <span className="text-gray-100">{state.treeHint ?? '—'}</span>
+                        <span className="text-xs text-gray-500 leading-none">✎</span>
+                      </button>
+                    ) : (
+                      <span className="text-gray-100">{state.treeHint ?? '—'}</span>
+                    )}
                   </Row>
                 )}
 
-                {state.treeExactLocation && (
-                  <Row label="Exact location">
-                    <span className="text-gray-100">{state.treeExactLocation}</span>
-                  </Row>
-                )}
+                {state.treeHint && (() => {
+                  const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
+                  if (availableLocations.length === 0 && !state.treeExactLocation) return null;
+                  return (state.treeExactLocation || hasActiveTree) && (
+                    <Row label="Exact location">
+                      {editingField === 'treeExactLocation' ? (
+                        <span className="flex items-center gap-1">
+                          <select
+                            autoFocus
+                            defaultValue={state.treeExactLocation ?? ''}
+                            onChange={e => commitField({ treeExactLocation: e.target.value || undefined })}
+                            className={inlineSelectClass}
+                          >
+                            <option value="">— unknown —</option>
+                            {availableLocations.map(loc => (
+                              <option key={loc} value={loc}>{loc}</option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
+                        </span>
+                      ) : hasActiveTree && availableLocations.length > 0 ? (
+                        <button type="button" onClick={() => setEditingField('treeExactLocation')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
+                          <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
+                          <span className="text-xs text-gray-500 leading-none">✎</span>
+                        </button>
+                      ) : (
+                        <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
+                      )}
+                    </Row>
+                  );
+                })()}
 
                 {state.treeHealth !== undefined && (
                   <Row label="Health">

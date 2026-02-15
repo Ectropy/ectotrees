@@ -1,20 +1,26 @@
 import { useState } from 'react';
 import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import type { WorldConfig, TreeInfoPayload } from '../types';
+import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
 
 interface Props {
   world: WorldConfig;
+  existingState?: WorldState;
   onSubmit: (info: TreeInfoPayload) => void;
+  onUpdate: (fields: TreeFieldsPayload) => void;
   onBack: () => void;
 }
 
-export function TreeInfoView({ world, onSubmit, onBack }: Props) {
-  const [treeType, setTreeType] = useState<TreeType>('tree');
-  const [hint, setHint] = useState('');
-  const [exactLocation, setExactLocation] = useState('');
-  const [health, setHealth] = useState<number | null>(null);
+export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack }: Props) {
+  const isUpdateMode = existingState !== undefined &&
+    (existingState.treeStatus === 'sapling' || existingState.treeStatus === 'mature' || existingState.treeStatus === 'alive');
+
+  const [treeType, setTreeType] = useState<TreeType>(existingState?.treeType ?? 'tree');
+  const [hint, setHint] = useState(existingState?.treeHint ?? '');
+  const [exactLocation, setExactLocation] = useState(existingState?.treeExactLocation ?? '');
+  const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
+  const [confirmOverride, setConfirmOverride] = useState(false);
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
@@ -28,12 +34,17 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!hint) return;
-    onSubmit({
+    const payload = {
       treeType,
       treeHint: hint,
       treeExactLocation: exactLocation || undefined,
       treeHealth: health ?? undefined,
-    });
+    };
+    if (isUpdateMode) {
+      onUpdate(payload);
+    } else {
+      onSubmit(payload);
+    }
   }
 
   const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
@@ -64,7 +75,9 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
           {/* Help text */}
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <p className="text-sm text-gray-300">
-              Record details about the current Evil Tree: what type it is and where you spotted it.
+              {isUpdateMode
+                ? 'Update recorded details about the current Evil Tree. Timers will not be reset.'
+                : 'Record details about the current Evil Tree: what type it is and where you spotted it.'}
             </p>
           </div>
 
@@ -156,7 +169,7 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
               className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-medium rounded py-2 transition-colors"
             >
-              Confirm
+              {isUpdateMode ? 'Update Tree Info' : 'Confirm'}
             </button>
             <button
               type="button"
@@ -166,6 +179,54 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
               Cancel
             </button>
           </div>
+
+          {/* Override option (update mode only) */}
+          {isUpdateMode && (
+            confirmOverride ? (
+              <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
+                <p className="text-sm text-gray-200">Replace all data and restart timers?</p>
+                <p className="text-xs text-gray-400">
+                  This will discard the current timer and treat this as a brand-new tree sighting. Use this if the previous data was wrong
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={!hint}
+                    onClick={() => {
+                      if (!hint) return;
+                      onSubmit({
+                        treeType,
+                        treeHint: hint,
+                        treeExactLocation: exactLocation || undefined,
+                        treeHealth: health ?? undefined,
+                      });
+                    }}
+                    className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed
+                      text-white font-medium rounded py-2 text-sm transition-colors"
+                  >
+                    Yes, override
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmOverride(false)}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2 text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOverride(true)}
+                  className="text-sm text-gray-500 hover:text-amber-400 underline underline-offset-2 transition-colors"
+                >
+                  Override &amp; restart timers
+                </button>
+              </div>
+            )
+          )}
         </form>
       </div>
     </div>

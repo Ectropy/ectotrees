@@ -12,23 +12,14 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(30);
   const [hint, setHint] = useState('');
-  const [exactLocation, setExactLocation] = useState('');
-
-  const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
-  const availableLocations = selectedHint?.locations ?? [];
   const isP2P = world.type === 'P2P';
-
-  function handleHintChange(newHint: string) {
-    setHint(newHint);
-    setExactLocation('');
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const totalMs = ((hours * 60) + minutes) * 60 * 1000;
     if (totalMs <= 0) return;
     const treeInfo: SpawnTreeInfo | undefined = hint
-      ? { treeHint: hint, treeExactLocation: exactLocation || undefined }
+      ? { treeHint: hint }
       : undefined;
     onSubmit(totalMs, treeInfo);
   }
@@ -109,7 +100,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 <label className="text-xs text-gray-400 block mb-1">Location hint</label>
                 <select
                   value={hint}
-                  onChange={e => handleHintChange(e.target.value)}
+                  onChange={e => setHint(e.target.value)}
                   className={selectClass}
                 >
                   <option value="">— none —</option>
@@ -124,26 +115,6 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 </p>
               </div>
 
-              {availableLocations.length > 0 && (
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">Exact location</label>
-                  <select
-                    value={exactLocation}
-                    onChange={e => setExactLocation(e.target.value)}
-                    className={selectClass}
-                  >
-                    <option value="">— unknown —</option>
-                    {availableLocations.map(loc => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Specific location if known.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 

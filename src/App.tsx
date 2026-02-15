@@ -46,7 +46,7 @@ function loadFilters(): Filters {
 }
 
 export default function App() {
-  const { worldStates, setSpawnTimer, setTreeInfo, updateHealth, markDead, clearWorld } = useWorldStates();
+  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld } = useWorldStates();
   const { favorites, toggleFavorite } = useFavorites();
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
@@ -186,12 +186,18 @@ export default function App() {
         onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleBack(); }}
         onBack={handleBack}
       />;
-    if (activeView.kind === 'tree')
+    if (activeView.kind === 'tree') {
+      const currentState = worldStates[worldId] ?? { treeStatus: 'none' as const };
+      const existingState = (currentState.treeStatus === 'sapling' || currentState.treeStatus === 'mature' || currentState.treeStatus === 'alive')
+        ? currentState : undefined;
       return <TreeInfoView
         world={world}
+        existingState={existingState}
         onSubmit={(info) => { setTreeInfo(worldId, info); handleBack(); }}
+        onUpdate={(fields) => { updateTreeFields(worldId, fields); handleBack(); }}
         onBack={handleBack}
       />;
+    }
     if (activeView.kind === 'dead')
       return <TreeDeadView
         world={world}
@@ -206,6 +212,7 @@ export default function App() {
         onToggleFavorite={() => toggleFavorite(worldId)}
         onClear={() => { clearWorld(worldId); handleBack(); }}
         onUpdateHealth={(health) => updateHealth(worldId, health)}
+        onUpdateFields={(fields) => updateTreeFields(worldId, fields)}
         onBack={handleBack}
         onOpenTool={(tool) => handleOpenTool(worldId, tool)}
       />;
