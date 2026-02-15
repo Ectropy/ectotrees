@@ -3,7 +3,7 @@ import { LOCATION_HINTS } from '../constants/evilTree';
 import { ScrollPicker } from './ScrollPicker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 
-const HOUR_VALUES = Array.from({ length: 13 }, (_, i) => i);      // [0..12]
+const HOUR_VALUES = Array.from({ length: 10 }, (_, i) => i);      // [0..9]
 const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
 
 function clampToValues(typed: number, values: number[]): number {
@@ -29,6 +29,8 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const [minutesText, setMinutesText] = useState('30');
   const hoursFocused = useRef(false);
   const minutesFocused = useRef(false);
+  const minutesInputRef = useRef<HTMLInputElement>(null);
+  const hoursCommitted = useRef(false);
 
   // Sync text fields when values change from scroll picker
   function handleHoursChange(v: number) {
@@ -116,10 +118,21 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 <input
                   type="text"
                   inputMode="numeric"
+                  maxLength={1}
                   value={hoursText}
                   onFocus={e => { hoursFocused.current = true; e.target.select(); }}
-                  onBlur={() => { hoursFocused.current = false; commitHours(); }}
-                  onChange={e => setHoursText(e.target.value.replace(/\D/g, ''))}
+                  onBlur={() => { hoursFocused.current = false; if (!hoursCommitted.current) commitHours(); hoursCommitted.current = false; }}
+                  onChange={e => {
+                    const digit = e.target.value.replace(/\D/g, '').slice(0, 1);
+                    setHoursText(digit);
+                    if (digit.length === 1) {
+                      const clamped = clampToValues(parseInt(digit, 10), HOUR_VALUES);
+                      setHours(clamped);
+                      setHoursText(String(clamped));
+                      hoursCommitted.current = true;
+                      minutesInputRef.current?.focus();
+                    }
+                  }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
                   className={inputClass}
                 />
@@ -128,6 +141,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Minutes</label>
                 <input
+                  ref={minutesInputRef}
                   type="text"
                   inputMode="numeric"
                   value={minutesText}
@@ -147,6 +161,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 values={HOUR_VALUES}
                 value={hours}
                 onChange={handleHoursChange}
+                pad={false}
               />
               <div className="w-px bg-gray-700 self-stretch" />
               <ScrollPicker

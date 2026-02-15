@@ -5,9 +5,10 @@ interface ScrollPickerProps {
   value: number;
   onChange: (v: number) => void;
   label: string;
+  pad?: boolean;
 }
 
-export function ScrollPicker({ values, value, onChange, label }: ScrollPickerProps) {
+export function ScrollPicker({ values, value, onChange, label, pad = true }: ScrollPickerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -78,7 +79,7 @@ export function ScrollPicker({ values, value, onChange, label }: ScrollPickerPro
               : 'text-gray-300 hover:bg-gray-600'
             }`}
         >
-          {String(v).padStart(2, '0')}
+          {pad ? String(v).padStart(2, '0') : String(v)}
         </button>
       ))}
       {/* Spacer so last items can scroll to top */}
