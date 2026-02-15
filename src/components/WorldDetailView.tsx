@@ -73,7 +73,7 @@ export function WorldDetailView({ world, state, onClear, onBack, onOpenTool }: P
                 )}
 
                 {state.treeHint && (
-                  <Row label="Location">
+                  <Row label="Hint">
                     <span className="text-gray-100">{state.treeHint}</span>
                   </Row>
                 )}

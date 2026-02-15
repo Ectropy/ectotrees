@@ -19,6 +19,7 @@ function abbreviateHint(hint: string): string {
 
 export function StatusSection({ state }: Props) {
   const now = Date.now();
+  const locationLabel = state.treeExactLocation ?? (state.treeHint ? abbreviateHint(state.treeHint) : undefined);
 
   if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
     const clearAt = state.deadAt + DEAD_CLEAR_MS;
@@ -39,9 +40,9 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className="text-green-400 text-[10px] font-bold leading-tight">Strange Sapling</div>
-        {state.treeHint && (
+        {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
-            {abbreviateHint(state.treeHint)}
+            {locationLabel}
           </div>
         )}
         <div className="text-yellow-300 text-[9px] leading-tight">
@@ -57,9 +58,9 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className="text-yellow-300 text-[10px] font-bold leading-tight">Mature</div>
-        {state.treeHint && (
+        {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
-            {abbreviateHint(state.treeHint)}
+            {locationLabel}
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
@@ -76,9 +77,9 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className="text-emerald-400 text-[10px] font-bold leading-tight">{label}</div>
-        {state.treeHint && (
+        {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
-            {abbreviateHint(state.treeHint)}
+            {locationLabel}
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
@@ -92,11 +93,11 @@ export function StatusSection({ state }: Props) {
     const remaining = state.nextSpawnTarget - now;
     if (remaining > 0) {
       return (
-        <div className={`flex ${state.treeHint ? 'flex-col justify-center' : 'items-center'} h-full`}>
+        <div className={`flex ${locationLabel ? 'flex-col justify-center' : 'items-center'} h-full`}>
           <div className="text-blue-300 text-[10px] font-bold leading-tight">Next: {formatMs(remaining)}</div>
-          {state.treeHint && (
+          {locationLabel && (
             <div className="text-gray-400 text-[9px] leading-tight truncate">
-              {abbreviateHint(state.treeHint)}
+              {locationLabel}
             </div>
           )}
         </div>
