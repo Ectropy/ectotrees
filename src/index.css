@@ -6,6 +6,16 @@
   box-sizing: border-box;
 }
 
+/* Wheel picker: open-hand on hover, closed-hand while dragging */
+.wheel-grab,
+.wheel-grab * {
+  cursor: grab;
+}
+.wheel-grabbing,
+.wheel-grabbing * {
+  cursor: grabbing !important;
+}
+
 body {
   margin: 0;
   background-color: #111827;

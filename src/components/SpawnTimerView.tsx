@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { LOCATION_HINTS } from '../constants/evilTree';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
@@ -41,6 +41,20 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const minutesFocused = useRef(false);
   const minutesInputRef = useRef<HTMLInputElement>(null);
   const hoursCommitted = useRef(false);
+
+  // Grab cursor state for wheel picker
+  const [grabbing, setGrabbing] = useState(false);
+  const handlePointerDown = useCallback(() => setGrabbing(true), []);
+  useEffect(() => {
+    if (!grabbing) return;
+    const stop = () => setGrabbing(false);
+    document.addEventListener('mouseup', stop);
+    document.addEventListener('pointerup', stop);
+    return () => {
+      document.removeEventListener('mouseup', stop);
+      document.removeEventListener('pointerup', stop);
+    };
+  }, [grabbing]);
 
   // Sync text fields when values change from scroll picker
   function handleHoursChange(v: number) {
@@ -165,10 +179,17 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             </div>
 
             {/* Wheel picker columns */}
+            <div
+              className={grabbing ? 'wheel-grabbing' : 'wheel-grab'}
+              onPointerDown={handlePointerDown}
+            >
             <WheelPickerWrapper className="rounded-lg border border-gray-700 bg-gray-800">
               <WheelPicker
                 options={hourOptions}
                 value={hours}
+                scrollSensitivity={10}
+                infinite={true}
+                visibleCount={12}
                 onValueChange={handleHoursChange}
                 classNames={{
                   optionItem: 'text-gray-500',
@@ -179,6 +200,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               <WheelPicker
                 options={minuteOptions}
                 value={minutes}
+                scrollSensitivity={10}
+                infinite={true}
+                visibleCount={12}
                 onValueChange={handleMinutesChange}
                 classNames={{
                   optionItem: 'text-gray-500',
@@ -187,6 +211,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 }}
               />
             </WheelPickerWrapper>
+            </div>
 
             <p className="text-xs text-gray-500 mt-2">
               💡 There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.
