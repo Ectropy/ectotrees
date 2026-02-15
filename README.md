@@ -1,4 +1,4 @@
-# Ectotrees — Evil Tree Tracker
+# Ecto Trees — Evil Tree Tracker for turning Evil Trees into dead trees.
 
 A RuneScape 3 dashboard for coordinating the **Evil Trees** Distraction & Diversion across all 137 worlds in real time.
 
