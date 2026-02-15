@@ -1,10 +1,20 @@
 import { useState, useRef } from 'react';
 import { LOCATION_HINTS } from '../constants/evilTree';
-import { ScrollPicker } from './ScrollPicker';
+import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 
 const HOUR_VALUES = Array.from({ length: 10 }, (_, i) => i);      // [0..9]
 const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
+
+const hourOptions: WheelPickerOption<number>[] = HOUR_VALUES.map(v => ({
+  value: v,
+  label: String(v),
+}));
+
+const minuteOptions: WheelPickerOption<number>[] = MINUTE_VALUES.map(v => ({
+  value: v,
+  label: String(v).padStart(2, '0'),
+}));
 
 function clampToValues(typed: number, values: number[]): number {
   if (values.includes(typed)) return typed;
@@ -154,23 +164,29 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               </div>
             </div>
 
-            {/* Scroll picker columns */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 flex overflow-hidden">
-              <ScrollPicker
-                label="Hours"
-                values={HOUR_VALUES}
+            {/* Wheel picker columns */}
+            <WheelPickerWrapper className="rounded-lg border border-gray-700 bg-gray-800">
+              <WheelPicker
+                options={hourOptions}
                 value={hours}
-                onChange={handleHoursChange}
-                pad={false}
+                onValueChange={handleHoursChange}
+                classNames={{
+                  optionItem: 'text-gray-500',
+                  highlightWrapper: 'bg-blue-600/20',
+                  highlightItem: 'text-white font-semibold',
+                }}
               />
-              <div className="w-px bg-gray-700 self-stretch" />
-              <ScrollPicker
-                label="Minutes"
-                values={MINUTE_VALUES}
+              <WheelPicker
+                options={minuteOptions}
                 value={minutes}
-                onChange={handleMinutesChange}
+                onValueChange={handleMinutesChange}
+                classNames={{
+                  optionItem: 'text-gray-500',
+                  highlightWrapper: 'bg-blue-600/20',
+                  highlightItem: 'text-white font-semibold',
+                }}
               />
-            </div>
+            </WheelPickerWrapper>
 
             <p className="text-xs text-gray-500 mt-2">
               💡 There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.
