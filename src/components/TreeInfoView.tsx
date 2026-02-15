@@ -61,7 +61,7 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
           {/* Help text */}
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <p className="text-sm text-gray-300">
-              Record details about the current evil tree: what type it is and where you spotted it.
+              Record details about the current Evil Tree: what type it is and where you spotted it.
             </p>
           </div>
 
@@ -80,7 +80,7 @@ export function TreeInfoView({ world, onSubmit, onBack }: Props) {
               ))}
             </select>
             <p className="text-xs text-gray-500 mt-2">
-              The type of evil tree that currently exists.
+              The type of Evil Tree that currently exists.
             </p>
           </div>
 

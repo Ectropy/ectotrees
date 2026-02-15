@@ -235,7 +235,7 @@ export function WorldDetailView({ world, state, onClear, onBack, onOpenTool }: P
                 className="text-sm text-gray-500 hover:text-amber-400 underline underline-offset-2 transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
               >
-                clear world state
+                Clear world state
               </button>
             </div>
           )}

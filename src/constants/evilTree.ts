@@ -15,7 +15,7 @@ export type TreeType = (typeof TREE_TYPES)[number];
 export const TREE_TYPE_LABELS: Record<TreeType, string> = {
   sapling: 'Strange Sapling',
   mature:  'Mature (unknown)',
-  tree:    'Evil Tree',
+  tree:    'Evil Tree (normal)',
   oak:     'Evil Oak',
   willow:  'Evil Willow',
   maple:   'Evil Maple',
@@ -25,9 +25,9 @@ export const TREE_TYPE_LABELS: Record<TreeType, string> = {
 };
 
 export const TREE_TYPE_SHORT: Record<TreeType, string> = {
-  sapling: 'Sapling',
-  mature:  'Mature',
-  tree:    'Tree',
+  sapling: 'Strange Sapling',
+  mature:  'Mature (unknown)',
+  tree:    'Tree (normal)',
   oak:     'Oak',
   willow:  'Willow',
   maple:   'Maple',

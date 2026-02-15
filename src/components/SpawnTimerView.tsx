@@ -62,7 +62,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
           {/* Help text */}
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <p className="text-sm text-gray-300">
-              Set a timer for when the next evil tree should spawn. This is typically ~30 minutes after the previous tree dies.
+              Set a timer for when the next Evil Tree should spawn.
             </p>
           </div>
 
@@ -94,7 +94,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              💡 A new tree typically spawns ~30 minutes after the previous one dies.
+              💡 There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.
             </p>
           </div>
 
@@ -120,7 +120,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Optional hint about where the next tree might spawn.
+                  Hint revealing where the next Evil Tree will spawn.
                 </p>
               </div>
 
