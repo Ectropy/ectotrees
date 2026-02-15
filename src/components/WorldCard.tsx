@@ -15,7 +15,7 @@ interface Props {
 
 export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool }: Props) {
   const isP2P = world.type === 'P2P';
-  const borderColor = isP2P ? 'border-yellow-700' : 'border-blue-800';
+  const borderColor = isP2P ? 'border-yellow-500' : 'border-blue-500';
 
   return (
     <div
@@ -25,7 +25,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
         <div className="flex items-center gap-1">
-          <span className="text-[11px] font-bold text-gray-100">W{world.id}</span>
+          <span className="text-[11px] font-bold text-gray-100">w{world.id}</span>
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
             className={`text-[11px] leading-none transition-colors ${
@@ -37,7 +37,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
         </div>
         <span
           className={`text-[8px] font-semibold px-1 py-px rounded
-            ${isP2P ? 'bg-yellow-800 text-yellow-200' : 'bg-blue-900 text-blue-200'}`}
+            ${isP2P ? 'text-yellow-100 border border-yellow-500' : 'text-blue-200 border border-blue-500'}`}
         >
           {world.type}
         </span>
