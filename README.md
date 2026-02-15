@@ -17,7 +17,7 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and potentially
 - **Sort & filter bar** with multiple options:
   - Sort by world number, active status, spawn time, ending time, or favorites
   - Filter by favorites, active/no-data, P2P/F2P
-  - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you have the level to cut
+  - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you want to cut
 - State persists in `localStorage` between sessions
 
 ## Getting started
