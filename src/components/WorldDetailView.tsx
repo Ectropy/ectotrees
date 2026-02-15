@@ -234,6 +234,24 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
             )}
           </div>
 
+          {/* Reward info (dead trees) */}
+          {state.treeStatus === 'dead' && (
+            <div className="bg-gray-800 border border-green-800 rounded p-4">
+              <p className="text-sm text-green-300 font-semibold mb-1">Rewards available</p>
+              <p className="text-xs text-gray-300">
+                If you participated in killing this tree, you can collect rewards from it before it clears.
+              </p>
+              <a
+                href="https://runescape.wiki/w/Evil_Tree#Rewards"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs text-blue-400 hover:text-blue-300 underline"
+              >
+                Learn more about rewards on the wiki →
+              </a>
+            </div>
+          )}
+
           {/* Health update (alive trees only) */}
           {(state.treeStatus === 'alive' || state.treeStatus === 'mature') && (
             <div className="bg-gray-800 border border-gray-700 rounded p-4">
