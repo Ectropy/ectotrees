@@ -72,6 +72,15 @@ export default function App() {
       if (filters.noData && active) return false;
       if (filters.p2p && w.type !== 'P2P') return false;
       if (filters.f2p && w.type !== 'F2P') return false;
+      if (filters.treeTypes.length > 0) {
+        if (!active) return false;
+        const isUnknownType = state.treeType === 'sapling' || state.treeType === 'mature' || !state.treeType;
+        if (isUnknownType) {
+          if (!filters.treeTypes.includes('unknown')) return false;
+        } else {
+          if (!filters.treeTypes.includes(state.treeType!)) return false;
+        }
+      }
       return true;
     });
 

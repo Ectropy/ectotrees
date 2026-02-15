@@ -36,6 +36,17 @@ export const TREE_TYPE_SHORT: Record<TreeType, string> = {
   elder:   'Elder',
 };
 
+export const FILTERABLE_TREE_TYPES = [
+  { key: 'unknown', label: 'Unknown' },
+  { key: 'tree',    label: 'Tree' },
+  { key: 'oak',     label: 'Oak' },
+  { key: 'willow',  label: 'Willow' },
+  { key: 'maple',   label: 'Maple' },
+  { key: 'yew',     label: 'Yew' },
+  { key: 'magic',   label: 'Magic' },
+  { key: 'elder',   label: 'Elder' },
+] as const;
+
 export interface LocationHint {
   hint: string;
   locations: string[];

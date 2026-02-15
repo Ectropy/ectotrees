@@ -1,3 +1,5 @@
+import { FILTERABLE_TREE_TYPES } from '../constants/evilTree';
+
 export type SortMode = 'world' | 'active' | 'spawn' | 'ending' | 'fav';
 
 export interface Filters {
@@ -6,6 +8,7 @@ export interface Filters {
   noData: boolean;
   p2p: boolean;
   f2p: boolean;
+  treeTypes: string[];
 }
 
 export const DEFAULT_FILTERS: Filters = {
@@ -14,6 +17,7 @@ export const DEFAULT_FILTERS: Filters = {
   noData: false,
   p2p: false,
   f2p: false,
+  treeTypes: [],
 };
 
 interface Props {
@@ -43,7 +47,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     }
   };
 
-  const toggleFilter = (key: keyof Filters) => {
+  const toggleFilter = (key: 'favorites' | 'active' | 'noData' | 'p2p' | 'f2p') => {
     const next = { ...filters };
     next[key] = !next[key];
     // "Active" and "No data" are mutually exclusive
@@ -53,6 +57,13 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     if (key === 'p2p' && next.p2p) next.f2p = false;
     if (key === 'f2p' && next.f2p) next.p2p = false;
     setFilters(next);
+  };
+
+  const toggleTreeType = (key: string) => {
+    const types = filters.treeTypes.includes(key)
+      ? filters.treeTypes.filter(t => t !== key)
+      : [...filters.treeTypes, key];
+    setFilters({ ...filters, treeTypes: types });
   };
 
   const arrow = sortAsc ? '\u00A0▲' : '\u00A0▼';
@@ -88,6 +99,22 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
         <FilterChip label="No data" active={filters.noData} onClick={() => toggleFilter('noData')} />
         <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
         <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
+      </div>
+
+      {/* Divider */}
+      <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
+
+      {/* Tree type filter chips */}
+      <div className="flex items-center gap-0.5">
+        <span className="text-[10px] text-gray-500 mr-1">Tree</span>
+        {FILTERABLE_TREE_TYPES.map(({ key, label }) => (
+          <FilterChip
+            key={key}
+            label={label}
+            active={filters.treeTypes.includes(key)}
+            onClick={() => toggleTreeType(key)}
+          />
+        ))}
       </div>
     </div>
   );

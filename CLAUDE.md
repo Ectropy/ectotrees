@@ -83,6 +83,16 @@ Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) 
 ### Tree Types
 `sapling` | `mature` (auto-transition, type unknown) | `tree` | `oak` | `willow` | `maple` | `yew` | `magic` | `elder`
 
+### Sort & Filter Bar (SortFilterBar.tsx)
+The grid has a sort/filter bar with three sections:
+- **Sort buttons**: W#, Active, Spawn, Ending, Favorite (with asc/desc toggle)
+- **Filter chips**: Favorite, Active, No data, P2P, F2P (boolean toggles; Active/No data are mutually exclusive, P2P/F2P are mutually exclusive)
+- **Tree type filter chips**: Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
+
+Tree type filters show only worlds with a matching confirmed tree type. The "Unknown" chip matches sapling, mature, and worlds with no confirmed type. When any tree type filter is active, inactive worlds (no data, no spawn) are hidden.
+
+All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `evilTree_filters`).
+
 ### Tool Availability
 | Tool | Enabled when |
 |---|---|

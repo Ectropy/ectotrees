@@ -14,6 +14,10 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and potentially
   - **Tree info** — record tree type, location hint, and exact location
   - **Mark dead** — mark a tree as dead with one click (with confirmation)
 - **Click any card** to open a full-screen detail view showing the complete status (tree type, full location, live countdowns). All three tools are accessible directly from the detail view, and a **clear world state** option lets you instantly reset a world if you recorded information on the wrong one
+- **Sort & filter bar** with multiple options:
+  - Sort by world number, active status, spawn time, ending time, or favorites
+  - Filter by favorites, active/no-data, P2P/F2P
+  - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you have the level to cut
 - State persists in `localStorage` between sessions
 
 ## Getting started
