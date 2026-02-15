@@ -210,7 +210,7 @@ export default function App() {
           Ecto Trees
           <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
         </h1>
-        <span className="text-[10px] text-gray-500">{worlds.length} worlds</span>
+        <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
       </header>
 
       <SortFilterBar
