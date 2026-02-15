@@ -1,13 +1,56 @@
+import { useState } from 'react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { WorldCard } from './components/WorldCard';
+import { SpawnTimerView } from './components/SpawnTimerView';
+import { TreeInfoView } from './components/TreeInfoView';
+import { TreeDeadView } from './components/TreeDeadView';
 import type { WorldConfig } from './types';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
-export default function App() {
-  const { worldStates, setSpawnTimer, setTreeInfo, markDead, tick } = useWorldStates();
+type ActiveView =
+  | { kind: 'grid' }
+  | { kind: 'spawn' | 'tree' | 'dead'; worldId: number };
 
+export default function App() {
+  const { worldStates, setSpawnTimer, setTreeInfo, markDead } = useWorldStates();
+  const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
+
+  function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
+    setActiveView({ kind: tool, worldId });
+  }
+
+  function handleBack() {
+    setActiveView({ kind: 'grid' });
+  }
+
+  // Full-screen view rendering
+  if (activeView.kind !== 'grid') {
+    const { worldId } = activeView;
+    const world = worlds.find(w => w.id === worldId)!;
+
+    if (activeView.kind === 'spawn')
+      return <SpawnTimerView
+        world={world}
+        onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleBack(); }}
+        onBack={handleBack}
+      />;
+    if (activeView.kind === 'tree')
+      return <TreeInfoView
+        world={world}
+        onSubmit={(info) => { setTreeInfo(worldId, info); handleBack(); }}
+        onBack={handleBack}
+      />;
+    if (activeView.kind === 'dead')
+      return <TreeDeadView
+        world={world}
+        onConfirm={() => { markDead(worldId); handleBack(); }}
+        onBack={handleBack}
+      />;
+  }
+
+  // Grid view
   return (
     <div className="flex flex-col min-h-screen p-1.5 gap-1.5">
       <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
@@ -32,10 +75,7 @@ export default function App() {
             key={world.id}
             world={world}
             state={worldStates[world.id] ?? { treeStatus: 'none' }}
-            onSetSpawn={(ms, treeInfo) => setSpawnTimer(world.id, ms, treeInfo)}
-            onSetTree={(info) => setTreeInfo(world.id, info)}
-            onMarkDead={() => markDead(world.id)}
-            tick={tick}
+            onOpenTool={(tool) => handleOpenTool(world.id, tool)}
           />
         ))}
       </main>

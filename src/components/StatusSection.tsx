@@ -3,7 +3,6 @@ import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWN
 
 interface Props {
   state: WorldState;
-  tick: number;
 }
 
 function formatMs(ms: number): string {
@@ -29,7 +28,7 @@ function abbreviateHint(hint: string): string {
     .replace(/^On /, '');
 }
 
-export function StatusSection({ state, tick: _tick }: Props) {
+export function StatusSection({ state }: Props) {
   const now = Date.now();
 
   if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
