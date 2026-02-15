@@ -1,4 +1,4 @@
-export type SortMode = 'world' | 'active' | 'spawn' | 'death' | 'fav';
+export type SortMode = 'world' | 'active' | 'spawn' | 'ending' | 'fav';
 
 export interface Filters {
   favorites: boolean;
@@ -29,8 +29,8 @@ const SORT_BUTTONS: { mode: SortMode; label: string }[] = [
   { mode: 'world', label: 'W#' },
   { mode: 'active', label: 'Active' },
   { mode: 'spawn', label: 'Spawn' },
-  { mode: 'death', label: 'Death' },
-  { mode: 'fav', label: 'Fav' },
+  { mode: 'ending', label: 'Ending' },
+  { mode: 'fav', label: 'Favorite' },
 ];
 
 export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filters, setFilters }: Props) {
@@ -49,10 +49,13 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     // "Active" and "No data" are mutually exclusive
     if (key === 'active' && next.active) next.noData = false;
     if (key === 'noData' && next.noData) next.active = false;
+    // "P2P" and "F2P" are mutually exclusive
+    if (key === 'p2p' && next.p2p) next.f2p = false;
+    if (key === 'f2p' && next.f2p) next.p2p = false;
     setFilters(next);
   };
 
-  const arrow = sortAsc ? ' ▲' : ' ▼';
+  const arrow = sortAsc ? '\u00A0▲' : '\u00A0▼';
 
   return (
     <div className="flex items-center gap-3 px-2 py-1 bg-gray-800 rounded flex-shrink-0 flex-wrap">
@@ -75,12 +78,12 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
       </div>
 
       {/* Divider */}
-      <div className="w-px h-4 bg-gray-600" />
+      <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
 
       {/* Filter chips */}
       <div className="flex items-center gap-0.5">
         <span className="text-[10px] text-gray-500 mr-1">Filter</span>
-        <FilterChip label="Fav" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
+        <FilterChip label="Favorite" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
         <FilterChip label="Active" active={filters.active} onClick={() => toggleFilter('active')} />
         <FilterChip label="No data" active={filters.noData} onClick={() => toggleFilter('noData')} />
         <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />

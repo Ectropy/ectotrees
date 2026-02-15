@@ -108,7 +108,7 @@ export default function App() {
           break;
         }
 
-        case 'death': {
+        case 'ending': {
           const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
             ? stateA.matureAt + ALIVE_DEAD_MS : undefined;
           const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
@@ -141,7 +141,7 @@ export default function App() {
         if (spA !== undefined && spB !== undefined) return sortAsc ? cmp : -cmp;
         return cmp; // keep "no timer" worlds at end regardless of direction
       }
-      if (sortMode === 'death') {
+      if (sortMode === 'ending') {
         const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined;
         const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined;
         if (deathA && deathB) return sortAsc ? cmp : -cmp;
@@ -221,27 +221,39 @@ export default function App() {
         setFilters={setFilters}
       />
 
-      <main
-        className="flex-1 overflow-visible"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
-          gap: '3px',
-          alignContent: 'start',
-        }}
-      >
-        {sortedFilteredWorlds.map(world => (
-          <WorldCard
-            key={world.id}
-            world={world}
-            state={worldStates[world.id] ?? { treeStatus: 'none' }}
-            isFavorite={favorites.has(world.id)}
-            onToggleFavorite={() => toggleFavorite(world.id)}
-            onCardClick={() => handleOpenCard(world.id)}
-            onOpenTool={(tool) => handleOpenTool(world.id, tool)}
-          />
-        ))}
-      </main>
+      {sortedFilteredWorlds.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+          <p className="text-sm">No worlds match the current filters. =(</p>
+          <button
+            onClick={() => setFilters(DEFAULT_FILTERS)}
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        <main
+          className="flex-1 overflow-visible"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
+            gap: '3px',
+            alignContent: 'start',
+          }}
+        >
+          {sortedFilteredWorlds.map(world => (
+            <WorldCard
+              key={world.id}
+              world={world}
+              state={worldStates[world.id] ?? { treeStatus: 'none' }}
+              isFavorite={favorites.has(world.id)}
+              onToggleFavorite={() => toggleFavorite(world.id)}
+              onCardClick={() => handleOpenCard(world.id)}
+              onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+            />
+          ))}
+        </main>
+      )}
     </div>
   );
 }
