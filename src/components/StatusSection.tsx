@@ -38,7 +38,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className="text-red-400 text-[11px] font-bold leading-tight">R.I.P.</div>
         <div className="text-gray-400 text-[9px] leading-tight">
-          {`Clears ${formatMs(remaining)}`}
+          {`Rewards avail. for <${formatMs(remaining)}`}
         </div>
       </div>
     );
@@ -49,14 +49,14 @@ export function StatusSection({ state }: Props) {
     const remaining = matureAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-green-400 text-[10px] font-semibold leading-tight">Sapling</div>
+        <div className="text-green-400 text-[10px] font-bold leading-tight">Sapling</div>
         {state.treeHint && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {abbreviateHint(state.treeHint)}
           </div>
         )}
         <div className="text-yellow-300 text-[9px] leading-tight">
-          {`Matures in ~${formatMs(remaining)}`}
+          {`Matures in ~${formatMs(remaining)} or less`}
         </div>
       </div>
     );
@@ -67,14 +67,14 @@ export function StatusSection({ state }: Props) {
     const remaining = autoDeadAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-yellow-300 text-[10px] font-semibold leading-tight">Mature</div>
+        <div className="text-yellow-300 text-[10px] font-bold leading-tight">Mature</div>
         {state.treeHint && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {abbreviateHint(state.treeHint)}
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
-          {`Dies in ~${formatMs(remaining)}`}
+          {`Dies in ~${formatMs(remaining)} or less`}
         </div>
       </div>
     );
@@ -86,14 +86,14 @@ export function StatusSection({ state }: Props) {
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Tree';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-emerald-400 text-[10px] font-semibold leading-tight">{label}</div>
+        <div className="text-emerald-400 text-[10px] font-bold leading-tight">{label}</div>
         {state.treeHint && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {abbreviateHint(state.treeHint)}
           </div>
         )}
         <div className="text-orange-400 text-[9px] leading-tight">
-          {`Dies in ~${formatMs(remaining)}`}
+          {`Dies in ~${formatMs(remaining)} or less`}
         </div>
       </div>
     );
@@ -104,12 +104,12 @@ export function StatusSection({ state }: Props) {
     if (remaining > 0) {
       return (
         <div className={`flex ${state.treeHint ? 'flex-col justify-center' : 'items-center'} h-full`}>
+          <div className="text-blue-300 text-[10px] font-bold leading-tight">Next: {formatMs(remaining)}</div>
           {state.treeHint && (
             <div className="text-gray-400 text-[9px] leading-tight truncate">
               {abbreviateHint(state.treeHint)}
             </div>
           )}
-          <div className="text-blue-300 text-[10px] leading-tight">Next: {formatMs(remaining)}</div>
         </div>
       );
     }
@@ -118,7 +118,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className="text-green-300 text-[10px] font-bold leading-tight">Spawned!</div>
         <div className="text-gray-400 text-[9px] leading-tight">
-          {`Clears ${formatMs(clearAt - now)}`}
+          {`Matures in ~${formatMs(clearAt - now)}`}
         </div>
       </div>
     );
