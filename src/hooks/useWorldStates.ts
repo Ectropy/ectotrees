@@ -144,5 +144,13 @@ export function useWorldStates() {
     });
   }, []);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, markDead, tick };
+  const clearWorld = useCallback((worldId: number) => {
+    setWorldStates(prev => {
+      const next = { ...prev };
+      delete next[worldId];
+      return next;
+    });
+  }, []);
+
+  return { worldStates, setSpawnTimer, setTreeInfo, markDead, clearWorld, tick };
 }

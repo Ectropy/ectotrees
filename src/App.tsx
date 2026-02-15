@@ -5,20 +5,25 @@ import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
 import { TreeDeadView } from './components/TreeDeadView';
+import { WorldDetailView } from './components/WorldDetailView';
 import type { WorldConfig } from './types';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
 type ActiveView =
   | { kind: 'grid' }
-  | { kind: 'spawn' | 'tree' | 'dead'; worldId: number };
+  | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 export default function App() {
-  const { worldStates, setSpawnTimer, setTreeInfo, markDead } = useWorldStates();
+  const { worldStates, setSpawnTimer, setTreeInfo, markDead, clearWorld } = useWorldStates();
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
     setActiveView({ kind: tool, worldId });
+  }
+
+  function handleOpenCard(worldId: number) {
+    setActiveView({ kind: 'detail', worldId });
   }
 
   function handleBack() {
@@ -48,6 +53,14 @@ export default function App() {
         onConfirm={() => { markDead(worldId); handleBack(); }}
         onBack={handleBack}
       />;
+    if (activeView.kind === 'detail')
+      return <WorldDetailView
+        world={world}
+        state={worldStates[worldId] ?? { treeStatus: 'none' }}
+        onClear={() => { clearWorld(worldId); handleBack(); }}
+        onBack={handleBack}
+        onOpenTool={(tool) => handleOpenTool(worldId, tool)}
+      />;
   }
 
   // Grid view
@@ -75,6 +88,7 @@ export default function App() {
             key={world.id}
             world={world}
             state={worldStates[world.id] ?? { treeStatus: 'none' }}
+            onCardClick={() => handleOpenCard(world.id)}
             onOpenTool={(tool) => handleOpenTool(world.id, tool)}
           />
         ))}

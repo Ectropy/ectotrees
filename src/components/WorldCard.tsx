@@ -7,17 +7,19 @@ import { TreeDeadTool } from './TreeDeadTool';
 interface Props {
   world: WorldConfig;
   state: WorldState;
+  onCardClick: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
 }
 
-export function WorldCard({ world, state, onOpenTool }: Props) {
+export function WorldCard({ world, state, onCardClick, onOpenTool }: Props) {
   const isP2P = world.type === 'P2P';
   const borderColor = isP2P ? 'border-yellow-700' : 'border-blue-800';
 
   return (
     <div
-      className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white`}
+      className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer`}
       style={{ height: '85px' }}
+      onClick={onCardClick}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
         <span className="text-[11px] font-bold text-gray-100">W{world.id}</span>
@@ -33,7 +35,10 @@ export function WorldCard({ world, state, onOpenTool }: Props) {
         <StatusSection state={state} />
       </div>
 
-      <div className="flex items-center justify-around px-1 pb-1 flex-shrink-0">
+      <div
+        className="flex items-center justify-around px-1 pb-1 flex-shrink-0"
+        onClick={e => e.stopPropagation()}
+      >
         <SpawnTimerTool onClick={() => onOpenTool('spawn')} />
         <TreeInfoTool onClick={() => onOpenTool('tree')} />
         <TreeDeadTool onClick={() => onOpenTool('dead')} />
