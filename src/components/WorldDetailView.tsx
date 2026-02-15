@@ -5,6 +5,8 @@ import { TREE_TYPE_LABELS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, form
 interface Props {
   world: WorldConfig;
   state: WorldState;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
   onClear: () => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
@@ -24,7 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
   dead:    'Dead',
 };
 
-export function WorldDetailView({ world, state, onClear, onBack, onOpenTool }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onBack, onOpenTool }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const isP2P = world.type === 'P2P';
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
@@ -42,7 +44,17 @@ export function WorldDetailView({ world, state, onClear, onBack, onOpenTool }: P
             ← Back
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">W{world.id} Status</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">
+              W{world.id} Status
+              <button
+                onClick={onToggleFavorite}
+                className={`ml-2 text-lg transition-colors ${
+                  isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
+                }`}
+              >
+                {isFavorite ? '★' : '☆'}
+              </button>
+            </h1>
             <p className="text-sm text-gray-400">
               <span className={isP2P ? 'text-yellow-200' : 'text-blue-200'}>{world.type}</span>
             </p>

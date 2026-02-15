@@ -7,11 +7,13 @@ import { TreeDeadTool } from './TreeDeadTool';
 interface Props {
   world: WorldConfig;
   state: WorldState;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
   onCardClick: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
 }
 
-export function WorldCard({ world, state, onCardClick, onOpenTool }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool }: Props) {
   const isP2P = world.type === 'P2P';
   const borderColor = isP2P ? 'border-yellow-700' : 'border-blue-800';
 
@@ -22,7 +24,17 @@ export function WorldCard({ world, state, onCardClick, onOpenTool }: Props) {
       onClick={onCardClick}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
-        <span className="text-[11px] font-bold text-gray-100">W{world.id}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-bold text-gray-100">W{world.id}</span>
+          <button
+            onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+            className={`text-[11px] leading-none transition-colors ${
+              isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
+            }`}
+          >
+            {isFavorite ? '★' : '☆'}
+          </button>
+        </div>
         <span
           className={`text-[8px] font-semibold px-1 py-px rounded
             ${isP2P ? 'bg-yellow-800 text-yellow-200' : 'bg-blue-900 text-blue-200'}`}

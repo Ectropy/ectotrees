@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
+import { useFavorites } from './hooks/useFavorites';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
 import { TreeDeadView } from './components/TreeDeadView';
 import { WorldDetailView } from './components/WorldDetailView';
-import type { WorldConfig } from './types';
+import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
+import type { SortMode, Filters } from './components/SortFilterBar';
+import type { WorldConfig, WorldState } from './types';
+import { ALIVE_DEAD_MS } from './constants/evilTree';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -14,9 +18,141 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
+function isActive(state: WorldState): boolean {
+  return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
+}
+
+const SORT_STORAGE_KEY = 'evilTree_sort';
+
+function loadSortPrefs(): { mode: SortMode; asc: boolean } {
+  try {
+    const raw = localStorage.getItem(SORT_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { mode: parsed.mode ?? 'world', asc: parsed.asc ?? true };
+    }
+  } catch { /* ignore */ }
+  return { mode: 'world', asc: true };
+}
+
+const FILTER_STORAGE_KEY = 'evilTree_filters';
+
+function loadFilters(): Filters {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return DEFAULT_FILTERS;
+}
+
 export default function App() {
   const { worldStates, setSpawnTimer, setTreeInfo, markDead, clearWorld } = useWorldStates();
+  const { favorites, toggleFavorite } = useFavorites();
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
+  const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
+  const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
+  const [filters, setFilters] = useState<Filters>(loadFilters);
+
+  useEffect(() => {
+    localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ mode: sortMode, asc: sortAsc }));
+  }, [sortMode, sortAsc]);
+
+  useEffect(() => {
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+  }, [filters]);
+
+  const sortedFilteredWorlds = useMemo(() => {
+    // Filter
+    let result = worlds.filter(w => {
+      const state = worldStates[w.id] ?? { treeStatus: 'none' as const };
+      const active = isActive(state);
+
+      if (filters.favorites && !favorites.has(w.id)) return false;
+      if (filters.active && !active) return false;
+      if (filters.noData && active) return false;
+      if (filters.p2p && w.type !== 'P2P') return false;
+      if (filters.f2p && w.type !== 'F2P') return false;
+      return true;
+    });
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      const stateA = worldStates[a.id] ?? { treeStatus: 'none' as const };
+      const stateB = worldStates[b.id] ?? { treeStatus: 'none' as const };
+      let cmp = 0;
+
+      switch (sortMode) {
+        case 'world':
+          cmp = a.id - b.id;
+          break;
+
+        case 'active': {
+          const actA = isActive(stateA) ? 0 : 1;
+          const actB = isActive(stateB) ? 0 : 1;
+          cmp = actA - actB || a.id - b.id;
+          break;
+        }
+
+        case 'spawn': {
+          const spA = stateA.nextSpawnTarget;
+          const spB = stateB.nextSpawnTarget;
+          if (spA !== undefined && spB !== undefined) {
+            cmp = spA - spB;
+          } else if (spA !== undefined) {
+            cmp = -1; // A has spawn, push to front
+          } else if (spB !== undefined) {
+            cmp = 1;  // B has spawn, push to front
+          } else {
+            cmp = a.id - b.id;
+          }
+          break;
+        }
+
+        case 'death': {
+          const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
+            ? stateA.matureAt + ALIVE_DEAD_MS : undefined;
+          const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
+            ? stateB.matureAt + ALIVE_DEAD_MS : undefined;
+          if (deathA !== undefined && deathB !== undefined) {
+            cmp = deathA - deathB;
+          } else if (deathA !== undefined) {
+            cmp = -1;
+          } else if (deathB !== undefined) {
+            cmp = 1;
+          } else {
+            cmp = a.id - b.id;
+          }
+          break;
+        }
+
+        case 'fav': {
+          const favA = favorites.has(a.id) ? 0 : 1;
+          const favB = favorites.has(b.id) ? 0 : 1;
+          cmp = favA - favB || a.id - b.id;
+          break;
+        }
+      }
+
+      // For spawn/death: worlds without timers always go to end, so only flip
+      // the comparison for worlds that both have (or both lack) the relevant data
+      if (sortMode === 'spawn') {
+        const spA = stateA.nextSpawnTarget;
+        const spB = stateB.nextSpawnTarget;
+        if (spA !== undefined && spB !== undefined) return sortAsc ? cmp : -cmp;
+        return cmp; // keep "no timer" worlds at end regardless of direction
+      }
+      if (sortMode === 'death') {
+        const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined;
+        const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined;
+        if (deathA && deathB) return sortAsc ? cmp : -cmp;
+        return cmp;
+      }
+
+      return sortAsc ? cmp : -cmp;
+    });
+
+    return result;
+  }, [worldStates, favorites, sortMode, sortAsc, filters]);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
     setActiveView({ kind: tool, worldId });
@@ -57,6 +193,8 @@ export default function App() {
       return <WorldDetailView
         world={world}
         state={worldStates[worldId] ?? { treeStatus: 'none' }}
+        isFavorite={favorites.has(worldId)}
+        onToggleFavorite={() => toggleFavorite(worldId)}
         onClear={() => { clearWorld(worldId); handleBack(); }}
         onBack={handleBack}
         onOpenTool={(tool) => handleOpenTool(worldId, tool)}
@@ -74,6 +212,15 @@ export default function App() {
         <span className="text-[10px] text-gray-500">{worlds.length} worlds</span>
       </header>
 
+      <SortFilterBar
+        sortMode={sortMode}
+        setSortMode={setSortMode}
+        sortAsc={sortAsc}
+        setSortAsc={setSortAsc}
+        filters={filters}
+        setFilters={setFilters}
+      />
+
       <main
         className="flex-1 overflow-visible"
         style={{
@@ -83,11 +230,13 @@ export default function App() {
           alignContent: 'start',
         }}
       >
-        {worlds.map(world => (
+        {sortedFilteredWorlds.map(world => (
           <WorldCard
             key={world.id}
             world={world}
             state={worldStates[world.id] ?? { treeStatus: 'none' }}
+            isFavorite={favorites.has(world.id)}
+            onToggleFavorite={() => toggleFavorite(world.id)}
             onCardClick={() => handleOpenCard(world.id)}
             onOpenTool={(tool) => handleOpenTool(world.id, tool)}
           />

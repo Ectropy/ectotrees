@@ -1,0 +1,106 @@
+export type SortMode = 'world' | 'active' | 'spawn' | 'death' | 'fav';
+
+export interface Filters {
+  favorites: boolean;
+  active: boolean;
+  noData: boolean;
+  p2p: boolean;
+  f2p: boolean;
+}
+
+export const DEFAULT_FILTERS: Filters = {
+  favorites: false,
+  active: false,
+  noData: false,
+  p2p: false,
+  f2p: false,
+};
+
+interface Props {
+  sortMode: SortMode;
+  setSortMode: (mode: SortMode) => void;
+  sortAsc: boolean;
+  setSortAsc: (asc: boolean) => void;
+  filters: Filters;
+  setFilters: (filters: Filters) => void;
+}
+
+const SORT_BUTTONS: { mode: SortMode; label: string }[] = [
+  { mode: 'world', label: 'W#' },
+  { mode: 'active', label: 'Active' },
+  { mode: 'spawn', label: 'Spawn' },
+  { mode: 'death', label: 'Death' },
+  { mode: 'fav', label: 'Fav' },
+];
+
+export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filters, setFilters }: Props) {
+  const handleSortClick = (mode: SortMode) => {
+    if (mode === sortMode) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortMode(mode);
+      setSortAsc(true);
+    }
+  };
+
+  const toggleFilter = (key: keyof Filters) => {
+    const next = { ...filters };
+    next[key] = !next[key];
+    // "Active" and "No data" are mutually exclusive
+    if (key === 'active' && next.active) next.noData = false;
+    if (key === 'noData' && next.noData) next.active = false;
+    setFilters(next);
+  };
+
+  const arrow = sortAsc ? ' ▲' : ' ▼';
+
+  return (
+    <div className="flex items-center gap-3 px-2 py-1 bg-gray-800 rounded flex-shrink-0 flex-wrap">
+      {/* Sort buttons */}
+      <div className="flex items-center gap-0.5">
+        <span className="text-[10px] text-gray-500 mr-1">Sort</span>
+        {SORT_BUTTONS.map(({ mode, label }) => (
+          <button
+            key={mode}
+            onClick={() => handleSortClick(mode)}
+            className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
+              sortMode === mode
+                ? 'bg-amber-700 text-white font-semibold'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            {label}{sortMode === mode ? arrow : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div className="w-px h-4 bg-gray-600" />
+
+      {/* Filter chips */}
+      <div className="flex items-center gap-0.5">
+        <span className="text-[10px] text-gray-500 mr-1">Filter</span>
+        <FilterChip label="Fav" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
+        <FilterChip label="Active" active={filters.active} onClick={() => toggleFilter('active')} />
+        <FilterChip label="No data" active={filters.noData} onClick={() => toggleFilter('noData')} />
+        <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
+        <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
+      </div>
+    </div>
+  );
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
+        active
+          ? 'bg-blue-700 text-white font-semibold'
+          : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
