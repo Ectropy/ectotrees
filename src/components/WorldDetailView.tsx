@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { WorldConfig, WorldState } from '../types';
-import { TREE_TYPE_LABELS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWNED_CLEAR_MS } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 
 interface Props {
   world: WorldConfig;
@@ -8,17 +8,6 @@ interface Props {
   onClear: () => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
-}
-
-function formatMs(ms: number): string {
-  if (ms <= 0) return '0m';
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  sapling: 'Sapling',
+  sapling: 'Strange Sapling',
   mature:  'Mature',
   alive:   'Alive',
   dead:    'Dead',
@@ -131,18 +120,6 @@ export function WorldDetailView({ world, state, onClear, onBack, onOpenTool }: P
                       </Row>
                     );
                   }
-                  return (
-                    <>
-                      <Row label="Status">
-                        <span className="text-green-300 font-bold">Spawned!</span>
-                      </Row>
-                      <Row label="Clears in">
-                        <span className="text-gray-300">
-                          {formatMs((state.nextSpawnTarget + SPAWNED_CLEAR_MS) - now)}
-                        </span>
-                      </Row>
-                    </>
-                  );
                 })()}
               </dl>
             )}

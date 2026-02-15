@@ -1,19 +1,8 @@
 import type { WorldState } from '../types';
-import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWNED_CLEAR_MS } from '../constants/evilTree';
+import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 
 interface Props {
   state: WorldState;
-}
-
-function formatMs(ms: number): string {
-  if (ms <= 0) return '0m';
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
 }
 
 function abbreviateHint(hint: string): string {
@@ -49,7 +38,7 @@ export function StatusSection({ state }: Props) {
     const remaining = matureAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-green-400 text-[10px] font-bold leading-tight">Sapling</div>
+        <div className="text-green-400 text-[10px] font-bold leading-tight">Strange Sapling</div>
         {state.treeHint && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {abbreviateHint(state.treeHint)}
@@ -113,15 +102,6 @@ export function StatusSection({ state }: Props) {
         </div>
       );
     }
-    const clearAt = state.nextSpawnTarget + SPAWNED_CLEAR_MS;
-    return (
-      <div className="flex flex-col justify-center h-full">
-        <div className="text-green-300 text-[10px] font-bold leading-tight">Spawned!</div>
-        <div className="text-gray-400 text-[9px] leading-tight">
-          {`Matures in ~${formatMs(clearAt - now)}`}
-        </div>
-      </div>
-    );
   }
 
   return (

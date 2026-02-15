@@ -127,4 +127,14 @@ export const LOCATION_HINTS: LocationHint[] = [
 export const SAPLING_MATURE_MS  = 5 * 60 * 1000;
 export const ALIVE_DEAD_MS      = 30 * 60 * 1000;
 export const DEAD_CLEAR_MS      = 10 * 60 * 1000;
-export const SPAWNED_CLEAR_MS   = 5 * 60 * 1000;
+
+export function formatMs(ms: number): string {
+  if (ms <= 0) return '0m';
+  const totalSec = Math.ceil(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}

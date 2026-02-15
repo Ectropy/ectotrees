@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { WorldStates, WorldState, TreeInfoPayload, SpawnTreeInfo } from '../types';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, SPAWNED_CLEAR_MS } from '../constants/evilTree';
+import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
 
 const STORAGE_KEY = 'evilTree_worldStates';
 
@@ -46,11 +46,21 @@ function applyTransitions(states: WorldStates, now: number): WorldStates {
       dirty = true;
     }
 
+    // When a spawn timer elapses, convert it into a Strange Sapling.
+    // Use the recorded `nextSpawnTarget` timestamp for deterministic timing
+    // and clear the spawn timer fields to preserve invariants.
     if (
       s.nextSpawnTarget !== undefined &&
-      now >= s.nextSpawnTarget + SPAWNED_CLEAR_MS
+      now >= s.nextSpawnTarget
     ) {
-      s = { treeStatus: 'none' };
+      s = {
+        ...s,
+        treeStatus: 'sapling',
+        treeSetAt: s.nextSpawnTarget,
+        matureAt: s.nextSpawnTarget + SAPLING_MATURE_MS,
+        nextSpawnTarget: undefined,
+        spawnSetAt: undefined,
+      };
       dirty = true;
     }
 
@@ -86,7 +96,7 @@ export function useWorldStates() {
     const id = setInterval(() => {
       setWorldStates(prev => applyTransitions(prev, Date.now()));
       setTick(t => t + 1);
-    }, 10_000);
+    }, 1_000);
     return () => clearInterval(id);
   }, []);
 
