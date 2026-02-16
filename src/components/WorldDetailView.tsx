@@ -16,20 +16,6 @@ interface Props {
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  sapling: 'text-green-400',
-  mature:  'text-yellow-300',
-  alive:   'text-emerald-400',
-  dead:    'text-red-400',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  sapling: 'Strange Sapling',
-  mature:  'Mature',
-  alive:   'Alive',
-  dead:    'Dead',
-};
-
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
 export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool }: Props) {
@@ -85,17 +71,15 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               </p>
             ) : (
               <dl className="space-y-2">
-                {state.treeStatus !== 'none' && (
-                  <Row label="Status">
-                    <span className={STATUS_COLORS[state.treeStatus]}>
-                      {STATUS_LABELS[state.treeStatus]}
-                    </span>
-                  </Row>
-                )}
-
-                {(state.treeType || hasActiveTree) && (
+                {(state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
                   <Row label="Tree type">
-                    {editingField === 'treeType' ? (
+                    {state.treeStatus === 'dead' ? (
+                      <span className="text-red-400">
+                        {state.treeType && state.treeType !== 'sapling' && state.treeType !== 'mature'
+                          ? `Dead (${TREE_TYPE_LABELS[state.treeType]})`
+                          : 'Dead'}
+                      </span>
+                    ) : editingField === 'treeType' ? (
                       <span className="flex items-center gap-1">
                         <select
                           autoFocus

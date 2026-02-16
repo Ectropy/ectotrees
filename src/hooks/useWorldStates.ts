@@ -19,7 +19,7 @@ function applyTransitions(states: WorldStates, now: number): WorldStates {
       s.treeSetAt !== undefined &&
       now >= s.treeSetAt + SAPLING_MATURE_MS
     ) {
-      s = { ...s, treeStatus: 'mature', matureAt: s.treeSetAt + SAPLING_MATURE_MS };
+      s = { ...s, treeStatus: 'mature', treeType: (s.treeType && ALIVE_TREE_TYPES.has(s.treeType)) ? s.treeType : 'mature', matureAt: s.treeSetAt + SAPLING_MATURE_MS };
       dirty = true;
     }
 
@@ -57,6 +57,7 @@ function applyTransitions(states: WorldStates, now: number): WorldStates {
       s = {
         ...s,
         treeStatus: 'sapling',
+        treeType: 'sapling',
         treeSetAt: s.nextSpawnTarget,
         matureAt: s.nextSpawnTarget + SAPLING_MATURE_MS,
         nextSpawnTarget: undefined,
