@@ -28,7 +28,12 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   function handleHintChange(newHint: string) {
     setHint(newHint);
-    setExactLocation('');
+    const match = LOCATION_HINTS.find(h => h.hint === newHint);
+    if (match?.locations.length === 1) {
+      setExactLocation(match.locations[0]);
+    } else {
+      setExactLocation('');
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
