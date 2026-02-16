@@ -51,4 +51,5 @@ export interface TreeFieldsPayload {
 
 export interface SpawnTreeInfo {
   treeHint?: string;
+  treeExactLocation?: string;
 }

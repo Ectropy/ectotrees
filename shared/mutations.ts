@@ -87,6 +87,7 @@ export function applySetSpawnTimer(
       nextSpawnTarget: now + msFromNow,
       spawnSetAt: now,
       treeHint: treeInfo?.treeHint,
+      treeExactLocation: treeInfo?.treeExactLocation,
     },
   };
 }

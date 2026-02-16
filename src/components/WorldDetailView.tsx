@@ -24,6 +24,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const isP2P = world.type === 'P2P';
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
   const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+  const hasSpawnTimer = state.nextSpawnTarget !== undefined;
 
   const inlineSelectClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
 
@@ -104,7 +105,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </Row>
                 )}
 
-                {(state.treeHint || hasActiveTree) && (
+                {(state.treeHint || hasActiveTree || hasSpawnTimer) && (
                   <Row label="Hint">
                     {editingField === 'treeHint' ? (
                       <span className="flex items-center gap-1">
@@ -114,9 +115,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                           onChange={e => {
                             const newHint = e.target.value;
                             if (!newHint) { setEditingField(null); return; }
+                            const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
+                            const autoExact = match?.locations.length === 1 ? match.locations[0] : undefined;
                             commitField({
                               treeHint: newHint,
-                              ...(newHint !== state.treeHint ? { treeExactLocation: undefined } : {}),
+                              ...(newHint !== state.treeHint ? { treeExactLocation: autoExact } : {}),
                             });
                           }}
                           className={inlineSelectClass}
@@ -128,7 +131,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                         </select>
                         <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
                       </span>
-                    ) : hasActiveTree ? (
+                    ) : (hasActiveTree || hasSpawnTimer) ? (
                       <button type="button" onClick={() => setEditingField('treeHint')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
                         <span className="text-gray-100">{state.treeHint ?? '—'}</span>
                         <span className="text-xs text-gray-500 leading-none">✎</span>
@@ -142,7 +145,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 {state.treeHint && (() => {
                   const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
                   if (availableLocations.length === 0 && !state.treeExactLocation) return null;
-                  return (state.treeExactLocation || hasActiveTree) && (
+                  return (state.treeExactLocation || hasActiveTree || hasSpawnTimer) && (
                     <Row label="Exact location">
                       {editingField === 'treeExactLocation' ? (
                         <span className="flex items-center gap-1">
@@ -159,7 +162,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                           </select>
                           <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
                         </span>
-                      ) : hasActiveTree && availableLocations.length > 0 ? (
+                      ) : (hasActiveTree || hasSpawnTimer) && availableLocations.length > 0 ? (
                         <button type="button" onClick={() => setEditingField('treeExactLocation')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
                           <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
                           <span className="text-xs text-gray-500 leading-none">✎</span>

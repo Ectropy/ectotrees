@@ -92,8 +92,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
     e.preventDefault();
     const totalMs = ((hours * 60) + minutes) * 60 * 1000;
     if (totalMs <= 0) return;
+    const match = hint ? LOCATION_HINTS.find(lh => lh.hint === hint) : undefined;
     const treeInfo: SpawnTreeInfo | undefined = hint
-      ? { treeHint: hint }
+      ? { treeHint: hint, treeExactLocation: match?.locations.length === 1 ? match.locations[0] : undefined }
       : undefined;
     onSubmit(totalMs, treeInfo);
   }
