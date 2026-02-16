@@ -3,7 +3,7 @@ import { LOCATION_HINTS } from '../constants/evilTree';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 
-const HOUR_VALUES = Array.from({ length: 10 }, (_, i) => i);      // [0..9]
+const HOUR_VALUES = Array.from({ length: 2 }, (_, i) => i);      // [0..1]
 const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
 
 const hourOptions: WheelPickerOption<number>[] = HOUR_VALUES.map(v => ({
@@ -13,7 +13,7 @@ const hourOptions: WheelPickerOption<number>[] = HOUR_VALUES.map(v => ({
 
 const minuteOptions: WheelPickerOption<number>[] = MINUTE_VALUES.map(v => ({
   value: v,
-  label: String(v).padStart(2, '0'),
+  label: String(v),
 }));
 
 function clampToValues(typed: number, values: number[]): number {
@@ -188,7 +188,6 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 options={hourOptions}
                 value={hours}
                 scrollSensitivity={10}
-                infinite={true}
                 visibleCount={12}
                 onValueChange={handleHoursChange}
                 classNames={{
@@ -201,7 +200,6 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 options={minuteOptions}
                 value={minutes}
                 scrollSensitivity={10}
-                infinite={true}
                 visibleCount={12}
                 onValueChange={handleMinutesChange}
                 classNames={{
