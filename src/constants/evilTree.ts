@@ -1,16 +1,7 @@
-export const TREE_TYPES = [
-  'sapling',
-  'mature',
-  'tree',
-  'oak',
-  'willow',
-  'maple',
-  'yew',
-  'magic',
-  'elder',
-] as const;
+import type { TreeType } from '../../shared/types.ts';
 
-export type TreeType = (typeof TREE_TYPES)[number];
+export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../../shared/types.ts';
+export type { TreeType } from '../../shared/types.ts';
 
 export const TREE_TYPE_LABELS: Record<TreeType, string> = {
   sapling: 'Strange Sapling',
@@ -134,10 +125,6 @@ export const LOCATION_HINTS: LocationHint[] = [
     locations: ['South Tree Gnome Stronghold', 'South Tree Gnome Village'],
   },
 ];
-
-export const SAPLING_MATURE_MS  = 5 * 60 * 1000;
-export const ALIVE_DEAD_MS      = 30 * 60 * 1000;
-export const DEAD_CLEAR_MS      = 10 * 60 * 1000;
 
 export function formatMs(ms: number): string {
   if (ms <= 0) return '0m';

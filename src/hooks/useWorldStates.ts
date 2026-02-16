@@ -1,81 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from '../types';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
+import type { WorldStates, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from '../types';
+import type { SyncChannel } from './useSession';
+import {
+  applyTransitions,
+  applySetSpawnTimer,
+  applySetTreeInfo,
+  applyUpdateTreeFields,
+  applyUpdateHealth,
+  applyMarkDead,
+  applyClearWorld,
+} from '../../shared/mutations.ts';
 
 const STORAGE_KEY = 'evilTree_worldStates';
-const ALIVE_TREE_TYPES: ReadonlySet<string> = new Set(['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder']);
 
-function applyTransitions(states: WorldStates, now: number): WorldStates {
-  let changed = false;
-  const next = { ...states };
-
-  for (const [key, ws] of Object.entries(states)) {
-    const id = Number(key);
-    let s: WorldState = { ...ws };
-    let dirty = false;
-
-    if (
-      s.treeStatus === 'sapling' &&
-      s.treeSetAt !== undefined &&
-      now >= s.treeSetAt + SAPLING_MATURE_MS
-    ) {
-      s = { ...s, treeStatus: 'mature', treeType: (s.treeType && ALIVE_TREE_TYPES.has(s.treeType)) ? s.treeType : 'mature', matureAt: s.treeSetAt + SAPLING_MATURE_MS };
-      dirty = true;
-    }
-
-    if (
-      (s.treeStatus === 'mature' || s.treeStatus === 'alive') &&
-      s.matureAt !== undefined &&
-      now >= s.matureAt + ALIVE_DEAD_MS
-    ) {
-      s = {
-        ...s,
-        treeStatus: 'dead',
-        deadAt: s.matureAt + ALIVE_DEAD_MS,
-        nextSpawnTarget: undefined,
-        spawnSetAt: undefined,
-      };
-      dirty = true;
-    }
-
-    if (
-      s.treeStatus === 'dead' &&
-      s.deadAt !== undefined &&
-      now >= s.deadAt + DEAD_CLEAR_MS
-    ) {
-      s = { treeStatus: 'none' };
-      dirty = true;
-    }
-
-    // When a spawn timer elapses, convert it into a Strange Sapling.
-    // Use the recorded `nextSpawnTarget` timestamp for deterministic timing
-    // and clear the spawn timer fields to preserve invariants.
-    if (
-      s.nextSpawnTarget !== undefined &&
-      now >= s.nextSpawnTarget
-    ) {
-      s = {
-        ...s,
-        treeStatus: 'sapling',
-        treeType: 'sapling',
-        treeSetAt: s.nextSpawnTarget,
-        matureAt: s.nextSpawnTarget + SAPLING_MATURE_MS,
-        nextSpawnTarget: undefined,
-        spawnSetAt: undefined,
-      };
-      dirty = true;
-    }
-
-    if (dirty) {
-      next[id] = s;
-      changed = true;
-    }
-  }
-
-  return changed ? next : states;
-}
-
-export function useWorldStates() {
+export function useWorldStates(sync?: SyncChannel | null) {
   const [worldStates, setWorldStates] = useState<WorldStates>(() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as WorldStates;
@@ -86,14 +24,35 @@ export function useWorldStates() {
 
   const [tick, setTick] = useState(0);
 
+  // localStorage persistence: only in local-only mode
   useEffect(() => {
+    if (sync) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(worldStates));
     } catch {
       // ignore storage errors
     }
-  }, [worldStates]);
+  }, [worldStates, sync]);
 
+  // Subscribe to incoming sync updates
+  useEffect(() => {
+    if (!sync) return;
+    return sync.subscribe({
+      onSnapshot: (states) => setWorldStates(states),
+      onWorldUpdate: (worldId, state) => {
+        setWorldStates(prev => {
+          if (state === null) {
+            const next = { ...prev };
+            delete next[worldId];
+            return next;
+          }
+          return { ...prev, [worldId]: state };
+        });
+      },
+    });
+  }, [sync]);
+
+  // Auto-transitions timer
   useEffect(() => {
     const id = setInterval(() => {
       setWorldStates(prev => applyTransitions(prev, Date.now()));
@@ -103,95 +62,41 @@ export function useWorldStates() {
   }, []);
 
   const setSpawnTimer = useCallback((worldId: number, msFromNow: number, treeInfo?: SpawnTreeInfo) => {
-    const now = Date.now();
-    setWorldStates(prev => ({
-      ...prev,
-      [worldId]: {
-        treeStatus: 'none',
-        nextSpawnTarget: now + msFromNow,
-        spawnSetAt: now,
-        treeHint: treeInfo?.treeHint,
-      },
-    }));
-  }, []);
+    setWorldStates(prev => applySetSpawnTimer(prev, worldId, msFromNow, Date.now(), treeInfo));
+    sync?.sendMutation({ type: 'setSpawnTimer', worldId, msFromNow, treeInfo });
+  }, [sync]);
 
   const setTreeInfo = useCallback((worldId: number, info: TreeInfoPayload) => {
-    const now = Date.now();
-    setWorldStates(prev => {
-      const current = prev[worldId] ?? { treeStatus: 'none' };
-      const isSapling = info.treeType === 'sapling';
-      const isMatureUnknown = info.treeType === 'mature';
-      return {
-        ...prev,
-        [worldId]: {
-          ...current,
-          treeType: info.treeType,
-          treeHint: info.treeHint,
-          treeExactLocation: info.treeExactLocation,
-          treeHealth: info.treeHealth,
-          treeSetAt: now,
-          matureAt: isSapling ? now + SAPLING_MATURE_MS : now,
-          treeStatus: isSapling ? 'sapling' : isMatureUnknown ? 'mature' : 'alive',
-          deadAt: undefined,
-          nextSpawnTarget: undefined,
-          spawnSetAt: undefined,
-        },
-      };
-    });
-  }, []);
+    setWorldStates(prev => applySetTreeInfo(prev, worldId, info, Date.now()));
+    sync?.sendMutation({ type: 'setTreeInfo', worldId, info });
+  }, [sync]);
 
   const updateHealth = useCallback((worldId: number, health: number | undefined) => {
-    setWorldStates(prev => {
-      const current = prev[worldId];
-      if (!current) return prev;
-      return { ...prev, [worldId]: { ...current, treeHealth: health } };
-    });
-  }, []);
+    setWorldStates(prev => applyUpdateHealth(prev, worldId, health));
+    sync?.sendMutation({ type: 'updateHealth', worldId, health });
+  }, [sync]);
 
   const updateTreeFields = useCallback((worldId: number, fields: TreeFieldsPayload) => {
-    setWorldStates(prev => {
-      const current = prev[worldId];
-      if (!current) return prev;
-
-      let nextStatus = current.treeStatus;
-      if (
-        fields.treeType !== undefined &&
-        ALIVE_TREE_TYPES.has(fields.treeType) &&
-        (current.treeStatus === 'sapling' || current.treeStatus === 'mature')
-      ) {
-        nextStatus = 'alive';
-      }
-
-      return {
-        ...prev,
-        [worldId]: { ...current, ...fields, treeStatus: nextStatus },
-      };
-    });
-  }, []);
+    setWorldStates(prev => applyUpdateTreeFields(prev, worldId, fields));
+    sync?.sendMutation({ type: 'updateTreeFields', worldId, fields });
+  }, [sync]);
 
   const markDead = useCallback((worldId: number) => {
-    setWorldStates(prev => {
-      const current = prev[worldId] ?? { treeStatus: 'none' };
-      return {
-        ...prev,
-        [worldId]: {
-          ...current,
-          treeStatus: 'dead',
-          deadAt: Date.now(),
-          nextSpawnTarget: undefined,
-          spawnSetAt: undefined,
-        },
-      };
-    });
-  }, []);
+    setWorldStates(prev => applyMarkDead(prev, worldId, Date.now()));
+    sync?.sendMutation({ type: 'markDead', worldId });
+  }, [sync]);
 
   const clearWorld = useCallback((worldId: number) => {
-    setWorldStates(prev => {
-      const next = { ...prev };
-      delete next[worldId];
-      return next;
-    });
-  }, []);
+    setWorldStates(prev => applyClearWorld(prev, worldId));
+    sync?.sendMutation({ type: 'clearWorld', worldId });
+  }, [sync]);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, tick };
+  // Save current state to localStorage (call when leaving a session)
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(worldStates));
+    } catch { /* ignore */ }
+  }, [worldStates]);
+
+  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, tick, saveToLocalStorage };
 }

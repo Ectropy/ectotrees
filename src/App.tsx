@@ -1,12 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
+import { useSession } from './hooks/useSession';
 import { useFavorites } from './hooks/useFavorites';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
 import { TreeDeadView } from './components/TreeDeadView';
 import { WorldDetailView } from './components/WorldDetailView';
+import { SessionBar } from './components/SessionBar';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
@@ -46,8 +48,14 @@ function loadFilters(): Filters {
 }
 
 export default function App() {
-  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld } = useWorldStates();
+  const { session, syncChannel, createSession, joinSession, leaveSession } = useSession();
+  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, saveToLocalStorage } = useWorldStates(syncChannel);
   const { favorites, toggleFavorite } = useFavorites();
+
+  const handleLeaveSession = useCallback(() => {
+    saveToLocalStorage();
+    leaveSession();
+  }, [saveToLocalStorage, leaveSession]);
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
@@ -236,6 +244,13 @@ export default function App() {
         </h1>
         <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
       </header>
+
+      <SessionBar
+        session={session}
+        onCreateSession={createSession}
+        onJoinSession={joinSession}
+        onLeaveSession={handleLeaveSession}
+      />
 
       <SortFilterBar
         sortMode={sortMode}
