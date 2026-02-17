@@ -58,6 +58,7 @@ export function useSession(onSessionLost?: () => void) {
   const lastServerErrorRef = useRef<string | null>(null);
   const onSessionLostRef = useRef(onSessionLost);
   const snapshotReceivedRef = useRef(false);
+  const initialStatesRef = useRef<WorldStates | null>(null);
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
 
@@ -145,6 +146,11 @@ export function useSession(onSessionLost?: () => void) {
       setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0 }));
       resetStaleTimer(ws);
 
+      // Send local state to populate a newly created session
+      if (initialStatesRef.current) {
+        ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
+      }
+
       // Start ping interval
       pingTimerRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -163,11 +169,17 @@ export function useSession(onSessionLost?: () => void) {
       }
 
       switch (msg.type) {
-        case 'snapshot':
-          handlersRef.current?.onSnapshot(msg.worlds);
+        case 'snapshot': {
+          // When creating a session, merge local state over the empty server snapshot
+          const worlds = initialStatesRef.current
+            ? { ...msg.worlds, ...initialStatesRef.current }
+            : msg.worlds;
+          initialStatesRef.current = null;
+          handlersRef.current?.onSnapshot(worlds);
           snapshotReceivedRef.current = true;
           replayPendingMutations();
           break;
+        }
         case 'worldUpdate':
           handlersRef.current?.onWorldUpdate(msg.worldId, msg.state);
           break;
@@ -243,7 +255,7 @@ export function useSession(onSessionLost?: () => void) {
         setSession(prev => ({
           ...prev,
           status: 'disconnected',
-          error: 'Unable to reconnect. Your session may still be active.',
+          error: 'Unable to reconnect.',
           reconnectAttempt: attempt,
           code: lostCode,
         }));
@@ -267,7 +279,7 @@ export function useSession(onSessionLost?: () => void) {
     };
   }
 
-  const createSession = useCallback(async (): Promise<string | null> => {
+  const createSession = useCallback(async (initialStates?: WorldStates): Promise<string | null> => {
     setSession(prev => ({ ...prev, error: null }));
     try {
       const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
@@ -278,6 +290,7 @@ export function useSession(onSessionLost?: () => void) {
       }
       const code = data.code as string;
       codeRef.current = code;
+      initialStatesRef.current = initialStates ?? null;
       clearPending();
       setSession(prev => ({ ...prev, code, reconnectAttempt: 0 }));
       connectWs(code);

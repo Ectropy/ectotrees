@@ -22,7 +22,8 @@ import {
 import { validateMessage, validateSessionCode } from './validation.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
-const MAX_MESSAGE_SIZE = 4096; // 4 KB
+const MAX_MESSAGE_SIZE = 4096;           // 4 KB (normal messages)
+const MAX_INIT_MESSAGE_SIZE = 64 * 1024; // 64 KB (initializeState)
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 10;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -49,43 +50,19 @@ function checkRateLimit(ws: WebSocket): boolean {
   return state.count <= RATE_LIMIT_MAX;
 }
 
-// --- IP rate limiting for session creation ---
-
-const ipSessionCreates = new Map<string, { count: number; windowStart: number }>();
-const IP_SESSION_LIMIT = 5;
-const IP_SESSION_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-function checkIpSessionLimit(ip: string): boolean {
-  const now = Date.now();
-  let state = ipSessionCreates.get(ip);
-  if (!state || now - state.windowStart > IP_SESSION_WINDOW_MS) {
-    state = { count: 1, windowStart: now };
-    ipSessionCreates.set(ip, state);
-    return true;
-  }
-  state.count++;
-  return state.count <= IP_SESSION_LIMIT;
-}
-
 // --- Express app ---
 
 const app = express();
 app.use(express.json({ limit: '1kb' }));
 
 app.post('/api/session', (req, res) => {
-  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-  if (!checkIpSessionLimit(ip)) {
-    res.status(429).json({ error: 'Too many sessions created. Try again later.' });
-    return;
-  }
-
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });
     return;
   }
 
-  console.log(`[session] Created ${result.code} (from ${ip})`);
+  console.log(`[session] Created ${result.code} (${getSessionCount()} active sessions)`);
   res.json({ code: result.code });
 });
 
@@ -142,7 +119,8 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     return;
   }
 
-  if (!addClient(session, ws)) {
+  const clientId = addClient(session, ws);
+  if (clientId === false) {
     console.log(`[ws] Rejected connection to ${session.code} (full, ${session.clients.size} clients)`);
     const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
     ws.send(JSON.stringify(msg));
@@ -150,7 +128,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     return;
   }
 
-  console.log(`[ws] Client connected to ${session.code} (${session.clients.size} clients)`);
+  console.log(`[ws] Client ${clientId} connected to ${session.code} (${session.clients.size} clients)`);
 
   // Heartbeat tracking
   let lastPong = Date.now();
@@ -165,9 +143,10 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   }, 30_000);
 
   ws.on('message', (data) => {
-    // Size check
+    // Size check (allow larger messages for initializeState)
     const raw = data.toString();
-    if (raw.length > MAX_MESSAGE_SIZE) {
+    const sizeLimit = raw.includes('"initializeState"') ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
+    if (raw.length > sizeLimit) {
       const msg: ServerMessage = { type: 'error', message: 'Message too large.' };
       ws.send(JSON.stringify(msg));
       return;
@@ -198,24 +177,25 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
       return;
     }
 
-    handleMessage(session, validated, ws);
+    handleMessage(session, validated, ws, clientId);
   });
 
   ws.on('close', () => {
     clearInterval(heartbeatCheck);
     removeClient(session, ws);
-    console.log(`[ws] Client disconnected from ${session.code} (${session.clients.size} clients)`);
+    console.log(`[ws] Client ${clientId} disconnected from ${session.code} (${session.clients.size} clients)`);
   });
 
   ws.on('error', (err) => {
     clearInterval(heartbeatCheck);
     removeClient(session, ws);
-    console.log(`[ws] Client error on ${session.code}: ${err.message} (${session.clients.size} clients)`);
+    console.log(`[ws] Client ${clientId} error on ${session.code}: ${err.message} (${session.clients.size} clients)`);
   });
 });
 
-function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg: ClientMessage, ws: WebSocket) {
+function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg: ClientMessage, ws: WebSocket, clientId: number) {
   const now = Date.now();
+  const c = `Client ${clientId}`;
 
   switch (msg.type) {
     case 'ping': {
@@ -225,14 +205,14 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'setSpawnTimer': {
-      console.log(`[mutation] ${session.code} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
     }
 
     case 'setTreeInfo': {
-      console.log(`[mutation] ${session.code} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
       const next = applySetTreeInfo(session.worldStates, msg.worldId, msg.info, now);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
@@ -240,7 +220,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
 
     case 'updateTreeFields': {
       const fields = Object.keys(msg.fields).join(', ');
-      console.log(`[mutation] ${session.code} W${msg.worldId} updateTreeFields [${fields}]`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} updateTreeFields [${fields}]`);
       const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
@@ -249,7 +229,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'updateHealth': {
-      console.log(`[mutation] ${session.code} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
@@ -258,21 +238,35 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'markDead': {
-      console.log(`[mutation] ${session.code} W${msg.worldId} markDead`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} markDead`);
       const next = applyMarkDead(session.worldStates, msg.worldId, now);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
     }
 
     case 'clearWorld': {
-      console.log(`[mutation] ${session.code} W${msg.worldId} clearWorld`);
+      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
       updateWorldState(session, msg.worldId, null);
+      break;
+    }
+
+    case 'initializeState': {
+      // Only allow when session has no world data (fresh session)
+      if (Object.keys(session.worldStates).length > 0) {
+        const err: ServerMessage = { type: 'error', message: 'Session already has state.' };
+        ws.send(JSON.stringify(err));
+        break;
+      }
+      const count = Object.keys(msg.worlds).length;
+      console.log(`[session] ${session.code} ${c} initialized with data for ${count} worlds`);
+      session.worldStates = msg.worlds;
+      session.lastActivityAt = Date.now();
       break;
     }
   }
 
   // Send ACK if the client included a msgId
-  if (msg.type !== 'ping' && msg.msgId !== undefined && ws.readyState === 1) {
+  if (msg.type !== 'ping' && msg.type !== 'initializeState' && msg.msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId: msg.msgId };
     ws.send(JSON.stringify(ack));
   }

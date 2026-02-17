@@ -1,5 +1,6 @@
 import type { ClientMessage } from '../shared/protocol.ts';
 import { TREE_TYPES } from '../shared/types.ts';
+import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
 import worldsData from '../src/data/worlds.json' with { type: 'json' };
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
@@ -22,12 +23,86 @@ function sanitizeString(s: unknown): string | null {
   return clean;
 }
 
+const VALID_TREE_STATUSES = new Set(['none', 'sapling', 'mature', 'alive', 'dead']);
+const MAX_WORLDS_INITIALIZE = 200;
+
+function validateWorldState(worldId: number, raw: unknown): WorldState | null {
+  if (!isObject(raw)) return null;
+  if (!VALID_WORLD_IDS.has(worldId)) return null;
+
+  const status = raw.treeStatus;
+  if (typeof status !== 'string' || !VALID_TREE_STATUSES.has(status)) return null;
+
+  const state: WorldState = { treeStatus: status as WorldState['treeStatus'] };
+
+  // Optional number timestamps
+  for (const key of ['nextSpawnTarget', 'spawnSetAt', 'treeSetAt', 'matureAt', 'deadAt'] as const) {
+    if (raw[key] !== undefined) {
+      if (typeof raw[key] !== 'number' || !Number.isFinite(raw[key] as number)) return null;
+      state[key] = raw[key] as number;
+    }
+  }
+
+  if (raw.treeType !== undefined) {
+    if (typeof raw.treeType !== 'string' || !VALID_TREE_TYPES.has(raw.treeType)) return null;
+    state.treeType = raw.treeType as TreeType;
+  }
+
+  if (raw.treeHint !== undefined) {
+    const clean = sanitizeString(raw.treeHint);
+    if (clean === null) return null;
+    state.treeHint = clean;
+  }
+
+  if (raw.treeExactLocation !== undefined) {
+    const clean = sanitizeString(raw.treeExactLocation);
+    if (clean === null) return null;
+    state.treeExactLocation = clean;
+  }
+
+  if (raw.treeHealth !== undefined) {
+    if (typeof raw.treeHealth !== 'number' || !VALID_HEALTH_VALUES.has(raw.treeHealth)) return null;
+    state.treeHealth = raw.treeHealth;
+  }
+
+  return state;
+}
+
+export function validateInitializeState(raw: unknown): WorldStates | { error: string } {
+  if (!isObject(raw)) return { error: 'Message must be a JSON object.' };
+  if (!isObject(raw.worlds)) return { error: 'Missing worlds object.' };
+
+  const entries = Object.entries(raw.worlds);
+  if (entries.length > MAX_WORLDS_INITIALIZE) {
+    return { error: 'Too many worlds in initializeState.' };
+  }
+
+  const worlds: WorldStates = {};
+  for (const [key, value] of entries) {
+    const worldId = Number(key);
+    if (!Number.isInteger(worldId)) continue;
+    const state = validateWorldState(worldId, value);
+    if (!state) continue; // skip invalid entries silently
+    // Only include active worlds
+    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+      worlds[worldId] = state;
+    }
+  }
+  return worlds;
+}
+
 export function validateMessage(raw: unknown): ClientMessage | { error: string } {
   if (!isObject(raw)) return { error: 'Message must be a JSON object.' };
 
   const type = raw.type;
 
   if (type === 'ping') return { type: 'ping' };
+
+  if (type === 'initializeState') {
+    const result = validateInitializeState(raw);
+    if ('error' in result) return result;
+    return { type: 'initializeState', worlds: result };
+  }
 
   // Optional msgId for ACK tracking
   let msgId: number | undefined;

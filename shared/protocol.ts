@@ -7,6 +7,7 @@ export type ClientMessage =
   | { type: 'updateHealth';     worldId: number; health: number | undefined; msgId?: number }
   | { type: 'markDead';         worldId: number; msgId?: number }
   | { type: 'clearWorld';       worldId: number; msgId?: number }
+  | { type: 'initializeState'; worlds: WorldStates }
   | { type: 'ping' };
 
 export type ServerMessage =

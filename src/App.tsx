@@ -57,6 +57,10 @@ export default function App() {
   saveToLocalStorageRef.current = saveToLocalStorage;
   const { favorites, toggleFavorite } = useFavorites();
 
+  const handleCreateSession = useCallback(() => {
+    return createSession(worldStates);
+  }, [createSession, worldStates]);
+
   const handleLeaveSession = useCallback(() => {
     saveToLocalStorage();
     leaveSession();
@@ -252,7 +256,7 @@ export default function App() {
 
       <SessionBar
         session={session}
-        onCreateSession={createSession}
+        onCreateSession={handleCreateSession}
         onJoinSession={joinSession}
         onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}

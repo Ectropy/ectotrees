@@ -4,9 +4,9 @@ import type { WorldStates, WorldState } from '../shared/types.ts';
 import type { ServerMessage } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 
-const MAX_SESSIONS = 50;
-const MAX_CLIENTS_PER_SESSION = 20;
-const SESSION_INACTIVITY_MS = 2 * 60 * 60 * 1000; // 2 hours
+const MAX_SESSIONS = 1000;
+const MAX_CLIENTS_PER_SESSION = 1000;
+const SESSION_INACTIVITY_MS = 130 * 60 * 1000; // 2 hours and 10 minutes. By this time even evil trees with the longest timers have spawned and died of natural (or unnatural) causes
 const EMPTY_SESSION_TTL_MS = 30 * 60 * 1000;       // 30 minutes
 const TRANSITION_INTERVAL_MS = 10_000;              // 10 seconds
 
@@ -17,6 +17,8 @@ export interface Session {
   emptySince: number | null;
   worldStates: WorldStates;
   clients: Set<WebSocket>;
+  clientIds: Map<WebSocket, number>;
+  nextClientId: number;
   transitionTimer: ReturnType<typeof setInterval>;
 }
 
@@ -69,6 +71,8 @@ export function createSession(): { code: string } | { error: string } {
     emptySince: now,
     worldStates: {},
     clients: new Set(),
+    clientIds: new Map(),
+    nextClientId: 1,
     transitionTimer: setInterval(() => {
       const s = sessions.get(code);
       if (!s) return;
@@ -102,11 +106,13 @@ export function getSession(code: string): Session | undefined {
   return sessions.get(code);
 }
 
-export function addClient(session: Session, ws: WebSocket): boolean {
+export function addClient(session: Session, ws: WebSocket): number | false {
   if (session.clients.size >= MAX_CLIENTS_PER_SESSION) {
     return false;
   }
+  const clientId = session.nextClientId++;
   session.clients.add(ws);
+  session.clientIds.set(ws, clientId);
   session.emptySince = null;
 
   // Send current state snapshot (only active worlds)
@@ -120,11 +126,16 @@ export function addClient(session: Session, ws: WebSocket): boolean {
   ws.send(JSON.stringify(snapshot));
 
   broadcastClientCount(session);
-  return true;
+  return clientId;
+}
+
+export function getClientId(session: Session, ws: WebSocket): number | undefined {
+  return session.clientIds.get(ws);
 }
 
 export function removeClient(session: Session, ws: WebSocket) {
   session.clients.delete(ws);
+  session.clientIds.delete(ws);
   if (session.clients.size === 0) {
     session.emptySince = Date.now();
   }
@@ -162,6 +173,7 @@ export function cleanupExpiredSessions() {
     const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
     if (inactiveExpired || emptyExpired) {
       destroySession(session);
+      console.log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
     }
   }
 }
