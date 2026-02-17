@@ -29,6 +29,15 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
 
   if (type === 'ping') return { type: 'ping' };
 
+  // Optional msgId for ACK tracking
+  let msgId: number | undefined;
+  if (raw.msgId !== undefined) {
+    if (typeof raw.msgId !== 'number' || !Number.isInteger(raw.msgId) || raw.msgId <= 0) {
+      return { error: 'Invalid msgId.' };
+    }
+    msgId = raw.msgId;
+  }
+
   // All other messages require a valid worldId
   if (typeof raw.worldId !== 'number' || !VALID_WORLD_IDS.has(raw.worldId)) {
     return { error: 'Invalid or missing worldId.' };
@@ -50,7 +59,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
           treeInfo = { treeHint: clean };
         }
       }
-      return { type: 'setSpawnTimer', worldId, msFromNow, treeInfo };
+      return { type: 'setSpawnTimer', worldId, msFromNow, treeInfo, msgId };
     }
 
     case 'setTreeInfo': {
@@ -87,6 +96,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
           treeExactLocation,
           treeHealth,
         },
+        msgId,
       };
     }
 
@@ -125,6 +135,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
         type: 'updateTreeFields',
         worldId,
         fields: result as import('../shared/types.ts').TreeFieldsPayload,
+        msgId,
       };
     }
 
@@ -133,14 +144,14 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       if (health !== undefined && (typeof health !== 'number' || !VALID_HEALTH_VALUES.has(health))) {
         return { error: 'Invalid health value.' };
       }
-      return { type: 'updateHealth', worldId, health: health as number | undefined };
+      return { type: 'updateHealth', worldId, health: health as number | undefined, msgId };
     }
 
     case 'markDead':
-      return { type: 'markDead', worldId };
+      return { type: 'markDead', worldId, msgId };
 
     case 'clearWorld':
-      return { type: 'clearWorld', worldId };
+      return { type: 'clearWorld', worldId, msgId };
 
     default:
       return { error: `Unknown message type: ${String(type)}` };

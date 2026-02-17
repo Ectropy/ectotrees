@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { SessionState } from '../hooks/useSession';
 
 interface SessionBarProps {
   session: SessionState;
   onCreateSession: () => Promise<string | null>;
   onJoinSession: (code: string) => Promise<boolean>;
+  onRejoinSession: (code: string) => Promise<boolean>;
   onLeaveSession: () => void;
+  onDismissError: () => void;
 }
 
 const STATUS_COLORS: Record<SessionState['status'], string> = {
@@ -14,7 +16,28 @@ const STATUS_COLORS: Record<SessionState['status'], string> = {
   disconnected: 'bg-gray-500',
 };
 
-export function SessionBar({ session, onCreateSession, onJoinSession, onLeaveSession }: SessionBarProps) {
+function DismissableError({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(onDismiss, 5000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [message, onDismiss]);
+
+  return (
+    <button
+      onClick={onDismiss}
+      className="text-red-400 text-[10px] truncate max-w-[200px] hover:text-red-300 transition-colors"
+      title={`${message} (click to dismiss)`}
+    >
+      {message}
+    </button>
+  );
+}
+
+export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSession, onLeaveSession, onDismissError }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,11 +70,27 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onLeaveSes
     } catch { /* ignore */ }
   }
 
-  // Connected / connecting state
+  function getReconnectText(): string | null {
+    if (session.status !== 'connecting' || session.reconnectAttempt === 0) return null;
+    if (session.reconnectAttempt >= 5) return 'Connection lost. Still trying...';
+    return `Reconnecting... (${session.reconnectAttempt})`;
+  }
+
+  // Give-up state: disconnected but still has a code (can rejoin)
+  const canRejoin = session.status === 'disconnected' && session.code !== null;
+
+  // Connected / connecting / can-rejoin state
   if (session.code) {
+    const reconnectText = getReconnectText();
+
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0">
-        <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[session.status]}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_COLORS[session.status]}`} />
+
+        {reconnectText && (
+          <span className="text-yellow-400 text-[10px] flex-shrink-0">{reconnectText}</span>
+        )}
+
         <span className="text-gray-400">Session:</span>
         <button
           onClick={handleCopyCode}
@@ -61,19 +100,31 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onLeaveSes
           {session.code}
         </button>
         {copied && <span className="text-green-400 text-[10px]">Copied!</span>}
-        <span className="text-gray-500">
-          {session.clientCount} {session.clientCount === 1 ? 'user' : 'users'}
-        </span>
-        <button
-          onClick={onLeaveSession}
-          className="ml-auto text-red-400 hover:text-red-300 transition-colors"
-        >
-          Leave
-        </button>
-        {session.error && (
-          <span className="text-red-400 text-[10px] truncate max-w-[200px]" title={session.error}>
-            {session.error}
+
+        {!canRejoin && (
+          <span className="text-gray-500">
+            {session.clientCount} {session.clientCount === 1 ? 'user' : 'users'}
           </span>
+        )}
+
+        {canRejoin ? (
+          <button
+            onClick={() => onRejoinSession(session.code!)}
+            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+          >
+            Rejoin
+          </button>
+        ) : (
+          <button
+            onClick={onLeaveSession}
+            className="ml-auto text-red-400 hover:text-red-300 transition-colors"
+          >
+            Leave
+          </button>
+        )}
+
+        {session.error && (
+          <DismissableError message={session.error} onDismiss={onDismissError} />
         )}
       </div>
     );
@@ -129,9 +180,7 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onLeaveSes
       )}
 
       {session.error && (
-        <span className="text-red-400 text-[10px] truncate max-w-[200px]" title={session.error}>
-          {session.error}
-        </span>
+        <DismissableError message={session.error} onDismiss={onDismissError} />
       )}
     </div>
   );

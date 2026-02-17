@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -48,8 +48,13 @@ function loadFilters(): Filters {
 }
 
 export default function App() {
-  const { session, syncChannel, createSession, joinSession, leaveSession } = useSession();
+  const handleSessionLost = useCallback(() => {
+    saveToLocalStorageRef.current();
+  }, []);
+  const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, dismissError } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, saveToLocalStorage } = useWorldStates(syncChannel);
+  const saveToLocalStorageRef = useRef(saveToLocalStorage);
+  saveToLocalStorageRef.current = saveToLocalStorage;
   const { favorites, toggleFavorite } = useFavorites();
 
   const handleLeaveSession = useCallback(() => {
@@ -249,7 +254,9 @@ export default function App() {
         session={session}
         onCreateSession={createSession}
         onJoinSession={joinSession}
+        onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}
+        onDismissError={dismissError}
       />
 
       <SortFilterBar
