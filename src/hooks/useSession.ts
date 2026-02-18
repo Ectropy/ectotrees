@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
 import type { ClientMessage, ServerMessage } from '../../shared/protocol.ts';
 
@@ -27,6 +27,7 @@ const PING_INTERVAL_MS = 30_000;
 const STALE_TIMEOUT_MS = 45_000; // force-close if no message received in this window
 const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
+const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 
 const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
 
@@ -35,10 +36,34 @@ interface PendingMutation {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
+function loadPersistedSessionCode(): string | null {
+  try {
+    const raw = localStorage.getItem(SESSION_CODE_STORAGE_KEY);
+    if (!raw) return null;
+    const code = raw.trim().toUpperCase();
+    return /^[A-Z2-9]{6}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistSessionCode(code: string | null) {
+  try {
+    if (code) {
+      localStorage.setItem(SESSION_CODE_STORAGE_KEY, code);
+    } else {
+      localStorage.removeItem(SESSION_CODE_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function useSession(onSessionLost?: () => void) {
+  const initialCode = loadPersistedSessionCode();
   const [session, setSession] = useState<SessionState>({
     status: 'disconnected',
-    code: null,
+    code: initialCode,
     clientCount: 0,
     error: null,
     reconnectAttempt: 0,
@@ -53,11 +78,12 @@ export function useSession(onSessionLost?: () => void) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const codeRef = useRef<string | null>(null);
+  const codeRef = useRef<string | null>(initialCode);
   const intentionalCloseRef = useRef(false);
   const lastServerErrorRef = useRef<string | null>(null);
   const onSessionLostRef = useRef(onSessionLost);
   const snapshotReceivedRef = useRef(false);
+  const pendingSnapshotRef = useRef<WorldStates | null>(null);
   const initialStatesRef = useRef<WorldStates | null>(null);
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
@@ -141,6 +167,7 @@ export function useSession(onSessionLost?: () => void) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return;
       reconnectAttemptRef.current = 0;
       lastServerErrorRef.current = null;
       setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0 }));
@@ -160,6 +187,7 @@ export function useSession(onSessionLost?: () => void) {
     };
 
     ws.onmessage = (event) => {
+      if (wsRef.current !== ws) return;
       resetStaleTimer(ws);
       let msg: ServerMessage;
       try {
@@ -175,7 +203,11 @@ export function useSession(onSessionLost?: () => void) {
             ? { ...msg.worlds, ...initialStatesRef.current }
             : msg.worlds;
           initialStatesRef.current = null;
-          handlersRef.current?.onSnapshot(worlds);
+          if (handlersRef.current) {
+            handlersRef.current.onSnapshot(worlds);
+          } else {
+            pendingSnapshotRef.current = worlds;
+          }
           snapshotReceivedRef.current = true;
           replayPendingMutations();
           break;
@@ -212,6 +244,9 @@ export function useSession(onSessionLost?: () => void) {
     };
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return;
+      wsRef.current = null;
+
       if (pingTimerRef.current) {
         clearInterval(pingTimerRef.current);
         pingTimerRef.current = null;
@@ -236,6 +271,7 @@ export function useSession(onSessionLost?: () => void) {
       // Don't reconnect on fatal server rejections
       if (lastServerErrorRef.current && FATAL_ERRORS.has(lastServerErrorRef.current)) {
         codeRef.current = null;
+        persistSessionCode(null);
         clearPending();
         setSession(prev => ({
           ...prev,
@@ -275,6 +311,7 @@ export function useSession(onSessionLost?: () => void) {
     };
 
     ws.onerror = () => {
+      if (wsRef.current !== ws) return;
       // onclose will fire after this
     };
   }
@@ -290,6 +327,7 @@ export function useSession(onSessionLost?: () => void) {
       }
       const code = data.code as string;
       codeRef.current = code;
+      persistSessionCode(code);
       initialStatesRef.current = initialStates ?? null;
       clearPending();
       setSession(prev => ({ ...prev, code, reconnectAttempt: 0 }));
@@ -317,6 +355,7 @@ export function useSession(onSessionLost?: () => void) {
     }
 
     codeRef.current = code;
+    persistSessionCode(code);
     clearPending();
     setSession(prev => ({ ...prev, code, reconnectAttempt: 0 }));
     connectWs(code);
@@ -327,6 +366,7 @@ export function useSession(onSessionLost?: () => void) {
     intentionalCloseRef.current = true;
     cleanup();
     codeRef.current = null;
+    persistSessionCode(null);
     reconnectAttemptRef.current = 0;
     clearPending();
     setSession({ status: 'disconnected', code: null, clientCount: 0, error: null, reconnectAttempt: 0 });
@@ -363,6 +403,10 @@ export function useSession(onSessionLost?: () => void) {
     onWorldUpdate: (worldId: number, state: WorldState | null) => void;
   }) => {
     handlersRef.current = handlers;
+    if (pendingSnapshotRef.current) {
+      handlers.onSnapshot(pendingSnapshotRef.current);
+      pendingSnapshotRef.current = null;
+    }
     return () => { handlersRef.current = null; };
   }, []);
 
@@ -378,8 +422,18 @@ export function useSession(onSessionLost?: () => void) {
     };
   }, []);
 
-  const syncChannel: SyncChannel | null =
-    session.status !== 'disconnected' ? { sendMutation, subscribe } : null;
+  // Resume prior session across page reloads (common on mobile radio changes).
+  useEffect(() => {
+    if (codeRef.current && session.status === 'disconnected') {
+      connectWs(codeRef.current);
+    }
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const syncChannel: SyncChannel | null = useMemo(() => (
+    session.status !== 'disconnected' ? { sendMutation, subscribe } : null
+  ), [session.status, sendMutation, subscribe]);
 
   return {
     session,
