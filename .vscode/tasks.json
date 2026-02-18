@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker: Build Local Image",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "ectotrees:local",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Rebuild + Restart Local Container, removing old container if one exists",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "docker build -t ectotrees:local .; $ancestorContainers = docker ps -aq --filter \"ancestor=ectotrees:local\"; if ($ancestorContainers) { docker rm -f $ancestorContainers | Out-Null }; $namedContainer = docker ps -aq --filter \"name=^/ectotrees-local$\"; if ($namedContainer) { docker rm -f $namedContainer | Out-Null }; docker run -d --name ectotrees-local -p 3001:3001 ectotrees:local"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
