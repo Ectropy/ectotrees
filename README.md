@@ -57,6 +57,48 @@ npx tsc --noEmit       # type-check client
 npm run server:check   # type-check server
 ```
 
+## Local Docker (beginner quick start)
+
+Use this when you want to test the app the same way a deploy server would run it.
+
+### 1) Build a local image
+
+From the project root:
+
+```bash
+docker build -t ectotrees:local .
+```
+
+What this means:
+- `ectotrees` is the image name
+- `local` is the tag (a label). Here it means "my local test build", not a formal release
+
+### 2) Run the container
+
+```bash
+docker run --name ectotrees-local -p 3001:3001 -d ectotrees:local
+```
+
+Then open `http://localhost:3001`.
+
+### 3) Rebuild after code changes
+
+If you already have a previous local container, remove it first:
+
+```bash
+docker rm -f ectotrees-local
+docker build -t ectotrees:local .
+docker run --name ectotrees-local -p 3001:3001 -d ectotrees:local
+```
+
+### 4) Useful checks
+
+```bash
+docker ps                        # running containers
+docker logs -f ectotrees-local   # live app logs
+docker stop ectotrees-local      # stop container
+```
+
 ## Deploying with HTTPS (Nginx)
 
 Use this when running as an installable PWA on mobile devices (iOS requires HTTPS).
