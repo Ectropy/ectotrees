@@ -91,12 +91,12 @@ export default function App() {
       if (filters.f2p && w.type !== 'F2P') return false;
       if (filters.treeTypes.length > 0) {
         if (!active) return false;
-        const isUnknownType = state.treeType === 'sapling' || state.treeType === 'mature' || !state.treeType;
-        if (isUnknownType) {
-          if (!filters.treeTypes.includes('unknown')) return false;
-        } else {
-          if (!filters.treeTypes.includes(state.treeType!)) return false;
-        }
+        const treeFilterKey = !state.treeType || state.treeType === 'mature'
+          ? 'unknown'
+          : (state.treeType === 'sapling' || state.treeType.startsWith('sapling-'))
+            ? 'sapling'
+            : state.treeType;
+        if (!filters.treeTypes.includes(treeFilterKey)) return false;
       }
       // Health sort: only show worlds with known health
       if (sortMode === 'health' && state.treeHealth === undefined) return false;

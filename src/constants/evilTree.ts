@@ -43,6 +43,7 @@ export const TREE_TYPE_SHORT: Record<TreeType, string> = {
 
 export const FILTERABLE_TREE_TYPES = [
   { key: 'unknown', label: 'Unknown' },
+  { key: 'sapling', label: 'Sapling' },
   { key: 'tree',    label: 'Tree' },
   { key: 'oak',     label: 'Oak' },
   { key: 'willow',  label: 'Willow' },
