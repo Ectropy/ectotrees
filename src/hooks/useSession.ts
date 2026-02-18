@@ -285,6 +285,7 @@ export function useSession(onSessionLost?: () => void) {
       // Give up after max attempts
       const attempt = reconnectAttemptRef.current;
       if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+        console.log(`Reconnection failed after ${MAX_RECONNECT_ATTEMPTS} attempts`);
         onSessionLostRef.current?.();
         const lostCode = codeRef.current;
         clearPending();
@@ -302,6 +303,7 @@ export function useSession(onSessionLost?: () => void) {
       const delay = RECONNECT_DELAYS[Math.min(attempt, RECONNECT_DELAYS.length - 1)];
       reconnectAttemptRef.current = attempt + 1;
       setSession(prev => ({ ...prev, status: 'connecting', reconnectAttempt: attempt + 1 }));
+      console.log(`Reconnect attempt ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
 
       reconnectTimerRef.current = setTimeout(() => {
         if (codeRef.current) {
