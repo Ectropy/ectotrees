@@ -85,8 +85,8 @@ export default function App() {
       const active = isActive(state);
 
       if (filters.favorites && !favorites.has(w.id)) return false;
-      if (filters.active && !active) return false;
-      if (filters.noData && active) return false;
+      if (filters.intel === 'needs' && active) return false;
+      if (filters.intel === 'has' && !active) return false;
       if (filters.p2p && w.type !== 'P2P') return false;
       if (filters.f2p && w.type !== 'F2P') return false;
       if (filters.treeTypes.length > 0) {

@@ -4,26 +4,24 @@ export type SortMode = 'world' | 'active' | 'spawn' | 'ending' | 'fav' | 'health
 
 export interface Filters {
   favorites: boolean;
-  active: boolean;
-  noData: boolean;
   p2p: boolean;
   f2p: boolean;
   treeTypes: string[];
   hint: 'needs' | 'has' | null;
   location: 'needs' | 'has' | null;
   health: 'needs' | 'has' | null;
+  intel: 'needs' | 'has' | null;
 }
 
 export const DEFAULT_FILTERS: Filters = {
   favorites: false,
-  active: false,
-  noData: false,
   p2p: false,
   f2p: false,
   treeTypes: [],
   hint: null,
   location: null,
   health: null,
+  intel: null,
 };
 
 interface Props {
@@ -60,19 +58,16 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     }
   };
 
-  const toggleFilter = (key: 'favorites' | 'active' | 'noData' | 'p2p' | 'f2p') => {
+  const toggleFilter = (key: 'favorites' | 'p2p' | 'f2p') => {
     const next = { ...filters };
     next[key] = !next[key];
-    // "Active" and "No data" are mutually exclusive
-    if (key === 'active' && next.active) next.noData = false;
-    if (key === 'noData' && next.noData) next.active = false;
     // "P2P" and "F2P" are mutually exclusive
     if (key === 'p2p' && next.p2p) next.f2p = false;
     if (key === 'f2p' && next.f2p) next.p2p = false;
     setFilters(next);
   };
 
-  const cycleTriState = (key: 'hint' | 'location' | 'health') => {
+  const cycleTriState = (key: 'hint' | 'location' | 'health' | 'intel') => {
     const current = filters[key];
     const next = current === null ? 'needs' : current === 'needs' ? 'has' : null;
     setFilters({ ...filters, [key]: next });
@@ -114,8 +109,6 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
       <div className="flex items-center gap-0.5">
         <span className="text-[10px] text-gray-500 mr-1">Filter</span>
         <FilterChip label="Favorite" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
-        <FilterChip label="Active" active={filters.active} onClick={() => toggleFilter('active')} />
-        <FilterChip label="No data" active={filters.noData} onClick={() => toggleFilter('noData')} />
         <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
         <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
       </div>
@@ -142,6 +135,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
       {/* Tri-state info filter chips */}
       <div className="flex items-center gap-0.5">
         <span className="text-[10px] text-gray-500 mr-1">Info</span>
+        <TriStateChip label="Intel" state={filters.intel} onClick={() => cycleTriState('intel')} />
         <TriStateChip label="Hint" state={filters.hint} onClick={() => cycleTriState('hint')} />
         <TriStateChip label="Location" state={filters.location} onClick={() => cycleTriState('location')} />
         <TriStateChip label="Health" state={filters.health} onClick={() => cycleTriState('health')} />
