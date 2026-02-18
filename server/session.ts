@@ -134,12 +134,16 @@ export function getClientId(session: Session, ws: WebSocket): number | undefined
 }
 
 export function removeClient(session: Session, ws: WebSocket) {
+  if (!session.clients.has(ws)) {
+    return false;
+  }
   session.clients.delete(ws);
   session.clientIds.delete(ws);
   if (session.clients.size === 0) {
     session.emptySince = Date.now();
   }
   broadcastClientCount(session);
+  return true;
 }
 
 export function updateWorldState(
@@ -159,9 +163,21 @@ export function updateWorldState(
 function destroySession(session: Session) {
   clearInterval(session.transitionTimer);
   for (const ws of session.clients) {
+    const clientId = session.clientIds.get(ws) ?? '?';
     const msg: ServerMessage = { type: 'sessionClosed', reason: 'Session expired due to inactivity.' };
     ws.send(JSON.stringify(msg));
     ws.close();
+    const forceCloseTimer = setTimeout(() => {
+      if (ws.readyState !== 3) { // WebSocket.CLOSED
+        console.warn(`[session] Force-terminating client ${clientId} in ${session.code} after close timeout`);
+        ws.terminate();
+      }
+    }, 5_000);
+    ws.once('close', (code, reasonBuffer) => {
+      clearTimeout(forceCloseTimer);
+      const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
+      console.log(`[session] Closed client ${clientId} in ${session.code} (code=${code}, reason="${reason}")`);
+    });
   }
   sessions.delete(session.code);
 }

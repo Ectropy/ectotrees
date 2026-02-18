@@ -118,17 +118,18 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     ws.close();
     return;
   }
+  const activeSession = session;
 
-  const clientId = addClient(session, ws);
+  const clientId = addClient(activeSession, ws);
   if (clientId === false) {
-    console.log(`[ws] Rejected connection to ${session.code} (full, ${session.clients.size} clients)`);
+    console.log(`[ws] Rejected connection to ${activeSession.code} (full, ${activeSession.clients.size} clients)`);
     const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
     ws.send(JSON.stringify(msg));
     ws.close();
     return;
   }
 
-  console.log(`[ws] Client ${clientId} connected to ${session.code} (${session.clients.size} clients)`);
+  console.log(`[ws] Client ${clientId} connected to ${activeSession.code} (${activeSession.clients.size} clients)`);
 
   // Heartbeat tracking
   let lastPong = Date.now();
@@ -142,7 +143,22 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     ws.ping();
   }, 30_000);
 
+  let removed = false;
+  function finalizeDisconnect() {
+    if (removed) return;
+    removed = true;
+    clearInterval(heartbeatCheck);
+    removeClient(activeSession, ws);
+  }
+
   ws.on('message', (data) => {
+    // Ignore (and close) sockets no longer tracked by this session.
+    if (!activeSession.clients.has(ws)) {
+      console.warn(`[ws] Client ${clientId} sent message after removal from ${activeSession.code}; closing socket`);
+      ws.close();
+      return;
+    }
+
     // Size check (allow larger messages for initializeState)
     const raw = data.toString();
     const sizeLimit = raw.includes('"initializeState"') ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
@@ -177,19 +193,27 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
       return;
     }
 
-    handleMessage(session, validated, ws, clientId);
+    handleMessage(activeSession, validated, ws, clientId);
   });
 
-  ws.on('close', () => {
-    clearInterval(heartbeatCheck);
-    removeClient(session, ws);
-    console.log(`[ws] Client ${clientId} disconnected from ${session.code} (${session.clients.size} clients)`);
+  ws.on('close', (code, reasonBuffer) => {
+    finalizeDisconnect();
+    const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
+    console.log(
+      `[ws] Client ${clientId} disconnected from ${activeSession.code} `
+      + `(code=${code}, reason="${reason}", tracked=${activeSession.clientIds.has(ws)}, ${activeSession.clients.size} clients)`,
+    );
   });
 
   ws.on('error', (err) => {
-    clearInterval(heartbeatCheck);
-    removeClient(session, ws);
-    console.log(`[ws] Client ${clientId} error on ${session.code}: ${err.message} (${session.clients.size} clients)`);
+    console.log(
+      `[ws] Client ${clientId} error on ${activeSession.code}: ${err.message} `
+      + `(readyState=${ws.readyState}, tracked=${activeSession.clientIds.has(ws)})`,
+    );
+    // Ensure close runs promptly so cleanup and UI updates are not delayed.
+    if (ws.readyState !== 3) { // WebSocket.CLOSED
+      ws.terminate();
+    }
   });
 });
 
