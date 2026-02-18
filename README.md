@@ -57,6 +57,28 @@ npx tsc --noEmit       # type-check client
 npm run server:check   # type-check server
 ```
 
+## Deploying with HTTPS (Nginx)
+
+Use this when running as an installable PWA on mobile devices (iOS requires HTTPS).
+
+1. Build the frontend:
+```bash
+npm run build
+```
+2. Run the backend server on localhost:
+```bash
+npm run server
+```
+3. Install the Nginx site config from `deploy/nginx/ectotrees.conf` and update:
+- `server_name`
+- `ssl_certificate` and `ssl_certificate_key`
+- `root` path (should point at your `dist/`)
+4. Enable the site and reload Nginx.
+
+This setup serves static files from Nginx and proxies:
+- `/api/*` to the Node backend
+- `/ws` WebSocket upgrades to the Node backend
+
 ## Multi-user sync
 
 1. One player clicks **Create Session** in the session bar at the top of the grid

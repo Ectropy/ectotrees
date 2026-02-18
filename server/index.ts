@@ -2,6 +2,9 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { URL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
 import type { ClientMessage, ServerMessage } from '../shared/protocol.ts';
 import {
   applySetSpawnTimer,
@@ -22,6 +25,9 @@ import {
 import { validateMessage, validateSessionCode } from './validation.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_DIR = path.resolve(__dirname, '../dist');
 const MAX_MESSAGE_SIZE = 4096;           // 4 KB (normal messages)
 const MAX_INIT_MESSAGE_SIZE = 64 * 1024; // 64 KB (initializeState)
 const RATE_LIMIT_WINDOW_MS = 1000;
@@ -83,6 +89,13 @@ app.get('/api/session/:code', (req, res) => {
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, sessions: getSessionCount() });
 });
+
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  app.get(/^\/(?!api|ws).*/, (_req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+}
 
 // --- HTTP + WS server ---
 
