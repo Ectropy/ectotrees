@@ -1,5 +1,12 @@
 export const TREE_TYPES = [
   'sapling',
+  'sapling-tree',
+  'sapling-oak',
+  'sapling-willow',
+  'sapling-maple',
+  'sapling-yew',
+  'sapling-magic',
+  'sapling-elder',
   'mature',
   'tree',
   'oak',

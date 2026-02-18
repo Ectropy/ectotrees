@@ -55,7 +55,7 @@ function checkRateLimit(ws: WebSocket): boolean {
 const app = express();
 app.use(express.json({ limit: '1kb' }));
 
-app.post('/api/session', (req, res) => {
+app.post('/api/session', (_req, res) => {
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });

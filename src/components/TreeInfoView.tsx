@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS } from '../constants/evilTree';
+import { TREE_TYPES, TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -25,6 +25,8 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
   const isP2P = world.type === 'P2P';
+  const isStrangeSapling = treeType === 'sapling' || treeType.startsWith('sapling-');
+  const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as const;
 
   function handleHintChange(newHint: string) {
     setHint(newHint);
@@ -43,7 +45,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
       treeType,
       treeHint: hint,
       treeExactLocation: exactLocation || undefined,
-      treeHealth: health ?? undefined,
+      treeHealth: isStrangeSapling ? undefined : (health ?? undefined),
     };
     if (isUpdateMode) {
       onUpdate(payload);
@@ -94,7 +96,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               onChange={e => setTreeType(e.target.value as TreeType)}
               className={selectClass}
             >
-              {TREE_TYPES.map(type => (
+              {TREE_TYPES.filter(type => !type.startsWith('sapling-')).map(type => (
                 <option key={type} value={type}>
                   {TREE_TYPE_LABELS[type]}
                 </option>
@@ -104,6 +106,38 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               The type of Evil Tree that currently exists.
             </p>
           </div>
+
+          {/* Strange Sapling message and type selector */}
+          {isStrangeSapling && (
+            <div className="bg-blue-900 border border-blue-700 rounded p-4 space-y-3">
+              <p className="text-sm text-blue-100">
+                Strange saplings can be inspected to determine their type. Select the type it will grow into, or leave as unknown.
+              </p>
+              <div>
+                <label className="text-xs text-gray-400 block mb-2 font-semibold">
+                  Expected type <span className="text-gray-500 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={treeType === 'sapling' ? '' : treeType.replace('sapling-', '')}
+                  onChange={e => {
+                    if (e.target.value === '') {
+                      setTreeType('sapling');
+                    } else {
+                      setTreeType(`sapling-${e.target.value}` as TreeType);
+                    }
+                  }}
+                  className={selectClass}
+                >
+                  <option value="">— unknown —</option>
+                  {saplingTypeOptions.map(type => (
+                    <option key={type} value={type}>
+                      {TREE_TYPE_SHORT[type]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Location hint */}
           <div>
@@ -153,18 +187,20 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           )}
 
           {/* Health remaining */}
-          <div>
-            <label className="text-xs text-gray-400 block mb-2 font-semibold">
-              Health remaining <span className="text-gray-500 font-normal">(optional)</span>
-            </label>
-            <HealthButtonGrid
-              value={health ?? undefined}
-              onChange={v => setHealth(v ?? null)}
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              Approximate health of the tree, if known. Tap again to deselect.
-            </p>
-          </div>
+          {!isStrangeSapling && (
+            <div>
+              <label className="text-xs text-gray-400 block mb-2 font-semibold">
+                Health remaining <span className="text-gray-500 font-normal">(optional)</span>
+              </label>
+              <HealthButtonGrid
+                value={health ?? undefined}
+                onChange={v => setHealth(v ?? null)}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Approximate health of the tree, if known. Tap again to deselect.
+              </p>
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-4">
@@ -203,7 +239,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                         treeType,
                         treeHint: hint,
                         treeExactLocation: exactLocation || undefined,
-                        treeHealth: health ?? undefined,
+                        treeHealth: isStrangeSapling ? undefined : (health ?? undefined),
                       });
                     }}
                     className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed

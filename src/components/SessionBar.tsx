@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import type { SessionState } from '../hooks/useSession';
 
 interface SessionBarProps {
@@ -84,7 +84,7 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSe
 
         {canRejoin && (
           <span className="text-red-500 text-[10px] flex-shrink-0">
-            Disconnected.  
+            Disconnected.
           </span>
         )}
 

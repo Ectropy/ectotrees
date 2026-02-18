@@ -15,10 +15,18 @@ export function applyTransitions(states: WorldStates, now: number): WorldStates 
       s.treeSetAt !== undefined &&
       now >= s.treeSetAt + SAPLING_MATURE_MS
     ) {
+      let nextTreeType: typeof s.treeType = 'mature';
+      if (s.treeType && s.treeType.startsWith('sapling-')) {
+        // Extract type from 'sapling-tree' -> 'tree'
+        const extractedType = s.treeType.replace('sapling-', '');
+        nextTreeType = extractedType as typeof s.treeType;
+      } else if (s.treeType && ALIVE_TREE_TYPES.has(s.treeType)) {
+        nextTreeType = s.treeType;
+      }
       s = {
         ...s,
         treeStatus: 'mature',
-        treeType: (s.treeType && ALIVE_TREE_TYPES.has(s.treeType)) ? s.treeType : 'mature',
+        treeType: nextTreeType,
         matureAt: s.treeSetAt + SAPLING_MATURE_MS,
       };
       dirty = true;
@@ -99,7 +107,7 @@ export function applySetTreeInfo(
   now: number,
 ): WorldStates {
   const current = states[worldId] ?? { treeStatus: 'none' as const };
-  const isSapling = info.treeType === 'sapling';
+  const isSapling = info.treeType === 'sapling' || info.treeType.startsWith('sapling-');
   const isMatureUnknown = info.treeType === 'mature';
   return {
     ...states,

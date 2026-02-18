@@ -37,9 +37,10 @@ export function StatusSection({ state }: Props) {
   if (state.treeStatus === 'sapling' && state.treeSetAt !== undefined) {
     const matureAt = state.treeSetAt + SAPLING_MATURE_MS;
     const remaining = matureAt - now;
+    const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Sapling (unknown)';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-green-400 text-[10px] font-bold leading-tight">Strange Sapling</div>
+        <div className="text-green-400 text-[10px] font-bold leading-tight">{label}</div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}
