@@ -101,6 +101,32 @@ export default function App() {
       // Health sort: only show worlds with known health
       if (sortMode === 'health' && state.treeHealth === undefined) return false;
 
+      // Hint tri-state filter
+      if (filters.hint !== null) {
+        const hasHint = state.nextSpawnTarget !== undefined && !!state.treeHint;
+        const needsHint = state.nextSpawnTarget !== undefined && !state.treeHint;
+        if (filters.hint === 'needs' && !needsHint) return false;
+        if (filters.hint === 'has' && !hasHint) return false;
+      }
+
+      // Location tri-state filter
+      if (filters.location !== null) {
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const hasLocation = isSpawned && !!state.treeExactLocation;
+        const needsLocation = isSpawned && !state.treeExactLocation;
+        if (filters.location === 'needs' && !needsLocation) return false;
+        if (filters.location === 'has' && !hasLocation) return false;
+      }
+
+      // Health tri-state filter
+      if (filters.health !== null) {
+        const isAlive = state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const hasHealth = isAlive && state.treeHealth !== undefined;
+        const needsHealth = isAlive && state.treeHealth === undefined;
+        if (filters.health === 'needs' && !needsHealth) return false;
+        if (filters.health === 'has' && !hasHealth) return false;
+      }
+
       return true;
     });
 

@@ -56,10 +56,13 @@ export function StatusSection({ state }: Props) {
   if (state.treeStatus === 'mature' && state.matureAt !== undefined) {
     const autoDeadAt = state.matureAt + ALIVE_DEAD_MS;
     const remaining = autoDeadAt - now;
+    const label = state.treeType && state.treeType !== 'mature'
+      ? TREE_TYPE_SHORT[state.treeType]
+      : 'Mature';
     return (
       <div className="flex flex-col justify-center h-full">
         <div className="text-yellow-300 text-[10px] font-bold leading-tight">
-          Mature{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
+          {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
@@ -116,3 +119,4 @@ export function StatusSection({ state }: Props) {
     </div>
   );
 }
+

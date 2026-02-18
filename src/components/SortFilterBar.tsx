@@ -9,6 +9,9 @@ export interface Filters {
   p2p: boolean;
   f2p: boolean;
   treeTypes: string[];
+  hint: 'needs' | 'has' | null;
+  location: 'needs' | 'has' | null;
+  health: 'needs' | 'has' | null;
 }
 
 export const DEFAULT_FILTERS: Filters = {
@@ -18,6 +21,9 @@ export const DEFAULT_FILTERS: Filters = {
   p2p: false,
   f2p: false,
   treeTypes: [],
+  hint: null,
+  location: null,
+  health: null,
 };
 
 interface Props {
@@ -64,6 +70,12 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     if (key === 'p2p' && next.p2p) next.f2p = false;
     if (key === 'f2p' && next.f2p) next.p2p = false;
     setFilters(next);
+  };
+
+  const cycleTriState = (key: 'hint' | 'location' | 'health') => {
+    const current = filters[key];
+    const next = current === null ? 'needs' : current === 'needs' ? 'has' : null;
+    setFilters({ ...filters, [key]: next });
   };
 
   const toggleTreeType = (key: string) => {
@@ -123,6 +135,17 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
           />
         ))}
       </div>
+
+      {/* Divider */}
+      <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
+
+      {/* Tri-state info filter chips */}
+      <div className="flex items-center gap-0.5">
+        <span className="text-[10px] text-gray-500 mr-1">Info</span>
+        <TriStateChip label="Hint" state={filters.hint} onClick={() => cycleTriState('hint')} />
+        <TriStateChip label="Location" state={filters.location} onClick={() => cycleTriState('location')} />
+        <TriStateChip label="Health" state={filters.health} onClick={() => cycleTriState('health')} />
+      </div>
     </div>
   );
 }
@@ -137,6 +160,32 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
           : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
       }`}
     >
+      {label}
+    </button>
+  );
+}
+
+function TriStateChip({
+  label,
+  state,
+  onClick,
+}: {
+  label: string;
+  state: 'needs' | 'has' | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
+        state === 'needs'
+          ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
+          : state === 'has'
+            ? 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500'
+            : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+      }`}
+    >
+      {state && `${state[0].toUpperCase() + state.slice(1)} `}
       {label}
     </button>
   );
