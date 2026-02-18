@@ -20,8 +20,8 @@ export interface SessionState {
   reconnectAttempt: number;
 }
 
-const API_BASE = '/api';
-const WS_BASE = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
+const API_BASE = resolveApiBase();
+const WS_BASE = resolveWsBase();
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
 const STALE_TIMEOUT_MS = 45_000; // force-close if no message received in this window
@@ -34,6 +34,43 @@ const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
 interface PendingMutation {
   msg: ClientMessage;
   timer: ReturnType<typeof setTimeout> | null;
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+function normalizeBasePath(value: string): string {
+  const normalized = trimTrailingSlash(value.trim());
+  if (!normalized) return '';
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+}
+
+function resolveApiBase(): string {
+  const envBase = import.meta.env.VITE_API_BASE;
+  if (typeof envBase === 'string' && envBase.trim()) {
+    if (/^https?:\/\//i.test(envBase)) {
+      return trimTrailingSlash(envBase.trim());
+    }
+    return normalizeBasePath(envBase);
+  }
+  return '/api';
+}
+
+function resolveWsBase(): string {
+  const envBase = import.meta.env.VITE_WS_BASE;
+  if (typeof envBase === 'string' && envBase.trim()) {
+    if (/^wss?:\/\//i.test(envBase)) {
+      return trimTrailingSlash(envBase.trim());
+    }
+    if (typeof window !== 'undefined') {
+      return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${normalizeBasePath(envBase)}`;
+    }
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+  }
+  return '';
 }
 
 function loadPersistedSessionCode(): string | null {

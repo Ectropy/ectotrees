@@ -79,6 +79,26 @@ This setup serves static files from Nginx and proxies:
 - `/api/*` to the Node backend
 - `/ws` WebSocket upgrades to the Node backend
 
+### Host-agnostic endpoint configuration
+
+By default, the frontend is host agnostic:
+- API calls use `/api`
+- WebSocket uses the browser origin (`ws://<current-host>/ws` or `wss://<current-host>/ws`)
+
+If you need custom routing, set Vite env vars at build time:
+
+```bash
+# Example: API under a prefixed path on the same host
+VITE_API_BASE=/backend/api
+
+# Example: explicit WebSocket endpoint
+VITE_WS_BASE=wss://example.com/realtime
+```
+
+Notes:
+- `VITE_API_BASE` accepts either a full `http(s)://...` URL or a path like `/api`.
+- `VITE_WS_BASE` accepts either a full `ws(s)://...` URL or a path prefix on the current host.
+
 ## Multi-user sync
 
 1. One player clicks **Create Session** in the session bar at the top of the grid
