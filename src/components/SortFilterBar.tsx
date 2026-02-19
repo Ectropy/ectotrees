@@ -43,13 +43,7 @@ const SORT_BUTTONS: { mode: SortMode; label: string }[] = [
 export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filters, setFilters }: Props) {
   const handleSortClick = (mode: SortMode) => {
     if (mode === sortMode) {
-      // Health acts as a filter too — 3rd click deselects: asc → desc → off
-      if (mode === 'health' && !sortAsc) {
-        setSortMode('world');
-        setSortAsc(true);
-      } else {
-        setSortAsc(!sortAsc);
-      }
+      setSortAsc(!sortAsc);
     } else {
       setSortMode(mode);
       setSortAsc(true);

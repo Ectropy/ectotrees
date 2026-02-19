@@ -132,12 +132,6 @@ export default function App() {
             : state.treeType;
         if (!filters.treeTypes.includes(treeFilterKey)) return false;
       }
-      // Health sort: only show alive/mature worlds with known health
-      if (sortMode === 'health') {
-        const isAlive = state.treeStatus === 'mature' || state.treeStatus === 'alive';
-        if (!isAlive || state.treeHealth === undefined) return false;
-      }
-
       // Hint tri-state filter
       if (filters.hint !== null) {
         const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
@@ -237,12 +231,32 @@ export default function App() {
         }
 
         case 'health': {
-          cmp = (stateA.treeHealth ?? 0) - (stateB.treeHealth ?? 0) || a.id - b.id;
+          const hasHealthA = stateA.treeHealth !== undefined;
+          const hasHealthB = stateB.treeHealth !== undefined;
+          const aliveNoHealthA = !hasHealthA && (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive');
+          const aliveNoHealthB = !hasHealthB && (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive');
+          const bucketA = hasHealthA ? 0 : aliveNoHealthA ? 1 : 2;
+          const bucketB = hasHealthB ? 0 : aliveNoHealthB ? 1 : 2;
+
+          if (bucketA !== bucketB) {
+            cmp = bucketA - bucketB;
+            break;
+          }
+
+          if (bucketA === 0) {
+            cmp = sortAsc
+              ? ((stateA.treeHealth as number) - (stateB.treeHealth as number))
+              : ((stateB.treeHealth as number) - (stateA.treeHealth as number));
+            if (cmp === 0) cmp = a.id - b.id;
+          } else {
+            cmp = a.id - b.id;
+          }
           break;
         }
       }
 
       if (sortMode === 'soonest') return cmp;
+      if (sortMode === 'health') return cmp;
 
       return sortAsc ? cmp : -cmp;
     });
