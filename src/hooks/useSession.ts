@@ -18,6 +18,7 @@ export interface SessionState {
   clientCount: number;
   error: string | null;
   reconnectAttempt: number;
+  reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
 }
 
 const API_BASE = resolveApiBase();
@@ -25,7 +26,7 @@ const WS_BASE = resolveWsBase();
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;  // force-close if pong not received within this window after a ping
-const MAX_RECONNECT_ATTEMPTS = 10;
+export const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 
@@ -104,6 +105,7 @@ export function useSession(onSessionLost?: () => void) {
     clientCount: 0,
     error: null,
     reconnectAttempt: 0,
+    reconnectAt: null,
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -197,7 +199,7 @@ export function useSession(onSessionLost?: () => void) {
       if (wsRef.current !== ws) return;
       reconnectAttemptRef.current = 0;
       lastServerErrorRef.current = null;
-      setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0 }));
+      setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
 
       // Send local state to populate a newly created session
       if (initialStatesRef.current) {
@@ -275,7 +277,7 @@ export function useSession(onSessionLost?: () => void) {
           cleanup();
           codeRef.current = null;
           clearPending();
-          setSession({ status: 'disconnected', code: null, clientCount: 0, error: msg.reason, reconnectAttempt: 0 });
+          setSession({ status: 'disconnected', code: null, clientCount: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null });
           break;
       }
     };
@@ -315,6 +317,7 @@ export function useSession(onSessionLost?: () => void) {
           status: 'disconnected',
           code: null,
           reconnectAttempt: 0,
+          reconnectAt: null,
         }));
         return;
       }
@@ -332,6 +335,7 @@ export function useSession(onSessionLost?: () => void) {
           error: 'Unable to reconnect.',
           reconnectAttempt: attempt,
           code: lostCode,
+          reconnectAt: null,
         }));
         return;
       }
@@ -339,10 +343,11 @@ export function useSession(onSessionLost?: () => void) {
       // Attempt reconnect
       const delay = RECONNECT_DELAYS[Math.min(attempt, RECONNECT_DELAYS.length - 1)];
       reconnectAttemptRef.current = attempt + 1;
-      setSession(prev => ({ ...prev, status: 'connecting', reconnectAttempt: attempt + 1 }));
+      setSession(prev => ({ ...prev, status: 'connecting', reconnectAttempt: attempt + 1, reconnectAt: Date.now() + delay }));
       console.log(`Reconnect attempt ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
 
       reconnectTimerRef.current = setTimeout(() => {
+        setSession(prev => ({ ...prev, reconnectAt: null }));
         if (codeRef.current) {
           connectWs(codeRef.current);
         }
@@ -408,7 +413,7 @@ export function useSession(onSessionLost?: () => void) {
     persistSessionCode(null);
     reconnectAttemptRef.current = 0;
     clearPending();
-    setSession({ status: 'disconnected', code: null, clientCount: 0, error: null, reconnectAttempt: 0 });
+    setSession({ status: 'disconnected', code: null, clientCount: 0, error: null, reconnectAttempt: 0, reconnectAt: null });
   }, []);
 
   const rejoinSession = useCallback(async (code: string): Promise<boolean> => {

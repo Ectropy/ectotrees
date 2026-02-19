@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { SessionState } from '../hooks/useSession';
+import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 
 interface SessionBarProps {
   session: SessionState;
@@ -33,6 +34,21 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSe
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!session.reconnectAt) {
+      setCountdown(null);
+      return;
+    }
+    const tick = () => {
+      const secs = Math.ceil((session.reconnectAt! - Date.now()) / 1000);
+      setCountdown(secs > 0 ? secs : null);
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [session.reconnectAt]);
 
   async function handleCreate() {
     setLoading(true);
@@ -63,8 +79,10 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSe
 
   function getReconnectText(): string | null {
     if (session.status !== 'connecting' || session.reconnectAttempt === 0) return null;
-    if (session.reconnectAttempt >= 5) return 'Connection lost. Still trying...';
-    return `Reconnecting... (${session.reconnectAttempt})`;
+    const remaining = MAX_RECONNECT_ATTEMPTS - session.reconnectAttempt;
+    const suffix = remaining === 0 ? 'Last try' : `${remaining} ${remaining === 1 ? 'try' : 'tries'} left`;
+    if (countdown && countdown > 0) return `Connection lost. Retrying in ${countdown}s · ${suffix}`;
+    return `Connection lost. Attempting to reconnect… · ${suffix}`;
   }
 
   // Give-up state: disconnected but still has a code (can rejoin)
