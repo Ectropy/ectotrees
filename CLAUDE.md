@@ -36,6 +36,7 @@ server/
   index.ts              # Express 5 + WebSocket server entry point
   session.ts            # In-memory session management, auto-transitions, expiry
   validation.ts         # Input validation for all WebSocket messages
+  log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
   tsconfig.json         # Server-specific TypeScript config
 
 src/
@@ -114,14 +115,14 @@ Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by 
 `sapling` | `mature` (auto-transition, type unknown) | `tree` | `oak` | `willow` | `maple` | `yew` | `magic` | `elder`
 
 ### Sort & Filter Bar (SortFilterBar.tsx)
-The grid has a sort/filter bar with three sections:
-- **Sort buttons**: W#, Active, Spawn, Ending, Health, Favorite (with asc/desc toggle)
-- **Filter chips**: Favorite, Active, No data, P2P, F2P (boolean toggles; Active/No data are mutually exclusive, P2P/F2P are mutually exclusive)
+The grid has a sort/filter bar with four sections:
+- **Sort buttons**: W#, Soonest/Latest, Favorite, Health (with asc/desc toggle; clicking an active button toggles direction)
+  - `Soonest/Latest` sorts by the next relevant timestamp — ascending shows worlds ending/spawning soonest first, descending shows latest
+- **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive)
 - **Tree type filter chips**: Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
+- **Info tri-state filter chips**: Intel, Hint, Location, Health — each cycles through three states: off → **Needs** (show only worlds missing that info) → **Has** (show only worlds that have it)
 
 Tree type filters show only worlds with a matching confirmed tree type. The "Unknown" chip matches sapling, mature, and worlds with no confirmed type. When any tree type filter is active, inactive worlds (no data, no spawn) are hidden.
-
-The **Health** sort mode also acts as an implicit filter — worlds without a recorded `treeHealth` are hidden when this sort is active. Third click reverts to W# ascending.
 
 All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `evilTree_filters`).
 
@@ -152,6 +153,7 @@ Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3001` | TCP port the server listens on |
+| `LOG_TZ` | `America/New_York` | IANA timezone for server log timestamps (e.g. `UTC`, `Europe/London`) |
 
 ### REST Endpoints
 | Method | Path | Description |
@@ -166,13 +168,14 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 **Client → Server messages** (`ClientMessage`):
 | Type | Payload |
 |---|---|
-| `setSpawnTimer` | `worldId`, `msFromNow`, optional `treeInfo: { treeHint? }` |
-| `setTreeInfo` | `worldId`, `info: TreeInfoPayload` |
-| `updateTreeFields` | `worldId`, `fields: TreeFieldsPayload` |
-| `updateHealth` | `worldId`, `health: number \| undefined` |
-| `markDead` | `worldId` |
-| `clearWorld` | `worldId` |
-| `ping` | (no payload) |
+| `setSpawnTimer` | `worldId`, `msFromNow`, optional `treeInfo: { treeHint? }`, optional `msgId` |
+| `setTreeInfo` | `worldId`, `info: TreeInfoPayload`, optional `msgId` |
+| `updateTreeFields` | `worldId`, `fields: TreeFieldsPayload`, optional `msgId` |
+| `updateHealth` | `worldId`, `health: number \| undefined`, optional `msgId` |
+| `markDead` | `worldId`, optional `msgId` |
+| `clearWorld` | `worldId`, optional `msgId` |
+| `initializeState` | `worlds: WorldStates` — seeds a fresh session with the creator's local state (no `msgId`) |
+| `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):
 | Type | Payload |
@@ -180,6 +183,8 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 | `snapshot` | `worlds: WorldStates` — full state on connect |
 | `worldUpdate` | `worldId`, `state: WorldState \| null` (`null` = cleared) |
 | `clientCount` | `count: number` — broadcast on join/leave |
+| `ack` | `msgId: number` — confirms a mutation was applied |
+| `pong` | (no payload) — response to `ping` |
 | `error` | `message: string` |
 | `sessionClosed` | `reason: string` — sent before closing expired sessions |
 
@@ -203,11 +208,15 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 
 ## Client Sync Layer (`useSession.ts`)
 
-- `createSession()` — POST to `/api/session`, then connect WebSocket
+- `createSession(initialStates?)` — POST to `/api/session`, connect WebSocket, then send `initializeState` with the caller's local world state to seed the fresh session
 - `joinSession(code)` — GET to `/api/session/:code` to validate, then connect
+- `rejoinSession(code)` — same as `joinSession` but resets the reconnect counter (used by the UI's manual retry button)
 - `leaveSession()` — close WebSocket cleanly
-- Reconnection: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, capped at 30s
-- Application-level ping every 30s to keep connection alive
+- `dismissError()` — clear the current error state
+- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload
+- **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely
+- **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
+- **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
 
 ## Adding/Removing Worlds
