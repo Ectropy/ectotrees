@@ -309,6 +309,7 @@ export function useSession(onSessionLost?: () => void) {
 
       // Don't reconnect on fatal server rejections
       if (lastServerErrorRef.current && FATAL_ERRORS.has(lastServerErrorRef.current)) {
+        const fatalMessage = lastServerErrorRef.current;
         codeRef.current = null;
         persistSessionCode(null);
         clearPending();
@@ -316,6 +317,7 @@ export function useSession(onSessionLost?: () => void) {
           ...prev,
           status: 'disconnected',
           code: null,
+          error: fatalMessage,
           reconnectAttempt: 0,
           reconnectAt: null,
         }));

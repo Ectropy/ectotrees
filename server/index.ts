@@ -117,11 +117,6 @@ server.on('upgrade', (req, socket, head) => {
   }
 
   const session = getSession(code);
-  if (!session) {
-    socket.destroy();
-    return;
-  }
-
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit('connection', ws, req, session);
   });
@@ -129,7 +124,9 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>) => {
   if (!session) {
-    ws.close();
+    const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
+    ws.send(JSON.stringify(msg));
+    ws.close(1008, 'Session not found');
     return;
   }
   const activeSession = session;
