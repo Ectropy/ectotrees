@@ -140,7 +140,7 @@ export default function App() {
 
       // Hint tri-state filter
       if (filters.hint !== null) {
-        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
         const isWaitingForSpawn = state.nextSpawnTarget !== undefined;
         const hasHint = (isWaitingForSpawn && (!!state.treeHint || !!state.treeExactLocation)) ||
                         (isSpawned && !!state.treeExactLocation);
@@ -152,7 +152,7 @@ export default function App() {
 
       // Location tri-state filter
       if (filters.location !== null) {
-        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
         const hasLocation = isSpawned && !!state.treeExactLocation;
         const needsLocation = isSpawned && !state.treeExactLocation;
         if (filters.location === 'needs' && !needsLocation) return false;

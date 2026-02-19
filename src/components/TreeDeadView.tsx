@@ -36,7 +36,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
           <div className="bg-gray-800 border border-red-800 rounded p-6 text-center">
             <p className="text-lg text-gray-200 mb-2">Confirm: Tree is dead?</p>
             <p className="text-sm text-gray-400">
-              This will clear the current tree info and start the {deadMinutes}-minute reward window timer.
+              This will start the {deadMinutes}-minute reward window timer.
             </p>
           </div>
 
@@ -44,7 +44,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <h3 className="text-sm font-semibold text-gray-200 mb-2">What happens:</h3>
             <ul className="text-sm text-gray-300 space-y-1">
-              <li>✓ Removes the current tree type and location</li>
+              <li>✓ Keeps any known hint/location intel</li>
               <li>✓ Starts a {deadMinutes}-minute countdown for the reward window</li>
               <li>✓ After {deadMinutes} min, the tree status resets to "none"</li>
             </ul>
