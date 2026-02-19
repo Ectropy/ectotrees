@@ -410,6 +410,10 @@ export function useSession(onSessionLost?: () => void) {
 
   const leaveSession = useCallback(() => {
     intentionalCloseRef.current = true;
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'intentionally disconnected');
+      wsRef.current = null;
+    }
     cleanup();
     codeRef.current = null;
     persistSessionCode(null);
