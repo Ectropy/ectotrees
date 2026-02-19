@@ -27,10 +27,37 @@ function isActive(state: WorldState): boolean {
 const SORT_STORAGE_KEY = 'evilTree_sort';
 
 function normalizeSortMode(value: unknown): SortMode {
-  if (value === 'world' || value === 'soonest' || value === 'fav' || value === 'health') return value;
-  // Migrate legacy sorts to the consolidated urgency sort.
-  if (value === 'active' || value === 'spawn' || value === 'ending') return 'soonest';
-  return 'world';
+  return (value === 'world' || value === 'soonest' || value === 'fav' || value === 'health')
+    ? value
+    : 'world';
+}
+
+function normalizeFilters(value: unknown): Filters {
+  if (!value || typeof value !== 'object') return DEFAULT_FILTERS;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.favorites !== 'boolean' ||
+    typeof v.p2p !== 'boolean' ||
+    typeof v.f2p !== 'boolean' ||
+    !Array.isArray(v.treeTypes) ||
+    !v.treeTypes.every(t => typeof t === 'string') ||
+    (v.hint !== null && v.hint !== 'needs' && v.hint !== 'has') ||
+    (v.location !== null && v.location !== 'needs' && v.location !== 'has') ||
+    (v.health !== null && v.health !== 'needs' && v.health !== 'has') ||
+    (v.intel !== null && v.intel !== 'needs' && v.intel !== 'has')
+  ) {
+    return DEFAULT_FILTERS;
+  }
+  return {
+    favorites: v.favorites as boolean,
+    p2p: v.p2p as boolean,
+    f2p: v.f2p as boolean,
+    treeTypes: v.treeTypes as string[],
+    hint: v.hint as 'needs' | 'has' | null,
+    location: v.location as 'needs' | 'has' | null,
+    health: v.health as 'needs' | 'has' | null,
+    intel: v.intel as 'needs' | 'has' | null,
+  };
 }
 
 function loadSortPrefs(): { mode: SortMode; asc: boolean } {
@@ -49,7 +76,7 @@ const FILTER_STORAGE_KEY = 'evilTree_filters';
 function loadFilters(): Filters {
   try {
     const raw = localStorage.getItem(FILTER_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+    if (raw) return normalizeFilters(JSON.parse(raw));
   } catch { /* ignore */ }
   return DEFAULT_FILTERS;
 }
