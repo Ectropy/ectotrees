@@ -203,7 +203,14 @@ export default function App() {
           const bucketA = despawnA !== undefined ? 0 : endingA !== undefined ? 1 : saplingA !== undefined ? 2 : spawnA !== undefined ? 3 : 4;
           const bucketB = despawnB !== undefined ? 0 : endingB !== undefined ? 1 : saplingB !== undefined ? 2 : spawnB !== undefined ? 3 : 4;
           if (bucketA !== bucketB) {
-            cmp = bucketA - bucketB;
+            // In "soonest", urgency groups are dead -> ending -> sapling -> spawn.
+            // In "latest", reverse those groups to spawn -> sapling -> ending -> dead.
+            // Worlds with no relevant timers stay last in both directions.
+            if (bucketA === 4 || bucketB === 4) {
+              cmp = bucketA - bucketB;
+            } else {
+              cmp = sortAsc ? (bucketA - bucketB) : (bucketB - bucketA);
+            }
             break;
           }
 
