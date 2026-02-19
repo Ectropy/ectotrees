@@ -12,7 +12,7 @@ import { SessionBar } from './components/SessionBar';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
-import { ALIVE_DEAD_MS } from './constants/evilTree';
+import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -26,12 +26,19 @@ function isActive(state: WorldState): boolean {
 
 const SORT_STORAGE_KEY = 'evilTree_sort';
 
+function normalizeSortMode(value: unknown): SortMode {
+  if (value === 'world' || value === 'soonest' || value === 'fav' || value === 'health') return value;
+  // Migrate legacy sorts to the consolidated urgency sort.
+  if (value === 'active' || value === 'spawn' || value === 'ending') return 'soonest';
+  return 'world';
+}
+
 function loadSortPrefs(): { mode: SortMode; asc: boolean } {
   try {
     const raw = localStorage.getItem(SORT_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { mode: parsed.mode ?? 'world', asc: parsed.asc ?? true };
+      return { mode: normalizeSortMode(parsed.mode), asc: parsed.asc ?? true };
     }
   } catch { /* ignore */ }
   return { mode: 'world', asc: true };
@@ -145,38 +152,39 @@ export default function App() {
           cmp = a.id - b.id;
           break;
 
-        case 'active': {
-          const actA = isActive(stateA) ? 0 : 1;
-          const actB = isActive(stateB) ? 0 : 1;
-          cmp = actA - actB || a.id - b.id;
-          break;
-        }
+        case 'soonest': {
+          const despawnA = stateA.treeStatus === 'dead' && stateA.deadAt !== undefined
+            ? stateA.deadAt + DEAD_CLEAR_MS
+            : undefined;
+          const despawnB = stateB.treeStatus === 'dead' && stateB.deadAt !== undefined
+            ? stateB.deadAt + DEAD_CLEAR_MS
+            : undefined;
+          const endingA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
+            ? stateA.matureAt + ALIVE_DEAD_MS
+            : undefined;
+          const endingB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
+            ? stateB.matureAt + ALIVE_DEAD_MS
+            : undefined;
+          const saplingA = stateA.treeStatus === 'sapling' ? stateA.matureAt : undefined;
+          const saplingB = stateB.treeStatus === 'sapling' ? stateB.matureAt : undefined;
+          const spawnA = stateA.nextSpawnTarget;
+          const spawnB = stateB.nextSpawnTarget;
 
-        case 'spawn': {
-          const spA = stateA.nextSpawnTarget;
-          const spB = stateB.nextSpawnTarget;
-          if (spA !== undefined && spB !== undefined) {
-            cmp = spA - spB;
-          } else if (spA !== undefined) {
-            cmp = -1; // A has spawn, push to front
-          } else if (spB !== undefined) {
-            cmp = 1;  // B has spawn, push to front
-          } else {
-            cmp = a.id - b.id;
+          const bucketA = despawnA !== undefined ? 0 : endingA !== undefined ? 1 : saplingA !== undefined ? 2 : spawnA !== undefined ? 3 : 4;
+          const bucketB = despawnB !== undefined ? 0 : endingB !== undefined ? 1 : saplingB !== undefined ? 2 : spawnB !== undefined ? 3 : 4;
+          if (bucketA !== bucketB) {
+            cmp = bucketA - bucketB;
+            break;
           }
-          break;
-        }
 
-        case 'ending': {
-          const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
-            ? stateA.matureAt + ALIVE_DEAD_MS : undefined;
-          const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
-            ? stateB.matureAt + ALIVE_DEAD_MS : undefined;
-          if (deathA !== undefined && deathB !== undefined) {
-            cmp = deathA - deathB;
-          } else if (deathA !== undefined) {
+          const eventA = bucketA === 0 ? despawnA : bucketA === 1 ? endingA : bucketA === 2 ? saplingA : bucketA === 3 ? spawnA : undefined;
+          const eventB = bucketB === 0 ? despawnB : bucketB === 1 ? endingB : bucketB === 2 ? saplingB : bucketB === 3 ? spawnB : undefined;
+
+          if (eventA !== undefined && eventB !== undefined) {
+            cmp = sortAsc ? eventA - eventB : eventB - eventA;
+          } else if (eventA !== undefined) {
             cmp = -1;
-          } else if (deathB !== undefined) {
+          } else if (eventB !== undefined) {
             cmp = 1;
           } else {
             cmp = a.id - b.id;
@@ -197,20 +205,7 @@ export default function App() {
         }
       }
 
-      // For spawn/death: worlds without timers always go to end, so only flip
-      // the comparison for worlds that both have (or both lack) the relevant data
-      if (sortMode === 'spawn') {
-        const spA = stateA.nextSpawnTarget;
-        const spB = stateB.nextSpawnTarget;
-        if (spA !== undefined && spB !== undefined) return sortAsc ? cmp : -cmp;
-        return cmp; // keep "no timer" worlds at end regardless of direction
-      }
-      if (sortMode === 'ending') {
-        const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined;
-        const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined;
-        if (deathA && deathB) return sortAsc ? cmp : -cmp;
-        return cmp;
-      }
+      if (sortMode === 'soonest') return cmp;
 
       return sortAsc ? cmp : -cmp;
     });
