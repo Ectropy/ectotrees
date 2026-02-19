@@ -24,7 +24,7 @@ const API_BASE = resolveApiBase();
 const WS_BASE = resolveWsBase();
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
-const STALE_TIMEOUT_MS = 45_000; // force-close if no message received in this window
+const PING_ACK_TIMEOUT_MS = 8_000;  // force-close if pong not received within this window after a ping
 const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
@@ -114,7 +114,7 @@ export function useSession(onSessionLost?: () => void) {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeRef = useRef<string | null>(initialCode);
   const intentionalCloseRef = useRef(false);
   const lastServerErrorRef = useRef<string | null>(null);
@@ -145,9 +145,9 @@ export function useSession(onSessionLost?: () => void) {
       clearInterval(pingTimerRef.current);
       pingTimerRef.current = null;
     }
-    if (staleTimerRef.current) {
-      clearTimeout(staleTimerRef.current);
-      staleTimerRef.current = null;
+    if (pingAckTimerRef.current) {
+      clearTimeout(pingAckTimerRef.current);
+      pingAckTimerRef.current = null;
     }
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
@@ -158,16 +158,6 @@ export function useSession(onSessionLost?: () => void) {
       wsRef.current.close();
       wsRef.current = null;
     }
-  }
-
-  function resetStaleTimer(ws: WebSocket) {
-    if (staleTimerRef.current) clearTimeout(staleTimerRef.current);
-    staleTimerRef.current = setTimeout(() => {
-      // No message from server in STALE_TIMEOUT_MS — connection is likely dead
-      if (wsRef.current === ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    }, STALE_TIMEOUT_MS);
   }
 
   function replayPendingMutations() {
@@ -208,24 +198,30 @@ export function useSession(onSessionLost?: () => void) {
       reconnectAttemptRef.current = 0;
       lastServerErrorRef.current = null;
       setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0 }));
-      resetStaleTimer(ws);
 
       // Send local state to populate a newly created session
       if (initialStatesRef.current) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
       }
 
-      // Start ping interval
+      // Start ping interval with ACK timeout
       pingTimerRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
+          // Expect a pong back within PING_ACK_TIMEOUT_MS; if not, the connection is dead
+          if (pingAckTimerRef.current) clearTimeout(pingAckTimerRef.current);
+          pingAckTimerRef.current = setTimeout(() => {
+            pingAckTimerRef.current = null;
+            if (wsRef.current === ws && ws.readyState === WebSocket.OPEN) {
+              ws.close();
+            }
+          }, PING_ACK_TIMEOUT_MS);
         }
       }, PING_INTERVAL_MS);
     };
 
     ws.onmessage = (event) => {
       if (wsRef.current !== ws) return;
-      resetStaleTimer(ws);
       let msg: ServerMessage;
       try {
         msg = JSON.parse(event.data as string);
@@ -256,6 +252,10 @@ export function useSession(onSessionLost?: () => void) {
           setSession(prev => ({ ...prev, clientCount: msg.count }));
           break;
         case 'pong':
+          if (pingAckTimerRef.current) {
+            clearTimeout(pingAckTimerRef.current);
+            pingAckTimerRef.current = null;
+          }
           break;
         case 'ack': {
           const entry = pendingMutationsRef.current.get(msg.msgId);
@@ -288,9 +288,9 @@ export function useSession(onSessionLost?: () => void) {
         clearInterval(pingTimerRef.current);
         pingTimerRef.current = null;
       }
-      if (staleTimerRef.current) {
-        clearTimeout(staleTimerRef.current);
-        staleTimerRef.current = null;
+      if (pingAckTimerRef.current) {
+        clearTimeout(pingAckTimerRef.current);
+        pingAckTimerRef.current = null;
       }
       // Clear ACK timers (we'll replay on reconnect, not timeout again)
       for (const entry of pendingMutationsRef.current.values()) {
