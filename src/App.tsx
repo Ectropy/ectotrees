@@ -85,8 +85,8 @@ export default function App() {
       const active = isActive(state);
 
       if (filters.favorites && !favorites.has(w.id)) return false;
-      if (filters.active && !active) return false;
-      if (filters.noData && active) return false;
+      if (filters.intel === 'needs' && active) return false;
+      if (filters.intel === 'has' && !active) return false;
       if (filters.p2p && w.type !== 'P2P') return false;
       if (filters.f2p && w.type !== 'F2P') return false;
       if (filters.treeTypes.length > 0) {
@@ -103,8 +103,12 @@ export default function App() {
 
       // Hint tri-state filter
       if (filters.hint !== null) {
-        const hasHint = state.nextSpawnTarget !== undefined && !!state.treeHint;
-        const needsHint = state.nextSpawnTarget !== undefined && !state.treeHint;
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const isWaitingForSpawn = state.nextSpawnTarget !== undefined;
+        const hasHint = (isWaitingForSpawn && (!!state.treeHint || !!state.treeExactLocation)) ||
+                        (isSpawned && !!state.treeExactLocation);
+        const needsHint = (isWaitingForSpawn && !state.treeHint && !state.treeExactLocation) ||
+                          (isSpawned && !state.treeExactLocation);
         if (filters.hint === 'needs' && !needsHint) return false;
         if (filters.hint === 'has' && !hasHint) return false;
       }
