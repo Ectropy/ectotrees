@@ -12,7 +12,7 @@ import { SessionBar } from './components/SessionBar';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
-import { ALIVE_DEAD_MS } from './constants/evilTree';
+import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -26,12 +26,46 @@ function isActive(state: WorldState): boolean {
 
 const SORT_STORAGE_KEY = 'evilTree_sort';
 
+function normalizeSortMode(value: unknown): SortMode {
+  return (value === 'world' || value === 'soonest' || value === 'fav' || value === 'health')
+    ? value
+    : 'world';
+}
+
+function normalizeFilters(value: unknown): Filters {
+  if (!value || typeof value !== 'object') return DEFAULT_FILTERS;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.favorites !== 'boolean' ||
+    typeof v.p2p !== 'boolean' ||
+    typeof v.f2p !== 'boolean' ||
+    !Array.isArray(v.treeTypes) ||
+    !v.treeTypes.every(t => typeof t === 'string') ||
+    (v.hint !== null && v.hint !== 'needs' && v.hint !== 'has') ||
+    (v.location !== null && v.location !== 'needs' && v.location !== 'has') ||
+    (v.health !== null && v.health !== 'needs' && v.health !== 'has') ||
+    (v.intel !== null && v.intel !== 'needs' && v.intel !== 'has')
+  ) {
+    return DEFAULT_FILTERS;
+  }
+  return {
+    favorites: v.favorites as boolean,
+    p2p: v.p2p as boolean,
+    f2p: v.f2p as boolean,
+    treeTypes: v.treeTypes as string[],
+    hint: v.hint as 'needs' | 'has' | null,
+    location: v.location as 'needs' | 'has' | null,
+    health: v.health as 'needs' | 'has' | null,
+    intel: v.intel as 'needs' | 'has' | null,
+  };
+}
+
 function loadSortPrefs(): { mode: SortMode; asc: boolean } {
   try {
     const raw = localStorage.getItem(SORT_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { mode: parsed.mode ?? 'world', asc: parsed.asc ?? true };
+      return { mode: normalizeSortMode(parsed.mode), asc: parsed.asc ?? true };
     }
   } catch { /* ignore */ }
   return { mode: 'world', asc: true };
@@ -42,7 +76,7 @@ const FILTER_STORAGE_KEY = 'evilTree_filters';
 function loadFilters(): Filters {
   try {
     const raw = localStorage.getItem(FILTER_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+    if (raw) return normalizeFilters(JSON.parse(raw));
   } catch { /* ignore */ }
   return DEFAULT_FILTERS;
 }
@@ -98,24 +132,21 @@ export default function App() {
             : state.treeType;
         if (!filters.treeTypes.includes(treeFilterKey)) return false;
       }
-      // Health sort: only show worlds with known health
-      if (sortMode === 'health' && state.treeHealth === undefined) return false;
-
       // Hint tri-state filter
       if (filters.hint !== null) {
-        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
         const isWaitingForSpawn = state.nextSpawnTarget !== undefined;
         const hasHint = (isWaitingForSpawn && (!!state.treeHint || !!state.treeExactLocation)) ||
-                        (isSpawned && !!state.treeExactLocation);
+                        (isSpawned && (!!state.treeHint || !!state.treeExactLocation));
         const needsHint = (isWaitingForSpawn && !state.treeHint && !state.treeExactLocation) ||
-                          (isSpawned && !state.treeExactLocation);
+                          (isSpawned && !state.treeHint && !state.treeExactLocation);
         if (filters.hint === 'needs' && !needsHint) return false;
         if (filters.hint === 'has' && !hasHint) return false;
       }
 
       // Location tri-state filter
       if (filters.location !== null) {
-        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
         const hasLocation = isSpawned && !!state.treeExactLocation;
         const needsLocation = isSpawned && !state.treeExactLocation;
         if (filters.location === 'needs' && !needsLocation) return false;
@@ -145,38 +176,46 @@ export default function App() {
           cmp = a.id - b.id;
           break;
 
-        case 'active': {
-          const actA = isActive(stateA) ? 0 : 1;
-          const actB = isActive(stateB) ? 0 : 1;
-          cmp = actA - actB || a.id - b.id;
-          break;
-        }
+        case 'soonest': {
+          const despawnA = stateA.treeStatus === 'dead' && stateA.deadAt !== undefined
+            ? stateA.deadAt + DEAD_CLEAR_MS
+            : undefined;
+          const despawnB = stateB.treeStatus === 'dead' && stateB.deadAt !== undefined
+            ? stateB.deadAt + DEAD_CLEAR_MS
+            : undefined;
+          const endingA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
+            ? stateA.matureAt + ALIVE_DEAD_MS
+            : undefined;
+          const endingB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
+            ? stateB.matureAt + ALIVE_DEAD_MS
+            : undefined;
+          const saplingA = stateA.treeStatus === 'sapling' ? stateA.matureAt : undefined;
+          const saplingB = stateB.treeStatus === 'sapling' ? stateB.matureAt : undefined;
+          const spawnA = stateA.nextSpawnTarget;
+          const spawnB = stateB.nextSpawnTarget;
 
-        case 'spawn': {
-          const spA = stateA.nextSpawnTarget;
-          const spB = stateB.nextSpawnTarget;
-          if (spA !== undefined && spB !== undefined) {
-            cmp = spA - spB;
-          } else if (spA !== undefined) {
-            cmp = -1; // A has spawn, push to front
-          } else if (spB !== undefined) {
-            cmp = 1;  // B has spawn, push to front
-          } else {
-            cmp = a.id - b.id;
+          const bucketA = despawnA !== undefined ? 0 : endingA !== undefined ? 1 : saplingA !== undefined ? 2 : spawnA !== undefined ? 3 : 4;
+          const bucketB = despawnB !== undefined ? 0 : endingB !== undefined ? 1 : saplingB !== undefined ? 2 : spawnB !== undefined ? 3 : 4;
+          if (bucketA !== bucketB) {
+            // In "soonest", urgency groups are dead -> ending -> sapling -> spawn.
+            // In "latest", reverse those groups to spawn -> sapling -> ending -> dead.
+            // Worlds with no relevant timers stay last in both directions.
+            if (bucketA === 4 || bucketB === 4) {
+              cmp = bucketA - bucketB;
+            } else {
+              cmp = sortAsc ? (bucketA - bucketB) : (bucketB - bucketA);
+            }
+            break;
           }
-          break;
-        }
 
-        case 'ending': {
-          const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined
-            ? stateA.matureAt + ALIVE_DEAD_MS : undefined;
-          const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined
-            ? stateB.matureAt + ALIVE_DEAD_MS : undefined;
-          if (deathA !== undefined && deathB !== undefined) {
-            cmp = deathA - deathB;
-          } else if (deathA !== undefined) {
+          const eventA = bucketA === 0 ? despawnA : bucketA === 1 ? endingA : bucketA === 2 ? saplingA : bucketA === 3 ? spawnA : undefined;
+          const eventB = bucketB === 0 ? despawnB : bucketB === 1 ? endingB : bucketB === 2 ? saplingB : bucketB === 3 ? spawnB : undefined;
+
+          if (eventA !== undefined && eventB !== undefined) {
+            cmp = sortAsc ? eventA - eventB : eventB - eventA;
+          } else if (eventA !== undefined) {
             cmp = -1;
-          } else if (deathB !== undefined) {
+          } else if (eventB !== undefined) {
             cmp = 1;
           } else {
             cmp = a.id - b.id;
@@ -192,25 +231,32 @@ export default function App() {
         }
 
         case 'health': {
-          cmp = (stateA.treeHealth ?? 0) - (stateB.treeHealth ?? 0) || a.id - b.id;
+          const hasHealthA = stateA.treeHealth !== undefined;
+          const hasHealthB = stateB.treeHealth !== undefined;
+          const aliveNoHealthA = !hasHealthA && (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive');
+          const aliveNoHealthB = !hasHealthB && (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive');
+          const bucketA = hasHealthA ? 0 : aliveNoHealthA ? 1 : 2;
+          const bucketB = hasHealthB ? 0 : aliveNoHealthB ? 1 : 2;
+
+          if (bucketA !== bucketB) {
+            cmp = bucketA - bucketB;
+            break;
+          }
+
+          if (bucketA === 0) {
+            cmp = sortAsc
+              ? ((stateA.treeHealth as number) - (stateB.treeHealth as number))
+              : ((stateB.treeHealth as number) - (stateA.treeHealth as number));
+            if (cmp === 0) cmp = a.id - b.id;
+          } else {
+            cmp = a.id - b.id;
+          }
           break;
         }
       }
 
-      // For spawn/death: worlds without timers always go to end, so only flip
-      // the comparison for worlds that both have (or both lack) the relevant data
-      if (sortMode === 'spawn') {
-        const spA = stateA.nextSpawnTarget;
-        const spB = stateB.nextSpawnTarget;
-        if (spA !== undefined && spB !== undefined) return sortAsc ? cmp : -cmp;
-        return cmp; // keep "no timer" worlds at end regardless of direction
-      }
-      if (sortMode === 'ending') {
-        const deathA = (stateA.treeStatus === 'mature' || stateA.treeStatus === 'alive') && stateA.matureAt !== undefined;
-        const deathB = (stateB.treeStatus === 'mature' || stateB.treeStatus === 'alive') && stateB.matureAt !== undefined;
-        if (deathA && deathB) return sortAsc ? cmp : -cmp;
-        return cmp;
-      }
+      if (sortMode === 'soonest') return cmp;
+      if (sortMode === 'health') return cmp;
 
       return sortAsc ? cmp : -cmp;
     });

@@ -27,7 +27,12 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className="text-red-400 text-[11px] font-bold leading-tight">R.I.P.</div>
-        <div className="text-gray-400 text-[9px] leading-tight">
+        {locationLabel && (
+          <div className="text-gray-400 text-[9px] leading-tight truncate">
+            {locationLabel}
+          </div>
+        )}
+        <div className="text-red-400 text-[9px] leading-tight">
           {`Rewards avail. for <${formatMs(remaining)}`}
         </div>
       </div>
@@ -40,7 +45,7 @@ export function StatusSection({ state }: Props) {
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Sapling (unknown)';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-green-400 text-[10px] font-bold leading-tight">{label}</div>
+        <div className="text-cyan-400 text-[10px] font-bold leading-tight">{label}</div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}
@@ -61,7 +66,7 @@ export function StatusSection({ state }: Props) {
       : 'Mature';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-yellow-300 text-[10px] font-bold leading-tight">
+        <div className="text-emerald-400 text-[10px] font-bold leading-tight">
           {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
@@ -113,10 +118,16 @@ export function StatusSection({ state }: Props) {
     }
   }
 
-  return (
+  return locationLabel ? (
+    <div className="flex flex-col justify-center h-full">
+      <div className="text-gray-600 text-[9px] leading-tight">—</div>
+      <div className="text-gray-400 text-[9px] leading-tight truncate">
+        {locationLabel}
+      </div>
+    </div>
+  ) : (
     <div className="flex items-center h-full">
       <span className="text-gray-600 text-[9px]">—</span>
     </div>
   );
 }
-

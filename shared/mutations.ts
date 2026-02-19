@@ -41,6 +41,7 @@ export function applyTransitions(states: WorldStates, now: number): WorldStates 
         ...s,
         treeStatus: 'dead',
         deadAt: s.matureAt + ALIVE_DEAD_MS,
+        treeHealth: undefined,
         nextSpawnTarget: undefined,
         spawnSetAt: undefined,
       };
@@ -172,6 +173,7 @@ export function applyMarkDead(
       ...current,
       treeStatus: 'dead',
       deadAt: now,
+      treeHealth: undefined,
       nextSpawnTarget: undefined,
       spawnSetAt: undefined,
     },
