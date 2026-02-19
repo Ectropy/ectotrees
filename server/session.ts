@@ -3,6 +3,7 @@ import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
 import type { ServerMessage } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
+import { log, warn } from './log.ts';
 
 const MAX_SESSIONS = 1000;
 const MAX_CLIENTS_PER_SESSION = 1000;
@@ -169,14 +170,14 @@ function destroySession(session: Session) {
     ws.close();
     const forceCloseTimer = setTimeout(() => {
       if (ws.readyState !== 3) { // WebSocket.CLOSED
-        console.warn(`[session] Force-terminating client ${clientId} in ${session.code} after close timeout`);
+        warn(`[session] Force-terminating client ${clientId} in ${session.code} after close timeout`);
         ws.terminate();
       }
     }, 5_000);
     ws.once('close', (code, reasonBuffer) => {
       clearTimeout(forceCloseTimer);
       const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
-      console.log(`[session] Closed client ${clientId} in ${session.code} (code=${code}, reason="${reason}")`);
+      log(`[session] Closed client ${clientId} in ${session.code} (code=${code}, reason="${reason}")`);
     });
   }
   sessions.delete(session.code);
@@ -189,7 +190,7 @@ export function cleanupExpiredSessions() {
     const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
     if (inactiveExpired || emptyExpired) {
       destroySession(session);
-      console.log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
+      log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
     }
   }
 }

@@ -23,6 +23,7 @@ import {
   getSessionCount,
 } from './session.ts';
 import { validateMessage, validateSessionCode } from './validation.ts';
+import { log, warn } from './log.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const __filename = fileURLToPath(import.meta.url);
@@ -68,7 +69,7 @@ app.post('/api/session', (_req, res) => {
     return;
   }
 
-  console.log(`[session] Created ${result.code} (${getSessionCount()} active sessions)`);
+  log(`[session] Created ${result.code} (${getSessionCount()} active sessions)`);
   res.json({ code: result.code });
 });
 
@@ -135,14 +136,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
   const clientId = addClient(activeSession, ws);
   if (clientId === false) {
-    console.log(`[ws] Rejected connection to ${activeSession.code} (full, ${activeSession.clients.size} clients)`);
+    log(`[ws] Rejected connection to ${activeSession.code} (full, ${activeSession.clients.size} clients)`);
     const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
     ws.send(JSON.stringify(msg));
     ws.close();
     return;
   }
 
-  console.log(`[ws] Client ${clientId} connected to ${activeSession.code} (${activeSession.clients.size} clients)`);
+  log(`[ws] Client ${clientId} connected to ${activeSession.code} (${activeSession.clients.size} clients)`);
 
   // Heartbeat tracking
   let lastPong = Date.now();
@@ -167,7 +168,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   ws.on('message', (data) => {
     // Ignore (and close) sockets no longer tracked by this session.
     if (!activeSession.clients.has(ws)) {
-      console.warn(`[ws] Client ${clientId} sent message after removal from ${activeSession.code}; closing socket`);
+      warn(`[ws] Client ${clientId} sent message after removal from ${activeSession.code}; closing socket`);
       ws.close();
       return;
     }
@@ -212,14 +213,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   ws.on('close', (code, reasonBuffer) => {
     finalizeDisconnect();
     const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
-    console.log(
+    log(
       `[ws] Client ${clientId} disconnected from ${activeSession.code} `
       + `(code=${code}, reason="${reason}", tracked=${activeSession.clientIds.has(ws)}, ${activeSession.clients.size} clients)`,
     );
   });
 
   ws.on('error', (err) => {
-    console.log(
+    log(
       `[ws] Client ${clientId} error on ${activeSession.code}: ${err.message} `
       + `(readyState=${ws.readyState}, tracked=${activeSession.clientIds.has(ws)})`,
     );
@@ -242,14 +243,14 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'setSpawnTimer': {
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
     }
 
     case 'setTreeInfo': {
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
       const next = applySetTreeInfo(session.worldStates, msg.worldId, msg.info, now);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
@@ -257,7 +258,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
 
     case 'updateTreeFields': {
       const fields = Object.keys(msg.fields).join(', ');
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} updateTreeFields [${fields}]`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} updateTreeFields [${fields}]`);
       const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
@@ -266,7 +267,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'updateHealth': {
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
@@ -275,14 +276,14 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'markDead': {
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} markDead`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} markDead`);
       const next = applyMarkDead(session.worldStates, msg.worldId, now);
       updateWorldState(session, msg.worldId, next[msg.worldId]);
       break;
     }
 
     case 'clearWorld': {
-      console.log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
       updateWorldState(session, msg.worldId, null);
       break;
     }
@@ -295,7 +296,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
         break;
       }
       const count = Object.keys(msg.worlds).length;
-      console.log(`[session] ${session.code} ${c} initialized with data for ${count} worlds`);
+      log(`[session] ${session.code} ${c} initialized with data for ${count} worlds`);
       session.worldStates = msg.worlds;
       session.lastActivityAt = Date.now();
       break;
@@ -316,5 +317,5 @@ setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL_MS);
 // --- Start ---
 
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  log(`Server listening on port ${PORT} (log timezone: ${process.env.LOG_TZ ?? 'America/New_York'})`);
 });
