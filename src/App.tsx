@@ -132,8 +132,11 @@ export default function App() {
             : state.treeType;
         if (!filters.treeTypes.includes(treeFilterKey)) return false;
       }
-      // Health sort: only show worlds with known health
-      if (sortMode === 'health' && state.treeHealth === undefined) return false;
+      // Health sort: only show alive/mature worlds with known health
+      if (sortMode === 'health') {
+        const isAlive = state.treeStatus === 'mature' || state.treeStatus === 'alive';
+        if (!isAlive || state.treeHealth === undefined) return false;
+      }
 
       // Hint tri-state filter
       if (filters.hint !== null) {
