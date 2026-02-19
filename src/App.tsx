@@ -143,9 +143,9 @@ export default function App() {
         const isSpawned = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive' || state.treeStatus === 'dead';
         const isWaitingForSpawn = state.nextSpawnTarget !== undefined;
         const hasHint = (isWaitingForSpawn && (!!state.treeHint || !!state.treeExactLocation)) ||
-                        (isSpawned && !!state.treeExactLocation);
+                        (isSpawned && (!!state.treeHint || !!state.treeExactLocation));
         const needsHint = (isWaitingForSpawn && !state.treeHint && !state.treeExactLocation) ||
-                          (isSpawned && !state.treeExactLocation);
+                          (isSpawned && !state.treeHint && !state.treeExactLocation);
         if (filters.hint === 'needs' && !needsHint) return false;
         if (filters.hint === 'has' && !hasHint) return false;
       }
