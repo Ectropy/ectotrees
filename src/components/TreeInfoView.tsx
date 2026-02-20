@@ -28,14 +28,14 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const isStrangeSapling = treeType === 'sapling' || treeType.startsWith('sapling-');
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as const;
 
+  function resolveExactLocationFromHint(newHint: string): string {
+    const match = LOCATION_HINTS.find(h => h.hint === newHint);
+    return match?.locations.length === 1 ? match.locations[0] : '';
+  }
+
   function handleHintChange(newHint: string) {
     setHint(newHint);
-    const match = LOCATION_HINTS.find(h => h.hint === newHint);
-    if (match?.locations.length === 1) {
-      setExactLocation(match.locations[0]);
-    } else {
-      setExactLocation('');
-    }
+    setExactLocation(resolveExactLocationFromHint(newHint));
   }
 
   function handleSubmit(e: React.FormEvent) {

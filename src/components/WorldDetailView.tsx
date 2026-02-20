@@ -30,6 +30,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const inlineSelectClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
   const inlineInputClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
 
+  function resolveExactLocationFromHint(newHint: string): string | undefined {
+    const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
+    return match?.locations.length === 1 ? match.locations[0] : undefined;
+  }
+
   function commitField(fields: TreeFieldsPayload) {
     onUpdateFields(fields);
     setEditingField(null);
@@ -117,11 +122,9 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                           onChange={e => {
                             const newHint = e.target.value;
                             if (!newHint) { setEditingField(null); return; }
-                            const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
-                            const autoExact = match?.locations.length === 1 ? match.locations[0] : undefined;
                             commitField({
                               treeHint: newHint,
-                              ...(newHint !== state.treeHint ? { treeExactLocation: autoExact } : {}),
+                              treeExactLocation: resolveExactLocationFromHint(newHint),
                             });
                           }}
                           className={inlineSelectClass}
