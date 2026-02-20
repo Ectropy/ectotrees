@@ -7,9 +7,9 @@ import { log, warn } from './log.ts';
 
 const MAX_SESSIONS = 1000;
 const MAX_CLIENTS_PER_SESSION = 1000;
-const SESSION_INACTIVITY_MS = 130 * 60 * 1000; // 2 hours and 10 minutes. By this time even evil trees with the longest timers have spawned and died of natural (or unnatural) causes
-const EMPTY_SESSION_TTL_MS = 30 * 60 * 1000;       // 30 minutes
-const TRANSITION_INTERVAL_MS = 10_000;              // 10 seconds
+const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
+const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
 
 export interface Session {
   code: string;
