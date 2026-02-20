@@ -144,10 +144,12 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
   // Heartbeat tracking
   let lastPong = Date.now();
+  let serverCloseReason: string | null = null;
   ws.on('pong', () => { lastPong = Date.now(); });
 
   const heartbeatCheck = setInterval(() => {
     if (Date.now() - lastPong > HEARTBEAT_TIMEOUT_MS) {
+      serverCloseReason = 'heartbeat timeout (no pong)';
       ws.terminate();
       return;
     }
@@ -209,7 +211,8 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
   ws.on('close', (code, reasonBuffer) => {
     finalizeDisconnect();
-    const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
+    const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
+    const reason = rawReason || serverCloseReason || 'no reason';
     log(
       `[ws] Client ${clientId} disconnected from ${activeSession.code} `
       + `(code=${code}, reason="${reason}", tracked=${activeSession.clientIds.has(ws)}, ${activeSession.clients.size} clients)`,

@@ -161,13 +161,13 @@ export function updateWorldState(
   broadcast(session, { type: 'worldUpdate', worldId, state });
 }
 
-function destroySession(session: Session) {
+function destroySession(session: Session, closeReason: string) {
   clearInterval(session.transitionTimer);
   for (const ws of session.clients) {
     const clientId = session.clientIds.get(ws) ?? '?';
-    const msg: ServerMessage = { type: 'sessionClosed', reason: 'Session expired due to inactivity.' };
+    const msg: ServerMessage = { type: 'sessionClosed', reason: closeReason };
     ws.send(JSON.stringify(msg));
-    ws.close();
+    ws.close(1001, closeReason);
     const forceCloseTimer = setTimeout(() => {
       if (ws.readyState !== 3) { // WebSocket.CLOSED
         warn(`[session] Force-terminating client ${clientId} in ${session.code} after close timeout`);
@@ -176,7 +176,8 @@ function destroySession(session: Session) {
     }, 5_000);
     ws.once('close', (code, reasonBuffer) => {
       clearTimeout(forceCloseTimer);
-      const reason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : 'no reason';
+      const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
+      const reason = rawReason || closeReason;
       log(`[session] Closed client ${clientId} in ${session.code} (code=${code}, reason="${reason}")`);
     });
   }
@@ -189,7 +190,10 @@ export function cleanupExpiredSessions() {
     const inactiveExpired = now - session.lastActivityAt > SESSION_INACTIVITY_MS;
     const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
     if (inactiveExpired || emptyExpired) {
-      destroySession(session);
+      const closeReason = inactiveExpired
+        ? 'Session expired due to inactivity.'
+        : 'Session closed after being empty for 30 minutes.';
+      destroySession(session, closeReason);
       log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
     }
   }
