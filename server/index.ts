@@ -76,11 +76,13 @@ app.post('/api/session', (_req, res) => {
 app.get('/api/session/:code', (req, res) => {
   const code = validateSessionCode(req.params.code);
   if (!code) {
+    log(`[session] Lookup rejected for invalid code "${req.params.code}"`);
     res.status(400).json({ error: 'Invalid session code.' });
     return;
   }
   const session = getSession(code);
   if (!session) {
+    log(`[session] Lookup failed for ${code}: not found`);
     res.status(404).json({ error: 'Session not found.' });
     return;
   }
@@ -118,12 +120,13 @@ server.on('upgrade', (req, socket, head) => {
 
   const session = getSession(code);
   wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit('connection', ws, req, session);
+    wss.emit('connection', ws, req, session, code);
   });
 });
 
-wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>) => {
+wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string) => {
   if (!session) {
+    log(`[ws] Rejected connection to ${attemptedCode}: session not found`);
     const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
     ws.send(JSON.stringify(msg));
     ws.close(1008, 'Session not found');
