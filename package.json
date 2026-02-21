@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
-    "server:check": "npx tsc --noEmit -p server/tsconfig.json"
+    "server:check": "npx tsc --noEmit -p server/tsconfig.json",
+    "postversion": "git push --follow-tags"
   },
   "dependencies": {
     "@ncdai/react-wheel-picker": "^1.2.0",
