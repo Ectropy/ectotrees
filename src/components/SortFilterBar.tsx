@@ -75,64 +75,72 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
   const arrow = sortAsc ? '\u00A0▲' : '\u00A0▼';
 
   return (
-    <div className="flex items-center gap-3 px-2 py-1 bg-gray-800 rounded flex-shrink-0 flex-wrap">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-2 py-1 bg-gray-800 rounded flex-shrink-0 sm:flex-wrap">
       {/* Sort buttons */}
-      <div className="flex items-center gap-0.5">
-        <span className="text-[10px] text-gray-500 mr-1">Sort</span>
-        {SORT_BUTTONS.map(({ mode, label }) => (
-          <button
-            key={mode}
-            onClick={() => handleSortClick(mode)}
-            className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
-              sortMode === mode
-                ? 'bg-amber-700 text-white font-semibold'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            {mode === 'soonest' && sortMode === 'soonest'
-              ? (sortAsc ? 'Soonest' : 'Latest')
-              : `${label}${sortMode === mode ? arrow : ''}`}
-          </button>
-        ))}
+      <div className="flex items-start sm:items-center gap-0.5 min-w-0 w-full sm:w-auto">
+        <span className="text-[11px] text-gray-500 shrink-0 w-9 sm:w-auto sm:mr-1">Sort</span>
+        <div className="flex flex-wrap gap-0.5 min-w-0 flex-1 sm:flex-none">
+          {SORT_BUTTONS.map(({ mode, label }) => (
+            <button
+              key={mode}
+              onClick={() => handleSortClick(mode)}
+              className={`px-1.5 py-0.5 text-[11px] rounded transition-colors text-center ${
+                sortMode === mode
+                  ? 'bg-amber-700 text-white font-semibold'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {mode === 'soonest' && sortMode === 'soonest'
+                ? (sortAsc ? 'Soonest' : 'Latest')
+                : `${label}${sortMode === mode ? arrow : ''}`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Divider */}
       <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
 
       {/* Filter chips */}
-      <div className="flex items-center gap-0.5">
-        <span className="text-[10px] text-gray-500 mr-1">Filter</span>
-        <FilterChip label="Favorite" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
-        <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
-        <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
+      <div className="flex items-start sm:items-center gap-0.5 min-w-0 w-full sm:w-auto">
+        <span className="text-[11px] text-gray-500 shrink-0 w-9 sm:w-auto sm:mr-1">Filter</span>
+        <div className="flex flex-wrap gap-0.5 min-w-0 flex-1 sm:flex-none">
+          <FilterChip label="Favorite" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
+          <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
+          <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
+        </div>
       </div>
 
       {/* Divider */}
       <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
 
       {/* Tree type filter chips */}
-      <div className="flex items-center gap-0.5">
-        <span className="text-[10px] text-gray-500 mr-1">Tree</span>
-        {FILTERABLE_TREE_TYPES.map(({ key, label }) => (
-          <FilterChip
-            key={key}
-            label={label}
-            active={filters.treeTypes.includes(key)}
-            onClick={() => toggleTreeType(key)}
-          />
-        ))}
+      <div className="flex items-start sm:items-center gap-0.5 min-w-0 w-full sm:w-auto">
+        <span className="text-[11px] text-gray-500 shrink-0 w-9 sm:w-auto sm:mr-1">Tree</span>
+        <div className="flex flex-wrap gap-0.5 min-w-0 flex-1 sm:flex-none">
+          {FILTERABLE_TREE_TYPES.map(({ key, label }) => (
+            <FilterChip
+              key={key}
+              label={label}
+              active={filters.treeTypes.includes(key)}
+              onClick={() => toggleTreeType(key)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Divider */}
       <div className="w-px h-4 bg-gray-600 hidden min-[520px]:block" />
 
       {/* Tri-state info filter chips */}
-      <div className="flex items-center gap-0.5">
-        <span className="text-[10px] text-gray-500 mr-1">Info</span>
-        <TriStateChip label="Intel" state={filters.intel} onClick={() => cycleTriState('intel')} />
-        <TriStateChip label="Hint" state={filters.hint} onClick={() => cycleTriState('hint')} />
-        <TriStateChip label="Location" state={filters.location} onClick={() => cycleTriState('location')} />
-        <TriStateChip label="Health" state={filters.health} onClick={() => cycleTriState('health')} />
+      <div className="flex items-start sm:items-center gap-0.5 min-w-0 w-full sm:w-auto">
+        <span className="text-[11px] text-gray-500 shrink-0 w-9 sm:w-auto sm:mr-1">Info</span>
+        <div className="flex flex-wrap gap-0.5 min-w-0 flex-1 sm:flex-none">
+          <TriStateChip label="Intel" state={filters.intel} onClick={() => cycleTriState('intel')} />
+          <TriStateChip label="Hint" state={filters.hint} onClick={() => cycleTriState('hint')} />
+          <TriStateChip label="Location" state={filters.location} onClick={() => cycleTriState('location')} />
+          <TriStateChip label="Health" state={filters.health} onClick={() => cycleTriState('health')} />
+        </div>
       </div>
     </div>
   );
@@ -142,7 +150,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button
       onClick={onClick}
-      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
+      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors text-center ${
         active
           ? 'bg-blue-700 text-white font-semibold'
           : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -165,7 +173,7 @@ function TriStateChip({
   return (
     <button
       onClick={onClick}
-      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
+      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors text-center ${
         state === 'needs'
           ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
           : state === 'has'
