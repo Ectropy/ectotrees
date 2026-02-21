@@ -81,6 +81,8 @@ function loadFilters(): Filters {
   return DEFAULT_FILTERS;
 }
 
+const APP_VERSION = __APP_VERSION__;
+
 export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
@@ -321,6 +323,7 @@ export default function App() {
 
   // Grid view
   return (
+    <>
     <div className="flex flex-col min-h-screen p-1.5 gap-1.5">
       <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
         <h1 className="text-base font-bold text-amber-400 tracking-wide">
@@ -382,5 +385,11 @@ export default function App() {
         </main>
       )}
     </div>
+    <footer className="sticky bottom-0 px-2 py-1 bg-gray-800 flex-shrink-0">
+      <div className="flex justify-end">
+        <span className="text-[10px] text-gray-500">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+      </div>
+    </footer>
+    </>
   );
 }
