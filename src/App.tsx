@@ -386,7 +386,7 @@ export default function App() {
       )}
     </div>
     <footer className="sticky bottom-0 px-2 py-1 bg-gray-800 flex-shrink-0">
-      <div className="flex justify-end">
+      <div className="flex justify-center sm:justify-end">
         <span className="text-[10px] text-gray-500">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
       </div>
     </footer>
