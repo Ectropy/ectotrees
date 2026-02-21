@@ -104,6 +104,19 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'initializeState', worlds: result };
   }
 
+  if (type === 'contributeWorlds') {
+    let msgId: number | undefined;
+    if (raw.msgId !== undefined) {
+      if (typeof raw.msgId !== 'number' || !Number.isInteger(raw.msgId) || raw.msgId <= 0) {
+        return { error: 'Invalid msgId.' };
+      }
+      msgId = raw.msgId;
+    }
+    const result = validateInitializeState(raw);
+    if ('error' in result) return result;
+    return { type: 'contributeWorlds', worlds: result, msgId };
+  }
+
   // Optional msgId for ACK tracking
   let msgId: number | undefined;
   if (raw.msgId !== undefined) {

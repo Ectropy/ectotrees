@@ -93,9 +93,22 @@ export default function App() {
   saveToLocalStorageRef.current = saveToLocalStorage;
   const { favorites, toggleFavorite } = useFavorites();
 
+  const worldStatesRef = useRef(worldStates);
+  worldStatesRef.current = worldStates;
+
   const handleCreateSession = useCallback(() => {
-    return createSession(worldStates);
-  }, [createSession, worldStates]);
+    return createSession(worldStatesRef.current);
+  }, [createSession]);
+
+  const handleJoinSession = useCallback(async (code: string, contribute?: boolean): Promise<boolean> => {
+    return joinSession(code, contribute ? worldStatesRef.current : undefined);
+  }, [joinSession]);
+
+  const activeLocalCount = useMemo(() => {
+    return Object.values(worldStates).filter(
+      s => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
+    ).length;
+  }, [worldStates]);
 
   const handleLeaveSession = useCallback(() => {
     saveToLocalStorage();
@@ -335,8 +348,9 @@ export default function App() {
 
       <SessionBar
         session={session}
+        activeLocalCount={activeLocalCount}
         onCreateSession={handleCreateSession}
-        onJoinSession={joinSession}
+        onJoinSession={handleJoinSession}
         onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}
         onDismissError={dismissError}

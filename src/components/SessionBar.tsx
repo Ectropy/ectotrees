@@ -4,8 +4,9 @@ import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 
 interface SessionBarProps {
   session: SessionState;
+  activeLocalCount: number;
   onCreateSession: () => Promise<string | null>;
-  onJoinSession: (code: string) => Promise<boolean>;
+  onJoinSession: (code: string, contribute?: boolean) => Promise<boolean>;
   onRejoinSession: (code: string) => Promise<boolean>;
   onLeaveSession: () => void;
   onDismissError: () => void;
@@ -29,9 +30,10 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSession, onLeaveSession, onDismissError }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRejoinSession, onLeaveSession, onDismissError }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -59,12 +61,28 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSe
   async function handleJoin() {
     const code = joinCode.trim().toUpperCase();
     if (code.length !== 6) return;
+    if (activeLocalCount > 0) {
+      setPendingJoinCode(code);
+      return;
+    }
     setLoading(true);
     const ok = await onJoinSession(code);
     setLoading(false);
     if (ok) {
       setJoinCode('');
       setShowJoinInput(false);
+    }
+  }
+
+  async function handleJoinWithStrategy(contribute: boolean) {
+    if (!pendingJoinCode) return;
+    setLoading(true);
+    const ok = await onJoinSession(pendingJoinCode, contribute);
+    setLoading(false);
+    if (ok) {
+      setJoinCode('');
+      setShowJoinInput(false);
+      setPendingJoinCode(null);
     }
   }
 
@@ -158,7 +176,37 @@ export function SessionBar({ session, onCreateSession, onJoinSession, onRejoinSe
         {loading ? '...' : 'Create Session'}
       </button>
 
-      {showJoinInput ? (
+      {pendingJoinCode ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-gray-300 text-[10px]">
+            You have local data for {activeLocalCount} world{activeLocalCount !== 1 ? 's' : ''}. Join session how?
+          </span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              onClick={() => handleJoinWithStrategy(true)}
+              disabled={loading}
+              className="px-2 py-0.5 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white rounded transition-colors"
+              title="Add your scouted worlds to the session"
+            >
+              {loading ? '...' : 'Contribute my intel'}
+            </button>
+            <button
+              onClick={() => handleJoinWithStrategy(false)}
+              disabled={loading}
+              className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded transition-colors"
+            >
+              {loading ? '...' : 'Discard my intel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingJoinCode(null)}
+              className="text-gray-400 hover:text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : showJoinInput ? (
         <form
           className="flex items-center gap-1"
           onSubmit={(e) => { e.preventDefault(); handleJoin(); }}

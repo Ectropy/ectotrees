@@ -124,6 +124,7 @@ export function useSession(onSessionLost?: () => void) {
   const snapshotReceivedRef = useRef(false);
   const pendingSnapshotRef = useRef<WorldStates | null>(null);
   const initialStatesRef = useRef<WorldStates | null>(null);
+  const joinMergeStatesRef = useRef<WorldStates | null>(null);
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
 
@@ -233,11 +234,33 @@ export function useSession(onSessionLost?: () => void) {
 
       switch (msg.type) {
         case 'snapshot': {
-          // When creating a session, merge local state over the empty server snapshot
-          const worlds = initialStatesRef.current
-            ? { ...msg.worlds, ...initialStatesRef.current }
-            : msg.worlds;
-          initialStatesRef.current = null;
+          let worlds: WorldStates;
+          let toContribute: WorldStates | null = null;
+
+          if (initialStatesRef.current) {
+            // Creating a session: seed with local state (local wins over empty snapshot)
+            worlds = { ...msg.worlds, ...initialStatesRef.current };
+            initialStatesRef.current = null;
+          } else if (joinMergeStatesRef.current) {
+            // Joining with local data: server wins conflicts, local fills gaps
+            const local = joinMergeStatesRef.current;
+            joinMergeStatesRef.current = null;
+            worlds = { ...local, ...msg.worlds };
+            // Find local-only active worlds to contribute to the session
+            const localOnly = Object.fromEntries(
+              Object.entries(local).filter(
+                ([id, s]) =>
+                  (s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined) &&
+                  !(Number(id) in msg.worlds)
+              )
+            ) as WorldStates;
+            if (Object.keys(localOnly).length > 0) {
+              toContribute = localOnly;
+            }
+          } else {
+            worlds = msg.worlds;
+          }
+
           if (handlersRef.current) {
             handlersRef.current.onSnapshot(worlds);
           } else {
@@ -245,6 +268,10 @@ export function useSession(onSessionLost?: () => void) {
           }
           snapshotReceivedRef.current = true;
           replayPendingMutations();
+          // Contribute after replay so it isn't caught up in the replay sweep
+          if (toContribute) {
+            sendMutation({ type: 'contributeWorlds', worlds: toContribute });
+          }
           break;
         }
         case 'worldUpdate':
@@ -385,7 +412,7 @@ export function useSession(onSessionLost?: () => void) {
     }
   }, []);
 
-  const joinSession = useCallback(async (code: string): Promise<boolean> => {
+  const joinSession = useCallback(async (code: string, localStates?: WorldStates): Promise<boolean> => {
     setSession(prev => ({ ...prev, error: null }));
     // Validate the session exists before connecting
     try {
@@ -400,6 +427,7 @@ export function useSession(onSessionLost?: () => void) {
       return false;
     }
 
+    joinMergeStatesRef.current = localStates ?? null;
     codeRef.current = code;
     persistSessionCode(code);
     clearPending();

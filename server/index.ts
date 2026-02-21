@@ -177,7 +177,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
     // Size check (allow larger messages for initializeState)
     const raw = data.toString();
-    const sizeLimit = raw.includes('"initializeState"') ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
+    const sizeLimit = (raw.includes('"initializeState"') || raw.includes('"contributeWorlds"')) ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
     if (raw.length > sizeLimit) {
       const msg: ServerMessage = { type: 'error', message: 'Message too large.' };
       ws.send(JSON.stringify(msg));
@@ -302,6 +302,18 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       log(`[session] ${session.code} ${c} initialized with data for ${count} worlds`);
       session.worldStates = msg.worlds;
       session.lastActivityAt = Date.now();
+      break;
+    }
+
+    case 'contributeWorlds': {
+      const entries = Object.entries(msg.worlds);
+      const toAdd = entries.filter(([id]) => !(Number(id) in session.worldStates));
+      const addedIds = toAdd.map(([id]) => `W${id}`).join(', ');
+      const skipped = entries.length - toAdd.length;
+      log(`[mutation] ${session.code} ${c} contributeWorlds: ${toAdd.length}/${entries.length} added${addedIds ? ` [${addedIds}]` : ''}${skipped > 0 ? ` (${skipped} skipped, already present)` : ''}`);
+      for (const [id, state] of toAdd) {
+        updateWorldState(session, Number(id), state);
+      }
       break;
     }
   }
