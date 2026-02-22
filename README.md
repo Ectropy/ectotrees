@@ -166,7 +166,7 @@ Notes:
 
 ## Tech stack
 
-- React 18 + TypeScript + Vite 5
+- React 18 + TypeScript + Vite 7
 - Tailwind CSS v3
 - Express 5 + ws (WebSocket server)
 - Shared TypeScript types and mutation logic between client and server (`shared/`)

@@ -4,7 +4,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 ## Tech Stack
 
-- **React 18** + **TypeScript** + **Vite 5**
+- **React 18** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
