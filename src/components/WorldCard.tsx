@@ -19,6 +19,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
 
   return (
     <div
+      data-testid={`world-card-${world.id}`}
       className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer`}
       style={{ height: '85px' }}
       onClick={onCardClick}

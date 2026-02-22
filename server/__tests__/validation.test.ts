@@ -79,7 +79,7 @@ describe('validateMessage — structural checks', () => {
   it('accepts a valid positive integer msgId', () => {
     const result = validateMessage({ type: 'markDead', worldId: W, msgId: 42 });
     expect(result).not.toHaveProperty('error');
-    if (!('error' in result)) expect(result.msgId).toBe(42);
+    if (!('error' in result) && result.type === 'markDead') expect(result.msgId).toBe(42);
   });
 });
 

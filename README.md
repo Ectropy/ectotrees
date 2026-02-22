@@ -44,7 +44,7 @@ Edit [src/data/worlds.json](src/data/worlds.json) to add or remove worlds:
 
 ## Getting started
 
-**Prerequisites:** Node.js 18+
+**Prerequisites:** Node.js 24+ (use `nvm use` if you have nvm — the project includes a `.nvmrc`)
 
 ```bash
 # Install dependencies
@@ -76,6 +76,9 @@ npm run build          # production build (output in dist/)
 npm run lint           # run ESLint
 npx tsc --noEmit       # type-check client
 npm run server:check   # type-check server
+npm test               # unit tests (Vitest — mutations, validation)
+npm run test:e2e       # E2E tests (Playwright — auto-starts dev server)
+npm run test:e2e:ui    # Playwright visual UI for debugging tests
 ```
 
 ## Local Docker (beginner quick start)

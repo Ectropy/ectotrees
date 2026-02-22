@@ -8,7 +8,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 - **Tailwind CSS v3** (not v4)
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
-- Node 18.x (v18.16.1 on this machine — some ESLint packages warn about engine mismatch, ignore those)
+- Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
 
 ## Commands
 
@@ -20,6 +20,10 @@ npm run lint         # eslint
 npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
 npm run server:check # type-check server only (npx tsc --noEmit -p server/tsconfig.json)
+npm test             # run vitest unit tests (mutations + validation)
+npm run test:watch   # vitest in watch mode
+npm run test:e2e     # run Playwright E2E tests (auto-starts dev server)
+npm run test:e2e:ui  # Playwright visual test runner UI
 ```
 
 In development, run `npm run server` and `npm run dev` in two terminals. Vite proxies `/api` and `/ws` to `localhost:3001`.
@@ -31,13 +35,20 @@ shared/
   types.ts              # Single source of truth: TreeType, WorldState, timing constants
   protocol.ts           # WebSocket message types (ClientMessage, ServerMessage)
   mutations.ts          # Pure state mutation functions (used by both client and server)
+  __tests__/
+    mutations.test.ts   # Vitest unit tests for all mutation functions
 
 server/
   index.ts              # Express 5 + WebSocket server entry point
   session.ts            # In-memory session management, auto-transitions, expiry
   validation.ts         # Input validation for all WebSocket messages
   log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
-  tsconfig.json         # Server-specific TypeScript config
+  tsconfig.json         # Server-specific TypeScript config (target: ESNext)
+  __tests__/
+    validation.test.ts  # Vitest unit tests for validateMessage, validateInitializeState
+
+e2e/
+  app.spec.ts           # Playwright E2E tests: grid render, spawn timer, tree info, mark dead, detail view
 
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
@@ -107,7 +118,7 @@ Client checks every 1 second (for smooth countdown display), server checks every
 - **Sapling → Mature**: 5 minutes after `treeSetAt`
 - **Mature/Alive → Dead**: 30 minutes after `matureAt`
 - **Dead → None**: 10 minutes after `deadAt` (fallen tree reward window)
-- **Spawned → None**: 35 minutes after `nextSpawnTarget` (clears "Spawned!" notification)
+- **Spawn timer fires**: when `now >= nextSpawnTarget`, the world transitions to `treeStatus: 'sapling'` (treeType `sapling`, treeSetAt = nextSpawnTarget)
 
 Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by client and server.
 
