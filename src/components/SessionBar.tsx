@@ -12,10 +12,16 @@ interface SessionBarProps {
   onDismissError: () => void;
 }
 
-const STATUS_COLORS: Record<SessionState['status'], string> = {
+const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
   connected: 'bg-green-500',
   connecting: 'bg-yellow-500 animate-pulse',
   disconnected: 'bg-red-500',
+};
+
+const STATUS_TEXT_COLORS: Record<SessionState['status'], string> = {
+  connected: 'text-green-500 hover:text-green-400',
+  connecting: 'text-yellow-500 hover:text-yellow-400',
+  disconnected: 'text-red-500 hover:text-red-400',
 };
 
 function DismissableError({ message, onDismiss }: { message: string; onDismiss: () => void }) {
@@ -88,11 +94,50 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleCopyCode() {
     if (!session.code) return;
+
+    // Check if we're in a secure context (HTTPS or localhost)
+    const secure = window.isSecureContext;
+    if (!secure) {
+      console.warn('[clipboard] Not a secure context — navigator.clipboard API is unavailable.',
+        'Browsers require HTTPS or localhost for clipboard access.',
+        'Current origin:', window.location.origin);
+    }
+
+    // Try the modern Clipboard API first
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(session.code);
+        console.log('[clipboard] Copied session code via Clipboard API');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch (err) {
+        console.error('[clipboard] Clipboard API writeText failed:', err);
+      }
+    } else {
+      console.warn('[clipboard] navigator.clipboard.writeText is not available');
+    }
+
+    // Fallback: use the legacy execCommand('copy') approach
     try {
-      await navigator.clipboard.writeText(session.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* ignore */ }
+      const textarea = document.createElement('textarea');
+      textarea.value = session.code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) {
+        console.log('[clipboard] Copied session code via execCommand fallback');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        console.error('[clipboard] execCommand("copy") returned false');
+      }
+    } catch (err) {
+      console.error('[clipboard] execCommand fallback failed:', err);
+    }
   }
 
   function getReconnectText(): string | null {
@@ -112,22 +157,22 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_COLORS[session.status]}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
 
         {reconnectText && (
-          <span className="text-yellow-400 text-[10px] flex-shrink-0">{reconnectText}</span>
+          <span className={`${STATUS_TEXT_COLORS[session.status]} text-[10px] flex-shrink-0`}>{reconnectText}</span>
         )}
 
         {canRejoin && (
-          <span className="text-red-500 text-[10px] flex-shrink-0">
+          <span className={`${STATUS_TEXT_COLORS[session.status]} text-[10px] flex-shrink-0`}>
             Disconnected.
           </span>
         )}
 
-        <span className="text-gray-400">Session:</span>
+        <span className={`${STATUS_TEXT_COLORS[session.status]} opacity-60`}>Session:</span>
         <button
           onClick={handleCopyCode}
-          className="font-mono font-bold text-amber-400 hover:text-amber-300 transition-colors"
+          className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} transition-colors`}
           title="Copy session code"
         >
           {session.code}
@@ -156,7 +201,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {(
           <button
             onClick={onLeaveSession}
-            className="ml-auto text-red-400 hover:text-red-300 transition-colors"
+            className="ml-auto text-red-500 hover:text-red-400 transition-colors"
           >
             Leave
           </button>
