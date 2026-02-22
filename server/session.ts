@@ -174,11 +174,8 @@ function destroySession(session: Session, closeReason: string) {
         ws.terminate();
       }
     }, 5_000);
-    ws.once('close', (code, reasonBuffer) => {
+    ws.once('close', () => {
       clearTimeout(forceCloseTimer);
-      const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
-      const reason = rawReason || closeReason;
-      log(`[session] Closed client ${clientId} in ${session.code} (code=${code}, reason="${reason}")`);
     });
   }
   sessions.delete(session.code);
@@ -190,15 +187,20 @@ export function cleanupExpiredSessions() {
     const inactiveExpired = now - session.lastActivityAt > SESSION_INACTIVITY_MS;
     const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
     if (inactiveExpired || emptyExpired) {
-      const closeReason = inactiveExpired
-        ? 'Session expired due to inactivity.'
-        : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 60_000} minutes.`;
-      destroySession(session, closeReason);
-      log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
+      const closeReason = inactiveExpired ? 'inactive 24h' : 'empty 60min';
+      const clientCount = session.clients.size;
+      destroySession(session, inactiveExpired ? 'Session expired due to inactivity.' : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 60_000} minutes.`);
+      log(`[session] Destroyed ${session.code} — ${closeReason} (${clientCount} clients disconnected, ${getSessionCount()} sessions active)`);
     }
   }
 }
 
 export function getSessionCount(): number {
   return sessions.size;
+}
+
+export function getTotalClientCount(): number {
+  let total = 0;
+  for (const session of sessions.values()) total += session.clients.size;
+  return total;
 }

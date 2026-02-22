@@ -21,6 +21,7 @@ import {
   updateWorldState,
   cleanupExpiredSessions,
   getSessionCount,
+  getTotalClientCount,
 } from './session.ts';
 import { validateMessage, validateSessionCode } from './validation.ts';
 import { log, warn } from './log.ts';
@@ -90,7 +91,20 @@ app.get('/api/session/:code', (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, sessions: getSessionCount() });
+  const uptimeSeconds = Math.floor(process.uptime());
+  const h = Math.floor(uptimeSeconds / 3600);
+  const m = Math.floor((uptimeSeconds % 3600) / 60);
+  const s = uptimeSeconds % 60;
+  const uptimeHuman = h > 0
+    ? `${h}h ${m}m ${s}s`
+    : m > 0 ? `${m}m ${s}s` : `${s}s`;
+  res.json({
+    ok: true,
+    uptimeSeconds,
+    uptime: uptimeHuman,
+    sessions: getSessionCount(),
+    clients: getTotalClientCount(),
+  });
 });
 
 if (fs.existsSync(DIST_DIR)) {
@@ -126,7 +140,7 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string) => {
   if (!session) {
-    log(`[ws] Rejected connection to ${attemptedCode}: session not found`);
+    log(`[connect] Rejected — session ${attemptedCode} not found`);
     const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
     ws.send(JSON.stringify(msg));
     ws.close(1008, 'Session not found');
@@ -136,14 +150,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
   const clientId = addClient(activeSession, ws);
   if (clientId === false) {
-    log(`[ws] Rejected connection to ${activeSession.code} (full, ${activeSession.clients.size} clients)`);
+    log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
     const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
     ws.send(JSON.stringify(msg));
     ws.close();
     return;
   }
 
-  log(`[ws] Client ${clientId} connected to ${activeSession.code} (${activeSession.clients.size} clients)`);
+  log(`[connect] Client ${clientId} joined ${activeSession.code} — ${activeSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
 
   // Heartbeat tracking
   let lastPong = Date.now();
@@ -170,7 +184,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   ws.on('message', (data) => {
     // Ignore (and close) sockets no longer tracked by this session.
     if (!activeSession.clients.has(ws)) {
-      warn(`[ws] Client ${clientId} sent message after removal from ${activeSession.code}; closing socket`);
+      warn(`[error] Client ${clientId} sent message after removal from ${activeSession.code} — closing`);
       ws.close();
       return;
     }
@@ -212,21 +226,16 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     handleMessage(activeSession, validated, ws, clientId);
   });
 
-  ws.on('close', (code, reasonBuffer) => {
+  ws.on('close', (_code, reasonBuffer) => {
     finalizeDisconnect();
     const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
-    const reason = rawReason || serverCloseReason || 'no reason';
-    log(
-      `[ws] Client ${clientId} disconnected from ${activeSession.code} `
-      + `(code=${code}, reason="${reason}", tracked=${activeSession.clientIds.has(ws)}, ${activeSession.clients.size} clients)`,
-    );
+    const reason = rawReason || serverCloseReason || '';
+    const suffix = reason ? ` — ${reason}` : '';
+    log(`[disconnect] Client ${clientId} left ${activeSession.code}${suffix} — ${activeSession.clients.size} remaining in session, ${getTotalClientCount()} clients across all sessions`);
   });
 
   ws.on('error', (err) => {
-    log(
-      `[ws] Client ${clientId} error on ${activeSession.code}: ${err.message} `
-      + `(readyState=${ws.readyState}, tracked=${activeSession.clientIds.has(ws)})`,
-    );
+    log(`[error] Client ${clientId} on ${activeSession.code}: ${err.message}`);
     // Ensure close runs promptly so cleanup and UI updates are not delayed.
     if (ws.readyState !== 3) { // WebSocket.CLOSED
       ws.terminate();
@@ -334,3 +343,10 @@ setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL_MS);
 server.listen(PORT, () => {
   log(`Server listening on port ${PORT} (log timezone: ${process.env.LOG_TZ ?? 'America/New_York'})`);
 });
+
+function shutdown(signal: string) {
+  log(`${signal} — shutting down (${getSessionCount()} sessions destroyed, ${getTotalClientCount()} clients disconnected)`);
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
