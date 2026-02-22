@@ -30,7 +30,9 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
-Session limits: max 50 concurrent sessions, max 20 clients per session. Sessions expire after 2 hours of inactivity or 30 minutes with no connected clients.
+Session limits: max 1000 concurrent sessions, max 1000 clients per session. Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
+
+> **Tip:** If you already have local tracking data when you join a session, you'll be prompted to contribute it to the session — only worlds not already tracked in the session will be added.
 
 ## Customising worlds
 
@@ -118,27 +120,26 @@ docker logs -f ectotrees-local   # live app logs
 docker stop ectotrees-local      # stop container
 ```
 
-## Deploying with HTTPS (Nginx)
+## Deploying with Docker + Caddy (HTTPS)
 
-Use this when running as an installable PWA on mobile devices (iOS requires HTTPS).
+Use this when running as an installable PWA on mobile devices (iOS requires HTTPS). This project ships with a `Caddyfile` and a `docker-compose.example.yml` that set up the app behind Caddy, which provisions TLS certificates automatically via Let's Encrypt.
 
-1. Build the frontend:
 ```bash
-npm run build
-```
-2. Run the backend server on localhost:
-```bash
-npm run server
-```
-3. Install the Nginx site config from `deploy/nginx/ectotrees.conf` and update:
-- `server_name`
-- `ssl_certificate` and `ssl_certificate_key`
-- `root` path (should point at your `dist/`)
-4. Enable the site and reload Nginx.
+# 1. Copy the example compose file
+cp docker-compose.example.yml docker-compose.yml
 
-This setup serves static files from Nginx and proxies:
-- `/api/*` to the Node backend
-- `/ws` WebSocket upgrades to the Node backend
+# 2. Create the required Caddy directories
+mkdir -p caddy/{caddy_data,caddy_config}
+
+# 3. Copy and configure the Caddyfile — replace 'ectotrees.example.com' with your domain
+cp Caddyfile caddy/Caddyfile
+nano caddy/Caddyfile
+
+# 4. Start
+docker compose up -d
+```
+
+Caddy routes `/api/*` and `/ws` to the Node backend and falls through to the app for all other requests.
 
 ### Host-agnostic endpoint configuration
 

@@ -192,7 +192,7 @@ export function cleanupExpiredSessions() {
     if (inactiveExpired || emptyExpired) {
       const closeReason = inactiveExpired
         ? 'Session expired due to inactivity.'
-        : 'Session closed after being empty for 30 minutes.';
+        : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 60_000} minutes.`;
       destroySession(session, closeReason);
       log(`[session] Destroyed ${session.code} (${getSessionCount()} active sessions remaining)`);
     }

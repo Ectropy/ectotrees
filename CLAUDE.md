@@ -112,7 +112,9 @@ Client checks every 1 second (for smooth countdown display), server checks every
 Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by client and server.
 
 ### Tree Types
-`sapling` | `mature` (auto-transition, type unknown) | `tree` | `oak` | `willow` | `maple` | `yew` | `magic` | `elder`
+`sapling` | `sapling-tree` | `sapling-oak` | `sapling-willow` | `sapling-maple` | `sapling-yew` | `sapling-magic` | `sapling-elder` | `mature` | `tree` | `oak` | `willow` | `maple` | `yew` | `magic` | `elder`
+
+Sapling variants allow recording the expected species during the sapling phase. On the `sapling → mature` auto-transition the variant suffix becomes the confirmed `treeType` (e.g. `sapling-oak` → `oak`). Plain `sapling` is used when the type is unknown.
 
 ### Sort & Filter Bar (SortFilterBar.tsx)
 The grid has a sort/filter bar with four sections:
@@ -174,6 +176,7 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 | `updateHealth` | `worldId`, `health: number \| undefined`, optional `msgId` |
 | `markDead` | `worldId`, optional `msgId` |
 | `clearWorld` | `worldId`, optional `msgId` |
+| `contributeWorlds` | `worlds: WorldStates`, optional `msgId` — merges joiner's local state into session; only worlds not already present are inserted |
 | `initializeState` | `worlds: WorldStates` — seeds a fresh session with the creator's local state (no `msgId`) |
 | `ping` | (no payload, no `msgId`) |
 
@@ -190,10 +193,10 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 
 ### Session Management (`session.ts`)
 - Session codes are 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no `0/O/1/I` to avoid ambiguity)
-- Max 50 concurrent sessions, max 20 clients per session
+- Max 1000 concurrent sessions, max 1000 clients per session
 - Server runs auto-transitions every 10 seconds per session, broadcasting only changed worlds
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
-- Session expiry (checked every 5 min): inactive > 2 hours, or empty > 30 minutes
+- Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`
@@ -202,7 +205,7 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 
 ### Per-Connection Protections
-- Max message size: 4 KB
+- Max message size: 4 KB (64 KB for `initializeState` and `contributeWorlds`)
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s
 
