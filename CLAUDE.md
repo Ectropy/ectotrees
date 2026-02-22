@@ -53,7 +53,7 @@ e2e/
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   constants/evilTree.ts # Re-exports from shared/types.ts + location hints, filterable types
-  types/index.ts        # Re-exports from shared/types.ts
+  types/index.ts        # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
@@ -132,7 +132,7 @@ The grid has a sort/filter bar with four sections:
 - **Sort buttons**: W#, Soonest/Latest, Favorite, Health (with asc/desc toggle; clicking an active button toggles direction)
   - `Soonest/Latest` sorts by the next relevant timestamp — ascending shows worlds ending/spawning soonest first, descending shows latest
 - **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive)
-- **Tree type filter chips**: Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
+- **Tree type filter chips**: Unknown, Sapling, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
 - **Info tri-state filter chips**: Intel, Hint, Location, Health — each cycles through three states: off → **Needs** (show only worlds missing that info) → **Has** (show only worlds that have it)
 
 Tree type filters show only worlds with a matching confirmed tree type. The "Unknown" chip matches sapling, mature, and worlds with no confirmed type. When any tree type filter is active, inactive worlds (no data, no spawn) are hidden.
@@ -173,7 +173,7 @@ Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (
 |---|---|---|
 | `POST` | `/api/session` | Create a new session. Returns `{ code }`. Rate-limited: 5/IP/hour |
 | `GET` | `/api/session/:code` | Check if session exists. Returns `{ code, clientCount }` |
-| `GET` | `/api/health` | Health check. Returns `{ ok, sessions }` |
+| `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients }` |
 
 ### WebSocket Protocol
 Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session code on upgrade.
