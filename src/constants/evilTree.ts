@@ -101,7 +101,7 @@ export const LOCATION_HINTS: LocationHint[] = [
   },
   {
     hint: "Close to the village you humans call 'Draynor'",
-    locations: ['North of Draynor Village, near Draynor Manor', 'South of Draynor Village, near the willow trees['],
+    locations: ['North of Draynor Village, near Draynor Manor', 'South of Draynor Village, near the willow trees'],
   },
   {
     hint: 'Due west of the town you call Lumbridge',
