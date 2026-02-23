@@ -53,6 +53,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
           {/* Action buttons */}
           <div className="flex gap-3 pt-4">
             <button
+              autoFocus
               onClick={onConfirm}
               className="flex-1 bg-red-700 hover:bg-red-600 text-white font-medium rounded py-2.5 transition-colors text-lg"
             >
