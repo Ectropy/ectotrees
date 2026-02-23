@@ -3,6 +3,7 @@ import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
 import { TreeInfoTool } from './TreeInfoTool';
 import { TreeDeadTool } from './TreeDeadTool';
+import { LightningEffect } from './LightningEffect';
 
 interface Props {
   world: WorldConfig;
@@ -11,9 +12,11 @@ interface Props {
   onToggleFavorite: () => void;
   onCardClick: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
+  lightningEvent?: { kind: string; seq: number };
+  onDismissLightning?: () => void;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning }: Props) {
   const isP2P = world.type === 'P2P';
   const borderColor = isP2P ? 'border-yellow-500' : 'border-blue-500';
 
@@ -21,7 +24,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
     <div
       data-testid={`world-card-${world.id}`}
       className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer`}
-      style={{ height: '85px' }}
+      style={{ height: '85px', position: 'relative', isolation: 'isolate' }}
       onClick={onCardClick}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
@@ -56,6 +59,9 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
         <TreeInfoTool onClick={() => onOpenTool('tree')} />
         <TreeDeadTool onClick={() => onOpenTool('dead')} />
       </div>
+      {lightningEvent && (
+        <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
+      )}
     </div>
   );
 }

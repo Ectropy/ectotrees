@@ -88,9 +88,19 @@ export default function App() {
     saveToLocalStorageRef.current();
   }, []);
   const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, dismissError } = useSession(handleSessionLost);
-  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, saveToLocalStorage } = useWorldStates(syncChannel);
+  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
+
+  // Dev-only: expose trigger on window for manual testing
+  const triggerLightningRef = useRef(triggerLightningEvent);
+  triggerLightningRef.current = triggerLightningEvent;
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as Record<string, unknown>).__triggerLightning =
+      (worldId: number, kind?: string) => triggerLightningRef.current(worldId, (kind ?? 'lightning1') as import('./hooks/useWorldStates').LightningKind);
+    return () => { delete (window as unknown as Record<string, unknown>).__triggerLightning; };
+  }, []);
   const { favorites, toggleFavorite } = useFavorites();
 
   const worldStatesRef = useRef(worldStates);
@@ -331,6 +341,8 @@ export default function App() {
         onUpdateFields={(fields) => updateTreeFields(worldId, fields)}
         onBack={handleBack}
         onOpenTool={(tool) => handleOpenTool(worldId, tool)}
+        lightningEvent={lightningEvents.get(worldId)}
+        onDismissLightning={() => dismissLightningEvent(worldId)}
       />;
   }
 
@@ -394,6 +406,8 @@ export default function App() {
               onToggleFavorite={() => toggleFavorite(world.id)}
               onCardClick={() => handleOpenCard(world.id)}
               onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+              lightningEvent={lightningEvents.get(world.id)}
+              onDismissLightning={() => dismissLightningEvent(world.id)}
             />
           ))}
         </main>

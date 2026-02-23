@@ -3,6 +3,7 @@ import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
+import { LightningEffect } from './LightningEffect';
 
 interface Props {
   world: WorldConfig;
@@ -14,11 +15,13 @@ interface Props {
   onUpdateFields: (fields: TreeFieldsPayload) => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
+  lightningEvent?: { kind: string; seq: number };
+  onDismissLightning?: () => void;
 }
 
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const isP2P = world.type === 'P2P';
@@ -42,7 +45,10 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const now = Date.now();
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-900 p-4 sm:p-6" style={{ position: 'relative', isolation: 'isolate' }}>
+      {lightningEvent && (
+        <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
+      )}
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
