@@ -4,6 +4,7 @@ import type { TreeType } from '../constants/evilTree';
 import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
+import { SparkEffect } from './SparkEffect';
 
 interface Props {
   world: WorldConfig;
@@ -49,6 +50,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
       {lightningEvent && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}
+      {state.treeStatus === 'dead' && <SparkEffect />}
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">

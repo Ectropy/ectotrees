@@ -4,6 +4,7 @@ import { SpawnTimerTool } from './SpawnTimerTool';
 import { TreeInfoTool } from './TreeInfoTool';
 import { TreeDeadTool } from './TreeDeadTool';
 import { LightningEffect } from './LightningEffect';
+import { SparkEffect } from './SparkEffect';
 
 interface Props {
   world: WorldConfig;
@@ -62,6 +63,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
       {lightningEvent && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}
+      {state.treeStatus === 'dead' && <SparkEffect />}
     </div>
   );
 }
