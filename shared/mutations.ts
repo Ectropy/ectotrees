@@ -1,5 +1,5 @@
 import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from './types.ts';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, ALIVE_TREE_TYPES } from './types.ts';
+import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, ALIVE_TREE_TYPES, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from './types.ts';
 
 export function applyTransitions(states: WorldStates, now: number): WorldStates {
   let changed = false;
@@ -29,6 +29,26 @@ export function applyTransitions(states: WorldStates, now: number): WorldStates 
         treeType: nextTreeType,
         matureAt: s.treeSetAt + SAPLING_MATURE_MS,
       };
+      dirty = true;
+    }
+
+    if (
+      (s.treeStatus === 'mature' || s.treeStatus === 'alive') &&
+      s.matureAt !== undefined &&
+      now >= s.matureAt + LIGHTNING_1_MS &&
+      (s.treeHealth === undefined || s.treeHealth > HEALTH_LIGHTNING_1)
+    ) {
+      s = { ...s, treeHealth: HEALTH_LIGHTNING_1 };
+      dirty = true;
+    }
+
+    if (
+      (s.treeStatus === 'mature' || s.treeStatus === 'alive') &&
+      s.matureAt !== undefined &&
+      now >= s.matureAt + LIGHTNING_2_MS &&
+      (s.treeHealth === undefined || s.treeHealth > HEALTH_LIGHTNING_2)
+    ) {
+      s = { ...s, treeHealth: HEALTH_LIGHTNING_2 };
       dirty = true;
     }
 

@@ -8,7 +8,7 @@ import {
   applyMarkDead,
   applyClearWorld,
 } from '../mutations.ts';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../types.ts';
+import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from '../types.ts';
 
 // Baseline timestamp — arbitrary fixed point in time
 const T = 1_700_000_000_000;
@@ -419,5 +419,94 @@ describe('applyClearWorld', () => {
     const states = { 2: { treeStatus: 'alive' as const } };
     const result = applyClearWorld(states, 99);
     expect(result[2]).toBe(states[2]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyTransitions — lightning health caps
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('applyTransitions — lightning health caps', () => {
+  const matureAt = T;
+
+  it('1 ms before 10-min mark, health undefined → no change', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS - 1);
+    expect(result[1].treeHealth).toBeUndefined();
+    expect(result).toBe(states);
+  });
+
+  it('exactly at 10-min mark, health undefined → health becomes 50', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_1);
+  });
+
+  it('exactly at 10-min mark, health = 60 → health becomes 50', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 60 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_1);
+  });
+
+  it('exactly at 10-min mark, health = 50 → no change (same reference)', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 50 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result).toBe(states);
+  });
+
+  it('exactly at 10-min mark, health = 40 → no change', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 40 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result).toBe(states);
+  });
+
+  it('1 ms before 20-min mark, health = 50 → health stays 50', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 50 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_2_MS - 1);
+    expect(result[1].treeHealth).toBe(50);
+    expect(result).toBe(states);
+  });
+
+  it('exactly at 20-min mark, health = 50 → health becomes 25', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 50 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_2_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_2);
+  });
+
+  it('exactly at 20-min mark, health = 25 → no change', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 25 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_2_MS);
+    expect(result).toBe(states);
+  });
+
+  it('exactly at 20-min mark, health = 20 → no change', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 20 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_2_MS);
+    expect(result).toBe(states);
+  });
+
+  it('at 25 min (both marks passed), health = 80 → health becomes 25', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 80 } };
+    const result = applyTransitions(states, matureAt + 25 * 60 * 1000);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_2);
+  });
+
+  it('status mature at 10-min mark → cap applies', () => {
+    const states = { 1: { treeStatus: 'mature' as const, matureAt } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_1);
+  });
+
+  it('status alive at 10-min mark → cap applies', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_1);
+  });
+
+  it('status dead at 10-min mark → cap does NOT apply', () => {
+    const deadAt = matureAt - 5 * 60 * 1000;
+    const states = { 1: { treeStatus: 'dead' as const, matureAt, deadAt } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBeUndefined();
   });
 });

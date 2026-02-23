@@ -10,6 +10,24 @@ test.beforeEach(async ({ page }) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Lightning health caps
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('lightning cap: alive tree at 11 min auto-reduces health to 50%', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    const matureAt = Date.now() - 11 * 60 * 1000;
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      1: { treeStatus: 'alive', matureAt, treeHealth: 80 },
+    }));
+  });
+
+  await page.goto('/');
+  const card = page.getByTestId(`world-card-${W}`);
+  await expect(card).toContainText('50%');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Grid
 // ─────────────────────────────────────────────────────────────────────────────
 
