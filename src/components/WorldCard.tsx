@@ -16,9 +16,11 @@ interface Props {
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
   lightningEvent?: { kind: string; seq: number };
   onDismissLightning?: () => void;
+  effectsLightning?: boolean;
+  effectsSparks?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const isP2P = world.type === 'P2P';
   const [sparkReady, setSparkReady] = useState(false);
   useEffect(() => {
@@ -67,10 +69,10 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
         <TreeInfoTool onClick={() => onOpenTool('tree')} />
         <TreeDeadTool onClick={() => onOpenTool('dead')} />
       </div>
-      {lightningEvent && (
+      {lightningEvent && (effectsLightning ?? true) && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}
-      {state.treeStatus === 'dead' && sparkReady && <SparkEffect />}
+      {state.treeStatus === 'dead' && sparkReady && (effectsSparks ?? true) && <SparkEffect />}
     </div>
   );
 }

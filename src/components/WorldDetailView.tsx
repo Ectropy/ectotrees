@@ -18,11 +18,13 @@ interface Props {
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
   lightningEvent?: { kind: string; seq: number };
   onDismissLightning?: () => void;
+  effectsLightning?: boolean;
+  effectsSparks?: boolean;
 }
 
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const isP2P = world.type === 'P2P';
@@ -47,10 +49,10 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6" style={{ position: 'relative', isolation: 'isolate' }}>
-      {lightningEvent && (
+      {lightningEvent && (effectsLightning ?? true) && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}
-      {state.treeStatus === 'dead' && <SparkEffect />}
+      {state.treeStatus === 'dead' && (effectsSparks ?? true) && <SparkEffect />}
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">

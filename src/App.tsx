@@ -8,16 +8,18 @@ import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
 import { TreeDeadView } from './components/TreeDeadView';
 import { WorldDetailView } from './components/WorldDetailView';
+import { SettingsView } from './components/SettingsView';
 import { SessionBar } from './components/SessionBar';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
+import { useSettings } from './hooks/useSettings';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
 type ActiveView =
-  | { kind: 'grid' }
+  | { kind: 'grid' | 'settings' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 function isActive(state: WorldState): boolean {
@@ -102,6 +104,7 @@ export default function App() {
     return () => { delete (window as unknown as Record<string, unknown>).__triggerLightning; };
   }, []);
   const { favorites, toggleFavorite } = useFavorites();
+  const { settings, updateSettings } = useSettings();
 
   const worldStatesRef = useRef(worldStates);
   worldStatesRef.current = worldStates;
@@ -302,6 +305,9 @@ export default function App() {
   }
 
   // Full-screen view rendering
+  if (activeView.kind === 'settings')
+    return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
   if (activeView.kind !== 'grid') {
     const { worldId } = activeView;
     const world = worlds.find(w => w.id === worldId)!;
@@ -343,6 +349,8 @@ export default function App() {
         onOpenTool={(tool) => handleOpenTool(worldId, tool)}
         lightningEvent={lightningEvents.get(worldId)}
         onDismissLightning={() => dismissLightningEvent(worldId)}
+        effectsLightning={settings.effectsLightning}
+        effectsSparks={settings.effectsSparks}
       />;
   }
 
@@ -355,7 +363,15 @@ export default function App() {
           Ecto Trees
           <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
         </h1>
-        <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+          <button
+            onClick={() => setActiveView({ kind: 'settings' })}
+            className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
+            title="Settings"
+            aria-label="Open settings"
+          >⚙</button>
+        </div>
       </header>
 
       <SessionBar
@@ -408,6 +424,8 @@ export default function App() {
               onOpenTool={(tool) => handleOpenTool(world.id, tool)}
               lightningEvent={lightningEvents.get(world.id)}
               onDismissLightning={() => dismissLightningEvent(world.id)}
+              effectsLightning={settings.effectsLightning}
+              effectsSparks={settings.effectsSparks}
             />
           ))}
         </main>
