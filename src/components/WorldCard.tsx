@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
@@ -19,6 +20,12 @@ interface Props {
 
 export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning }: Props) {
   const isP2P = world.type === 'P2P';
+  const [sparkReady, setSparkReady] = useState(false);
+  useEffect(() => {
+    if (state.treeStatus !== 'dead') { setSparkReady(false); return; }
+    const id = requestIdleCallback(() => setSparkReady(true));
+    return () => cancelIdleCallback(id);
+  }, [state.treeStatus]);
   const borderColor = isP2P ? 'border-yellow-500' : 'border-blue-500';
 
   return (
@@ -63,7 +70,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
       {lightningEvent && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}
-      {state.treeStatus === 'dead' && <SparkEffect />}
+      {state.treeStatus === 'dead' && sparkReady && <SparkEffect />}
     </div>
   );
 }
