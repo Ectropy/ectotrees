@@ -64,11 +64,16 @@ function SettingRow({
         <p className="text-sm font-medium text-gray-100">{label}</p>
         <p className="text-xs text-gray-400 mt-0.5">{description}</p>
       </div>
-      <Switch
-        checked={value}
-        onCheckedChange={onChange}
-        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-      />
+      <div className="flex items-center gap-2">
+        <span className="text-xs w-6 text-right text-gray-400" aria-hidden="true">
+          {value ? 'On' : 'Off'}
+        </span>
+        <Switch
+          checked={value}
+          onCheckedChange={onChange}
+          className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+        />
+      </div>
     </div>
   );
 }
