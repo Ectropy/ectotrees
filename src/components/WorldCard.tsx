@@ -25,8 +25,13 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
   const [sparkReady, setSparkReady] = useState(false);
   useEffect(() => {
     if (state.treeStatus !== 'dead') { setSparkReady(false); return; }
-    const id = requestIdleCallback(() => setSparkReady(true));
-    return () => cancelIdleCallback(id);
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(() => setSparkReady(true));
+      return () => window.cancelIdleCallback?.(id);
+    }
+
+    const timeoutId = window.setTimeout(() => setSparkReady(true), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [state.treeStatus]);
   const borderColor = isP2P ? 'border-yellow-500' : 'border-blue-500';
 
