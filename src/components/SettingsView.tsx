@@ -1,4 +1,5 @@
 import type { AppSettings } from '../hooks/useSettings';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   settings: AppSettings;
@@ -63,20 +64,11 @@ function SettingRow({
         <p className="text-sm font-medium text-gray-100">{label}</p>
         <p className="text-xs text-gray-400 mt-0.5">{description}</p>
       </div>
-      <button
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-        className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors ${
-          value ? 'bg-green-600' : 'bg-gray-600'
-        }`}
-      >
-        <span
-          className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-            value ? 'translate-x-5' : 'translate-x-1'
-          }`}
-        />
-      </button>
+      <Switch
+        checked={value}
+        onCheckedChange={onChange}
+        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+      />
     </div>
   );
 }

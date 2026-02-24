@@ -19,7 +19,8 @@ import { useSettings } from './hooks/useSettings';
 const worlds = worldsConfig.worlds as WorldConfig[];
 
 type ActiveView =
-  | { kind: 'grid' | 'settings' }
+  | { kind: 'grid' }
+  | { kind: 'settings' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 function isActive(state: WorldState): boolean {
