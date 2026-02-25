@@ -1,7 +1,9 @@
 import type { ClientMessage } from '../shared/protocol.ts';
 import { TREE_TYPES } from '../shared/types.ts';
 import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
+import { LOCATION_HINTS } from '../shared/hints.ts';
 import worldsData from '../src/data/worlds.json' with { type: 'json' };
+import { warn } from './log.ts';
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 const VALID_TREE_TYPES = new Set<string>(TREE_TYPES);
@@ -10,6 +12,8 @@ const MAX_MS_FROM_NOW = 2 * 60 * 60 * 1000; // 2 hours
 const VALID_HEALTH_VALUES = new Set(
   Array.from({ length: 20 }, (_, i) => (i + 1) * 5), // 5, 10, 15, ..., 100
 );
+const VALID_HINTS = new Set(LOCATION_HINTS.map(h => h.hint));
+const VALID_EXACT_LOCATIONS = new Set(LOCATION_HINTS.flatMap(h => h.locations));
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -20,6 +24,28 @@ function sanitizeString(s: unknown): string | null {
   // Strip control characters
   const clean = s.replace(/[\x00-\x1F\x7F]/g, '').trim();
   if (clean.length > MAX_STRING_LEN) return null;
+  return clean;
+}
+
+/** Empty string is allowed (clears the field). Non-empty must be a canonical hint. */
+function validateHint(s: unknown): string | null {
+  const clean = sanitizeString(s);
+  if (clean === null) return null;
+  if (clean !== '' && !VALID_HINTS.has(clean)) {
+    warn(`[validation] rejected treeHint not in allowlist: "${String(s).slice(0, 100)}"`);
+    return null;
+  }
+  return clean;
+}
+
+/** Empty string is allowed (clears the field). Non-empty must be a canonical exact location. */
+function validateExactLocation(s: unknown): string | null {
+  const clean = sanitizeString(s);
+  if (clean === null) return null;
+  if (clean !== '' && !VALID_EXACT_LOCATIONS.has(clean)) {
+    warn(`[validation] rejected treeExactLocation not in allowlist: "${String(s).slice(0, 100)}"`);
+    return null;
+  }
   return clean;
 }
 
@@ -49,13 +75,13 @@ function validateWorldState(worldId: number, raw: unknown): WorldState | null {
   }
 
   if (raw.treeHint !== undefined) {
-    const clean = sanitizeString(raw.treeHint);
+    const clean = validateHint(raw.treeHint);
     if (clean === null) return null;
     state.treeHint = clean;
   }
 
   if (raw.treeExactLocation !== undefined) {
-    const clean = sanitizeString(raw.treeExactLocation);
+    const clean = validateExactLocation(raw.treeExactLocation);
     if (clean === null) return null;
     state.treeExactLocation = clean;
   }
@@ -142,8 +168,8 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       if (isObject(raw.treeInfo)) {
         const hint = raw.treeInfo.treeHint;
         if (hint !== undefined) {
-          const clean = sanitizeString(hint);
-          if (clean === null) return { error: 'Invalid treeHint string.' };
+          const clean = validateHint(hint);
+          if (clean === null) return { error: 'Invalid treeHint.' };
           treeInfo = { treeHint: clean };
         }
       }
@@ -157,12 +183,12 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       if (typeof info.treeType !== 'string' || !VALID_TREE_TYPES.has(info.treeType)) {
         return { error: 'Invalid treeType.' };
       }
-      const treeHint = sanitizeString(info.treeHint);
+      const treeHint = validateHint(info.treeHint);
       if (treeHint === null) return { error: 'Invalid treeHint.' };
 
       let treeExactLocation: string | undefined;
       if (info.treeExactLocation !== undefined) {
-        const clean = sanitizeString(info.treeExactLocation);
+        const clean = validateExactLocation(info.treeExactLocation);
         if (clean === null) return { error: 'Invalid treeExactLocation.' };
         treeExactLocation = clean;
       }
@@ -201,13 +227,13 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       }
 
       if (fields.treeHint !== undefined) {
-        const clean = sanitizeString(fields.treeHint);
+        const clean = validateHint(fields.treeHint);
         if (clean === null) return { error: 'Invalid treeHint.' };
         result.treeHint = clean;
       }
 
       if (fields.treeExactLocation !== undefined) {
-        const clean = sanitizeString(fields.treeExactLocation);
+        const clean = validateExactLocation(fields.treeExactLocation);
         if (clean === null) return { error: 'Invalid treeExactLocation.' };
         result.treeExactLocation = clean;
       }

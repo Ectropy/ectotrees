@@ -1,0 +1,23 @@
+{
+  "name": "ectotrees-alt1",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode production && cp src/index.html dist/index.html && cp appconfig.json dist/appconfig.json",
+    "dev": "webpack --mode development && cp src/index.html dist/index.html && cp appconfig.json dist/appconfig.json",
+    "watch": "webpack --mode development --watch"
+  },
+  "dependencies": {
+    "alt1": "^0.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "css-loader": "^7.0.0",
+    "sharp": "^0.31.3",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.0.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.0.0"
+  }
+}

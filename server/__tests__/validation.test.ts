@@ -142,12 +142,19 @@ describe('validateMessage — setSpawnTimer', () => {
     expect(validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000.5 })).toMatchObject({ error: expect.any(String) });
   });
 
-  it('strips control characters from treeHint', () => {
-    const result = validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000, treeInfo: { treeHint: 'Near\x00the\x1Fbank' } });
+  it('strips control characters from treeHint when result is a canonical hint', () => {
+    // Control chars are stripped before the allowlist check — a canonical hint with
+    // an embedded control char must still pass validation.
+    const dirty = 'Close to a\x00 collection of yew trees (Seers)';
+    const result = validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000, treeInfo: { treeHint: dirty } });
     expect(result).not.toHaveProperty('error');
     if (!('error' in result) && result.type === 'setSpawnTimer') {
-      expect(result.treeInfo?.treeHint).toBe('Nearthebank');
+      expect(result.treeInfo?.treeHint).toBe('Close to a collection of yew trees (Seers)');
     }
+  });
+
+  it('rejects treeHint not in the canonical LOCATION_HINTS allowlist', () => {
+    expect(validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000, treeInfo: { treeHint: 'Near the bank' } })).toMatchObject({ error: expect.any(String) });
   });
 
   it('rejects treeHint longer than 200 characters', () => {
@@ -223,9 +230,13 @@ describe('validateMessage — setTreeInfo', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('validateMessage — updateTreeFields', () => {
-  it('succeeds with a valid partial fields object', () => {
-    const result = validateMessage({ type: 'updateTreeFields', worldId: W, fields: { treeHint: 'West side' } });
+  it('succeeds with a valid partial fields object (canonical treeHint)', () => {
+    const result = validateMessage({ type: 'updateTreeFields', worldId: W, fields: { treeHint: 'In the lands inhabited by elves' } });
     expect(result).not.toHaveProperty('error');
+  });
+
+  it('rejects treeHint in updateTreeFields not in canonical LOCATION_HINTS', () => {
+    expect(validateMessage({ type: 'updateTreeFields', worldId: W, fields: { treeHint: 'West side' } })).toMatchObject({ error: expect.any(String) });
   });
 
   it('rejects missing fields object', () => {

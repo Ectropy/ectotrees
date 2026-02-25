@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ectotrees Scout</title>
+</head>
+<body>
+
+  <!-- Shown when running outside Alt1 (normal browser) -->
+  <div id="no-alt1">
+    <div class="install-prompt">
+      <h1>Ectotrees Scout</h1>
+      <p>This app must be opened inside Alt1 Toolkit.</p>
+      <a id="install-link" class="install-link" href="#">Add to Alt1</a>
+    </div>
+  </div>
+
+  <!-- Main app (hidden until alt1 is confirmed) -->
+  <div id="app">
+
+    <header class="app-header">Ectotrees Scout</header>
+
+    <!-- Error banner (hidden by default) -->
+    <div id="error-banner" class="error-banner" style="display:none"></div>
+
+    <!-- Session -->
+    <section class="section">
+      <div class="row gap">
+        <input
+          id="session-code"
+          class="input code-input"
+          type="text"
+          maxlength="6"
+          placeholder="Code"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="btn-join" class="btn btn-primary">Join</button>
+        <button id="btn-create" class="btn btn-secondary">New</button>
+      </div>
+      <div class="row space-between mt-1">
+        <span id="session-status" class="status-text">
+          <span id="status-dot" class="status-dot disconnected"></span>
+          <span id="status-label">Disconnected</span>
+        </span>
+        <button id="btn-leave" class="btn btn-ghost" style="display:none">Leave</button>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- World -->
+    <section class="section">
+      <label class="label">World</label>
+      <div class="world-row">
+        <input
+          id="world-input"
+          class="input world-input"
+          type="number"
+          min="1"
+          max="137"
+          placeholder="e.g. 4"
+        />
+        <button id="btn-scan-world" class="btn btn-secondary">Scan</button>
+        <span id="world-detected" class="world-detected" style="display:none">auto-detected</span>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Scan + data fields -->
+    <section class="section">
+
+      <div class="field">
+        <label class="label">Time until spawn</label>
+        <div class="row gap">
+          <input id="hours-input" class="input time-input" type="number" min="0" max="1" placeholder="0" />
+          <span class="unit-label">hr</span>
+          <input id="minutes-input" class="input time-input" type="number" min="0" max="59" placeholder="0" />
+          <span class="unit-label">min</span>
+        </div>
+      </div>
+
+      <div class="field mt-2">
+        <label class="label">Location hint</label>
+        <input
+          id="hint-input"
+          class="input hint-input"
+          type="text"
+          maxlength="200"
+          placeholder="e.g. in the lands inhabited by elves"
+        />
+      </div>
+
+      <button id="btn-scan" class="btn btn-scan mt-3">
+        Scan Spirit Tree Dialog
+      </button>
+      <div id="scan-status" class="scan-status"></div>
+
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Submit / clear -->
+    <section class="section actions">
+      <button id="btn-submit" class="btn btn-success" disabled>Submit</button>
+      <button id="btn-clear" class="btn btn-ghost">Clear</button>
+    </section>
+
+  </div><!-- #app -->
+
+  <script src="main.js"></script>
+</body>
+</html>

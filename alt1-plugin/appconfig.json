@@ -1,0 +1,13 @@
+{
+  "appName": "Ectotrees Scout",
+  "description": "Report Evil Tree spawn timers directly from your RS3 client",
+  "appUrl": "./index.html",
+  "configUrl": "./appconfig.json",
+  "defaultWidth": 320,
+  "defaultHeight": 420,
+  "minWidth": 280,
+  "minHeight": 340,
+  "maxWidth": 480,
+  "maxHeight": 600,
+  "permissions": "pixel,gamestate,overlay"
+}

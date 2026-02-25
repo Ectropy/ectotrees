@@ -1,0 +1,324 @@
+/* Ectotrees Scout — Alt1 panel styles
+   Alt1 uses Chromium, so modern CSS is safe.
+   Design: compact dark panel matching the Alt1 aesthetic. */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1a1a1e;
+  --bg-section: #23232a;
+  --bg-input: #2c2c35;
+  --border: #3a3a45;
+  --text: #e8e8ef;
+  --text-muted: #888898;
+  --text-label: #aaaabc;
+  --accent: #4a90e2;
+  --accent-hover: #5aa0f2;
+  --success: #3db87a;
+  --success-hover: #4dcb8a;
+  --danger: #e25555;
+  --warning: #e2a033;
+  --radius: 5px;
+  --font: system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+
+/* ── Install prompt (shown when not in Alt1) ──────────────────────────── */
+
+#no-alt1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+}
+
+.install-prompt h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.install-prompt p {
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.install-link {
+  display: inline-block;
+  padding: 8px 20px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.install-link:hover {
+  background: var(--accent-hover);
+}
+
+/* ── Main app layout ──────────────────────────────────────────────────── */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #111116;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.section {
+  padding: 10px 12px;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ── Form elements ────────────────────────────────────────────────────── */
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 5px 8px;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Remove number input spinners */
+.input[type="number"]::-webkit-inner-spin-button,
+.input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+.input[type="number"] { -moz-appearance: textfield; }
+
+.code-input {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  font-size: 14px;
+  max-width: 120px;
+}
+
+.world-input {
+  max-width: 90px;
+  text-align: center;
+}
+
+.time-input {
+  max-width: 60px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hint-input {
+  font-size: 12px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+
+.btn {
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-section);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--border); }
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+}
+.btn-success:hover:not(:disabled) { background: var(--success-hover); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--bg-section); color: var(--text); }
+
+.btn-scan {
+  background: var(--bg-section);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  width: 100%;
+  padding: 7px;
+  font-size: 12px;
+}
+.btn-scan:hover:not(:disabled) { background: rgba(74, 144, 226, 0.12); }
+.btn-scan:disabled { border-color: var(--border); color: var(--text-muted); }
+
+/* ── Layout helpers ───────────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row.gap { gap: 6px; }
+.row.space-between { justify-content: space-between; }
+
+.field { display: flex; flex-direction: column; }
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 10px; }
+
+.unit-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Status indicators ────────────────────────────────────────────────── */
+
+.status-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.status-dot.connected { background: var(--success); }
+.status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
+.status-dot.disconnected { background: var(--text-muted); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.scan-status {
+  margin-top: 6px;
+  font-size: 11px;
+  min-height: 16px;
+  color: var(--text-muted);
+}
+
+.scan-status.ok { color: var(--success); }
+.scan-status.warn { color: var(--warning); }
+.scan-status.error { color: var(--danger); }
+
+/* ── Actions row ──────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+/* ── World row ────────────────────────────────────────────────────────── */
+
+.world-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.world-detected {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Error banner ─────────────────────────────────────────────────────── */
+
+.error-banner {
+  background: rgba(226, 85, 85, 0.15);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: 11px;
+  padding: 6px 10px;
+  margin: 6px 12px 0;
+}
