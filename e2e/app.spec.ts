@@ -215,6 +215,54 @@ test('?join= valid code: session code appears in bar when WS connects', async ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Join input: paste validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('join input: URL with no ?join= clears the field and shows error', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Join Session' }).click();
+  const input = page.getByPlaceholder('CODE');
+
+  await input.fill('http://localhost:8080');
+
+  await expect(input).toHaveValue('');
+  await expect(page.locator('text=Not a valid code or link')).toBeVisible();
+});
+
+test('join input: string longer than 6 chars clears the field and shows error', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Join Session' }).click();
+  const input = page.getByPlaceholder('CODE');
+
+  await input.fill('ABCDEFGHIJK');
+
+  await expect(input).toHaveValue('');
+  await expect(page.locator('text=Not a valid code or link')).toBeVisible();
+});
+
+test('join input: full URL with valid ?join= extracts the code', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Join Session' }).click();
+  const input = page.getByPlaceholder('CODE');
+
+  await input.fill('http://localhost:5173/?join=ABCD23');
+
+  await expect(input).toHaveValue('ABCD23');
+  await expect(page.locator('text=Not a valid code or link')).not.toBeVisible();
+});
+
+test('join input: plain 6-char code is accepted without modification', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Join Session' }).click();
+  const input = page.getByPlaceholder('CODE');
+
+  await input.fill('ABCD23');
+
+  await expect(input).toHaveValue('ABCD23');
+  await expect(page.locator('text=Not a valid code or link')).not.toBeVisible();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // World detail view
 // ─────────────────────────────────────────────────────────────────────────────
 
