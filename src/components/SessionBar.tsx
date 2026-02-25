@@ -44,6 +44,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [badPaste, setBadPaste] = useState(false);
 
   useEffect(() => {
     if (!session.reconnectAt) {
@@ -255,6 +256,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </div>
         </div>
       ) : showJoinInput ? (
+        <>
         <form
           className="flex items-center gap-1"
           onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
@@ -262,7 +264,17 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           <input
             type="text"
             value={joinCode}
-            onChange={(e) => setJoinCode(extractSessionCode(e.target.value))}
+            onChange={(e) => {
+              const x = extractSessionCode(e.target.value);
+              if (x.length > 6) {
+                setJoinCode('');
+                setBadPaste(true);
+                setTimeout(() => setBadPaste(false), 2500);
+              } else {
+                setJoinCode(x);
+                setBadPaste(false);
+              }
+            }}
             placeholder="CODE"
             className="w-20 px-1.5 py-0.5 bg-gray-700 text-white rounded font-mono text-center uppercase placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             autoFocus
@@ -282,6 +294,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
             Cancel
           </button>
         </form>
+        {badPaste && <span className="text-xs text-red-400">Not a valid code or link</span>}
+        </>
       ) : (
         <button
           onClick={() => setShowJoinInput(true)}

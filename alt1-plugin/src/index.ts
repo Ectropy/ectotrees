@@ -157,9 +157,15 @@ function extractSessionCode(raw: string): string {
 
 // Strip URL immediately when the user pastes into the code field
 elSessionCode.addEventListener('input', () => {
-  const extracted = extractSessionCode(elSessionCode.value);
-  // Only rewrite if extraction changed the value (i.e. a URL was pasted)
-  if (extracted !== elSessionCode.value.toUpperCase()) {
+  const raw = elSessionCode.value;
+  const extracted = extractSessionCode(raw);
+  if (extracted.length > 6) {
+    // Too long to be a valid code and no ?join= found — clear it
+    elSessionCode.value = '';
+    setErrorBanner('Not a valid code or link.');
+    setTimeout(() => setErrorBanner(null), 2500);
+  } else if (extracted !== raw.toUpperCase()) {
+    // URL with valid ?join= was pasted — replace with extracted code
     elSessionCode.value = extracted;
   }
 });
