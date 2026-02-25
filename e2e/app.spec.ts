@@ -133,6 +133,88 @@ test('perf: all 137 worlds dead — grid renders and stays responsive', async ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Session join via ?join= query param
+// ─────────────────────────────────────────────────────────────────────────────
+
+const JOIN_CODE = 'ABCD23';
+
+test('?join= valid code: strips param from URL on load', async ({ page }) => {
+  await page.route(`/api/session/${JOIN_CODE}`, route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: JOIN_CODE, clientCount: 0 }),
+    })
+  );
+
+  await page.goto(`/?join=${JOIN_CODE}`);
+
+  // URL must be cleaned regardless of whether the WS connection succeeds
+  await expect(page).not.toHaveURL(/join=/);
+});
+
+test('?join= invalid code: URL is unchanged, no API call made', async ({ page }) => {
+  let apiCalled = false;
+  await page.route('/api/session/**', () => { apiCalled = true; });
+
+  await page.goto('/?join=TOOLONG');
+
+  // Invalid codes are silently ignored — URL left as-is
+  await expect(page).toHaveURL(/join=TOOLONG/);
+  expect(apiCalled).toBe(false);
+});
+
+test('?join= session not found: URL is cleaned, error shown', async ({ page }) => {
+  await page.route(`/api/session/${JOIN_CODE}`, route =>
+    route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Session not found.' }),
+    })
+  );
+
+  await page.goto(`/?join=${JOIN_CODE}`);
+
+  // URL is cleaned even when the session lookup fails
+  await expect(page).not.toHaveURL(/join=/);
+
+  // Error message is shown in the session bar
+  await expect(page.locator('text=Session not found.')).toBeVisible();
+});
+
+test('?join= valid code: session code appears in bar when WS connects', async ({ page }) => {
+  await page.route(`/api/session/${JOIN_CODE}`, route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: JOIN_CODE, clientCount: 1 }),
+    })
+  );
+
+  await page.routeWebSocket(/\/ws/, ws => {
+    // Respond to client messages (ping → pong, mutations → ack)
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+    // Simulate the server's initial snapshot + client count
+    ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+    ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
+  });
+
+  await page.goto(`/?join=${JOIN_CODE}`);
+
+  // The session bar button showing the code confirms a successful join
+  await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // World detail view
 // ─────────────────────────────────────────────────────────────────────────────
 
