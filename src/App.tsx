@@ -128,6 +128,21 @@ export default function App() {
     saveToLocalStorage();
     leaveSession();
   }, [saveToLocalStorage, leaveSession]);
+
+  // Auto-join from ?join= query param on first load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('join');
+    if (!raw) return;
+    const code = raw.trim().toUpperCase();
+    if (!/^[A-Z2-9]{6}$/.test(code)) return;
+    // Remove the param from the URL without a page reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete('join');
+    history.replaceState(null, '', url.toString());
+    handleJoinSession(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);

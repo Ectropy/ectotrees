@@ -144,14 +144,35 @@ session.on('error', (msg) => {
   updateSessionUI(session.status);
 });
 
+// ── Helpers: session code input ───────────────────────────────────────────────
+
+function extractSessionCode(raw: string): string {
+  try {
+    const url = new URL(raw.trim());
+    const param = url.searchParams.get('join');
+    if (param) return param.toUpperCase();
+  } catch { /* not a URL */ }
+  return raw.toUpperCase();
+}
+
+// Strip URL immediately when the user pastes into the code field
+elSessionCode.addEventListener('input', () => {
+  const extracted = extractSessionCode(elSessionCode.value);
+  // Only rewrite if extraction changed the value (i.e. a URL was pasted)
+  if (extracted !== elSessionCode.value.toUpperCase()) {
+    elSessionCode.value = extracted;
+  }
+});
+
 // ── Event: Join button ────────────────────────────────────────────────────────
 
 elBtnJoin.addEventListener('click', async () => {
-  const code = elSessionCode.value.trim().toUpperCase();
+  const code = extractSessionCode(elSessionCode.value);
   if (!/^[A-Z2-9]{6}$/.test(code)) {
     setErrorBanner('Enter a valid 6-character session code.');
     return;
   }
+  elSessionCode.value = code;
   setErrorBanner(null);
   elBtnJoin.disabled = true;
   await session.joinSession(code);

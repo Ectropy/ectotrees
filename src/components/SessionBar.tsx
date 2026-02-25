@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { SessionState } from '../hooks/useSession';
+import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 
 interface SessionBarProps {
@@ -66,7 +67,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleJoin() {
     const code = joinCode.trim().toUpperCase();
-    if (code.length !== 6) return;
+    if (!/^[A-Z2-9]{6}$/.test(code)) return;
     if (activeLocalCount > 0) {
       setPendingJoinCode(code);
       return;
@@ -95,6 +96,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   async function handleCopyCode() {
     if (!session.code) return;
 
+    const sessionUrl = buildSessionUrl(session.code);
+
     // Check if we're in a secure context (HTTPS or localhost)
     const secure = window.isSecureContext;
     if (!secure) {
@@ -106,8 +109,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     // Try the modern Clipboard API first
     if (navigator.clipboard?.writeText) {
       try {
-        await navigator.clipboard.writeText(session.code);
-        console.log('[clipboard] Copied session code via Clipboard API');
+        await navigator.clipboard.writeText(sessionUrl);
+        console.log('[clipboard] Copied session URL via Clipboard API');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
         return;
@@ -121,7 +124,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     // Fallback: use the legacy execCommand('copy') approach
     try {
       const textarea = document.createElement('textarea');
-      textarea.value = session.code;
+      textarea.value = sessionUrl;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
@@ -129,7 +132,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
       const ok = document.execCommand('copy');
       document.body.removeChild(textarea);
       if (ok) {
-        console.log('[clipboard] Copied session code via execCommand fallback');
+        console.log('[clipboard] Copied session URL via execCommand fallback');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } else {
@@ -173,11 +176,11 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         <button
           onClick={handleCopyCode}
           className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} transition-colors`}
-          title="Copy session code"
+          title="Copy session link"
         >
           {session.code}
         </button>
-        {copied && <span className="text-green-400 text-[10px]">Copied!</span>}
+        {copied && <span className="text-green-400 text-[10px]">Link copied!</span>}
 
         {!canRejoin && (
           <span className="text-gray-500">
@@ -259,15 +262,14 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           <input
             type="text"
             value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            onChange={(e) => setJoinCode(extractSessionCode(e.target.value))}
             placeholder="CODE"
-            maxLength={6}
             className="w-20 px-1.5 py-0.5 bg-gray-700 text-white rounded font-mono text-center uppercase placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             autoFocus
           />
           <button
             type="submit"
-            disabled={loading || joinCode.trim().length !== 6}
+            disabled={loading || !/^[A-Z2-9]{6}$/.test(joinCode.trim())}
             className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded transition-colors"
           >
             {loading ? '...' : 'Join'}
