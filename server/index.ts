@@ -271,7 +271,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'updateTreeFields': {
       const fields = Object.keys(msg.fields).join(', ');
       log(`[mutation] ${session.code} ${c} W${msg.worldId} updateTreeFields [${fields}]`);
-      const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields);
+      const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
       }

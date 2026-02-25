@@ -152,22 +152,41 @@ export function applyUpdateTreeFields(
   states: WorldStates,
   worldId: number,
   fields: TreeFieldsPayload,
+  now: number,
 ): WorldStates {
   const current = states[worldId];
   if (!current) return states;
 
   let nextStatus = current.treeStatus;
-  if (
-    fields.treeType !== undefined &&
-    ALIVE_TREE_TYPES.has(fields.treeType) &&
-    (current.treeStatus === 'sapling' || current.treeStatus === 'mature')
-  ) {
-    nextStatus = 'alive';
+  let matureAtOverride: number | undefined;
+
+  if (fields.treeType !== undefined) {
+    if (current.treeStatus === 'sapling') {
+      // Manually advancing a sapling to a mature/alive type: reset matureAt to now
+      if (ALIVE_TREE_TYPES.has(fields.treeType)) {
+        nextStatus = 'alive';
+        matureAtOverride = now;
+      } else if (fields.treeType === 'mature') {
+        nextStatus = 'mature';
+        matureAtOverride = now;
+      }
+    } else if (
+      ALIVE_TREE_TYPES.has(fields.treeType) &&
+      current.treeStatus === 'mature'
+    ) {
+      // mature → alive: preserve matureAt (set correctly by auto-transition)
+      nextStatus = 'alive';
+    }
   }
 
   return {
     ...states,
-    [worldId]: { ...current, ...fields, treeStatus: nextStatus },
+    [worldId]: {
+      ...current,
+      ...fields,
+      ...(matureAtOverride !== undefined ? { matureAt: matureAtOverride } : {}),
+      treeStatus: nextStatus,
+    },
   };
 }
 

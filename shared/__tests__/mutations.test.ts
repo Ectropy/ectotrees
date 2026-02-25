@@ -289,37 +289,37 @@ describe('applySetTreeInfo', () => {
 describe('applyUpdateTreeFields', () => {
   it('returns unchanged state when world does not exist', () => {
     const states = {};
-    const result = applyUpdateTreeFields(states, 99, { treeHint: 'new hint' });
+    const result = applyUpdateTreeFields(states, 99, { treeHint: 'new hint' }, T);
     expect(result).toBe(states);
   });
 
   it('updates hint on existing world', () => {
     const states = { 1: { treeStatus: 'alive' as const, treeHint: 'old' } };
-    const result = applyUpdateTreeFields(states, 1, { treeHint: 'new' });
+    const result = applyUpdateTreeFields(states, 1, { treeHint: 'new' }, T);
     expect(result[1].treeHint).toBe('new');
   });
 
   it('upgrades sapling → alive when treeType is an alive tree type', () => {
     const states = { 1: { treeStatus: 'sapling' as const } };
-    const result = applyUpdateTreeFields(states, 1, { treeType: 'willow' });
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'willow' }, T);
     expect(result[1].treeStatus).toBe('alive');
   });
 
   it('upgrades mature → alive when treeType is an alive tree type', () => {
     const states = { 1: { treeStatus: 'mature' as const } };
-    const result = applyUpdateTreeFields(states, 1, { treeType: 'elder' });
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'elder' }, T);
     expect(result[1].treeStatus).toBe('alive');
   });
 
   it('does not upgrade alive → alive (no-op status change)', () => {
     const states = { 1: { treeStatus: 'alive' as const, treeType: 'oak' as const } };
-    const result = applyUpdateTreeFields(states, 1, { treeType: 'maple' });
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'maple' }, T);
     expect(result[1].treeStatus).toBe('alive');
   });
 
   it('does not upgrade status when treeType is not an alive type', () => {
     const states = { 1: { treeStatus: 'sapling' as const } };
-    const result = applyUpdateTreeFields(states, 1, { treeType: 'sapling-oak' });
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'sapling-oak' }, T);
     expect(result[1].treeStatus).toBe('sapling');
   });
 
@@ -328,8 +328,39 @@ describe('applyUpdateTreeFields', () => {
       1: { treeStatus: 'alive' as const },
       2: { treeStatus: 'dead' as const },
     };
-    const result = applyUpdateTreeFields(states, 1, { treeHint: 'x' });
+    const result = applyUpdateTreeFields(states, 1, { treeHint: 'x' }, T);
     expect(result[2]).toBe(states[2]);
+  });
+
+  // Issue #20: manually advancing a sapling to a mature/alive type must reset matureAt to now
+  it('sapling → alive: sets matureAt to now', () => {
+    const states = { 1: { treeStatus: 'sapling' as const, treeSetAt: T - 60_000, matureAt: T - 60_000 + SAPLING_MATURE_MS } };
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'oak' }, T);
+    expect(result[1].matureAt).toBe(T);
+  });
+
+  it('sapling → alive: dead timer is now + ALIVE_DEAD_MS, not inflated by remaining sapling time', () => {
+    // Sapling set 2 min ago, has 3 min left before natural maturation
+    const saplingSetAt = T - 2 * 60_000;
+    const states = { 1: { treeStatus: 'sapling' as const, treeSetAt: saplingSetAt, matureAt: saplingSetAt + SAPLING_MATURE_MS } };
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'maple' }, T);
+    // Dead would fire at matureAt + ALIVE_DEAD_MS = T + ALIVE_DEAD_MS
+    expect(result[1].matureAt).toBe(T);
+  });
+
+  it('sapling → mature (unknown type): upgrades status to mature and resets matureAt', () => {
+    const states = { 1: { treeStatus: 'sapling' as const, treeSetAt: T - 60_000, matureAt: T - 60_000 + SAPLING_MATURE_MS } };
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'mature' }, T);
+    expect(result[1].treeStatus).toBe('mature');
+    expect(result[1].matureAt).toBe(T);
+  });
+
+  it('mature → alive: preserves existing matureAt (auto-transition already set it correctly)', () => {
+    const matureAt = T - 5 * 60_000; // matured 5 min ago
+    const states = { 1: { treeStatus: 'mature' as const, matureAt } };
+    const result = applyUpdateTreeFields(states, 1, { treeType: 'yew' }, T);
+    expect(result[1].treeStatus).toBe('alive');
+    expect(result[1].matureAt).toBe(matureAt);
   });
 });
 

@@ -151,7 +151,7 @@ export function useWorldStates(sync?: SyncChannel | null) {
   }, [sync]);
 
   const updateTreeFields = useCallback((worldId: number, fields: TreeFieldsPayload) => {
-    setWorldStates(prev => applyUpdateTreeFields(prev, worldId, fields));
+    setWorldStates(prev => applyUpdateTreeFields(prev, worldId, fields, Date.now()));
     sync?.sendMutation({ type: 'updateTreeFields', worldId, fields });
   }, [sync]);
 
