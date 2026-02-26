@@ -10,6 +10,7 @@ import { TreeDeadView } from './components/TreeDeadView';
 import { WorldDetailView } from './components/WorldDetailView';
 import { SettingsView } from './components/SettingsView';
 import { SessionBar } from './components/SessionBar';
+import { TipTicker } from './components/TipTicker';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
@@ -448,8 +449,9 @@ export default function App() {
       )}
     </div>
     <footer className="sticky bottom-0 px-2 py-1 bg-gray-800 flex-shrink-0">
-      <div className="flex justify-center sm:justify-end">
-        <span className="text-[10px] text-gray-500">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+      <div className="flex items-center justify-end gap-3">
+        {settings.showTipTicker && <TipTicker />}
+        <span className="text-[10px] text-gray-500 flex-shrink-0">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
       </div>
     </footer>
     </>

@@ -34,6 +34,12 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
             value={settings.effectsSparks}
             onChange={v => onUpdateSettings({ effectsSparks: v })}
           />
+          <SettingRow
+            label="Tip Ticker"
+            description="Scrolling tips in the footer"
+            value={settings.showTipTicker}
+            onChange={v => onUpdateSettings({ showTipTicker: v })}
+          />
         </div>
 
         <button

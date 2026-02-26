@@ -3,10 +3,11 @@ import { useState, useEffect, useCallback } from 'react';
 export interface AppSettings {
   effectsLightning: boolean;
   effectsSparks: boolean;
+  showTipTicker: boolean;
 }
 
 const STORAGE_KEY = 'evilTree_settings';
-const DEFAULTS: AppSettings = { effectsLightning: true, effectsSparks: true };
+const DEFAULTS: AppSettings = { effectsLightning: true, effectsSparks: true, showTipTicker: true };
 
 function loadSettings(): AppSettings {
   try {
@@ -15,7 +16,12 @@ function loadSettings(): AppSettings {
     const p = JSON.parse(raw);
     if (typeof p?.effectsLightning !== 'boolean' || typeof p?.effectsSparks !== 'boolean')
       return DEFAULTS;
-    return { effectsLightning: p.effectsLightning, effectsSparks: p.effectsSparks };
+    return {
+      effectsLightning: p.effectsLightning,
+      effectsSparks: p.effectsSparks,
+      // Graceful migration: existing stored settings won't have this field
+      showTipTicker: typeof p?.showTipTicker === 'boolean' ? p.showTipTicker : true,
+    };
   } catch { return DEFAULTS; }
 }
 

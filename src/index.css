@@ -53,6 +53,11 @@
   box-sizing: border-box;
 }
 
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 /* Wheel picker: open-hand on hover, closed-hand while dragging */
 .wheel-grab,
 .wheel-grab * {
