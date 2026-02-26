@@ -27,22 +27,22 @@ export function TipTicker() {
   }, []);
 
   return (
-    <div className="overflow-hidden flex-1 min-w-0">
+    <div className="overflow-hidden flex-1 min-w-0 flex items-center">
       {/*
         Two identical copies side-by-side. The animation moves the pair from
         translateX(0) → translateX(-50%), at which point copy 2 is in copy 1's
         original position, making the loop perfectly seamless.
       */}
       <div
-        className="inline-flex animate-ticker"
+        className="inline-flex animate-ticker leading-none"
         style={duration != null
           ? { animationDuration: `${duration}s` }
           : { visibility: 'hidden' }}
       >
-        <span ref={copyRef} className="inline-block whitespace-nowrap text-[10px] text-gray-500">
+        <span ref={copyRef} className="inline-block whitespace-nowrap text-[10px] text-gray-500 leading-none">
           {text}
         </span>
-        <span aria-hidden="true" className="inline-block whitespace-nowrap text-[10px] text-gray-500">
+        <span aria-hidden="true" className="inline-block whitespace-nowrap text-[10px] text-gray-500 leading-none">
           {text}
         </span>
       </div>
