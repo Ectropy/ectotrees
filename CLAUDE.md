@@ -60,31 +60,43 @@ src/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
     useFavorites.ts     # Favorite worlds persisted to localStorage
-    useSettings.ts      # Visual effects + tip ticker settings persisted to localStorage
+    useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
+    useIsMobile.ts      # Reactive matchMedia hook (< 1024px) — drives sidebar mobile fallback
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
     StatusSection.tsx    # Compact in-card status display with countdowns
     SpawnTimerTool.tsx   # ⏱ button — navigates to SpawnTimerView
     TreeInfoTool.tsx     # 🌳 button — navigates to TreeInfoView
     TreeDeadTool.tsx     # ☠ button — navigates to TreeDeadView
-    SpawnTimerView.tsx   # Full-screen: set spawn countdown + optional location hint
-    TreeInfoView.tsx     # Full-screen: record tree type, hint, exact location, health
-    TreeDeadView.tsx     # Full-screen: confirm mark-dead (starts 30-min reward window)
-    WorldDetailView.tsx  # Full-screen: complete world status + quick tool access + clear
+    SpawnTimerView.tsx   # Full-screen/sidebar: set spawn countdown + optional location hint
+    TreeInfoView.tsx     # Full-screen/sidebar: record tree type, hint, exact location, health
+    TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)
+    WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
-    SettingsView.tsx     # Full-screen settings panel (visual effects toggles)
+    SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar toggles)
     LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
     SparkEffect.tsx      # GSAP-based ember particle animation (dead trees)
     TipTicker.tsx        # Infinite-scrolling tip footer (tips from data/tips.json)
     ui/switch.tsx        # Radix UI switch wrapper
+    ui/resizable.tsx     # react-resizable-panels v4 wrappers (shadcn/ui-style handle)
 ```
 
 ## Key Architecture Decisions
 
 ### Layout
 CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×1080 screen without scrolling. Cards are fixed at 85px tall.
+
+The outer shell is `h-screen flex flex-col` so the viewport is always pinned — the world grid (and sidebar, when open) scroll independently within their panels; the page itself never scrolls.
+
+### Sidebar Panel
+Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — numbers are **pixels** in v4, use strings like `"30%"` for percentages). `src/components/ui/resizable.tsx` provides shadcn/ui-style wrappers (`ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle`) plus a re-export of `useDefaultLayout` for `localStorage`-backed size persistence.
+
+- Panel width defaults to 30%, min 18%, max 55%; user's last width is saved via `useDefaultLayout({ id: 'ectotrees-sidebar', storage: localStorage })`
+- The `SidebarWrapper` component renders a slim dock-toggle bar (← Left / Right →) above the scrollable view content
+- `[&>*]:!min-h-full` on the scroll container overrides the `min-h-screen` class on view root divs so they fill the panel height rather than forcing `100vh`
+- `useIsMobile()` (`src/hooks/useIsMobile.ts`) reactively watches `window.matchMedia('(max-width: 1023px)')` and forces full-screen mode below 1024px regardless of the setting
 
 ### Navigation (App.tsx)
 `activeView` discriminated union drives what is rendered:
@@ -94,7 +106,9 @@ type ActiveView =
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number }
   | { kind: 'settings' };
 ```
-Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly so users don't need to return to the grid first. `settings` is opened from the ⚙ button in the header.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header.
+
+**Sidebar mode** (desktop only, opt-in): when `settings.sidebarEnabled` is true and the viewport is ≥ 1024px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
 
 ### State Model (per world)
 Defined in `shared/types.ts`, used by both client and server:
@@ -238,15 +252,17 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 
 ## Settings (`useSettings.ts` + `SettingsView.tsx`)
 
-Three boolean settings, persisted to `localStorage` (`evilTree_settings`):
+Five settings, persisted to `localStorage` (`evilTree_settings`):
 
 | Setting | Default | Description |
 |---|---|---|
 | `effectsLightning` | `true` | Enable canvas lightning bolt animations on health auto-transitions |
 | `effectsSparks` | `true` | Enable GSAP ember particle animations on dead tree cards |
-| `showTipTicker` | `true` | Show scrolling tip ticker in the sticky footer |
+| `showTipTicker` | `true` | Show scrolling tip ticker in the footer |
+| `sidebarEnabled` | `false` | Show tool views in a sidebar panel beside the grid (desktop only) |
+| `sidebarSide` | `'right'` | Which side the sidebar docks to (`'left'` or `'right'`) |
 
-Settings are accessed via `useSettings()` and edited in `SettingsView` (⚙ button in header).
+Settings are accessed via `useSettings()` and edited in `SettingsView` (⚙ button in header). All new fields use graceful migration — existing stored settings without them fall back to their defaults.
 
 ## Visual Effects
 

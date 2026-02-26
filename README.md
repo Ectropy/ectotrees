@@ -14,14 +14,15 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
   - **Spawn timer** — set a countdown to the next expected spawn, with optional location hint
   - **Tree info** — record tree type, location hint, and exact location
   - **Mark dead** — mark a tree as dead with one click (with confirmation)
-- **Click any card** to open a full-screen detail view showing the complete status (tree type, full location, live countdowns). All three tools are accessible directly from the detail view, and a **clear world state** option lets you instantly reset a world if you recorded information on the wrong one
+- **Click any card** to open a detail view showing the complete status (tree type, full location, live countdowns). All three tools are accessible directly from the detail view, and a **clear world state** option lets you instantly reset a world if you recorded information on the wrong one
 - **Sort & filter bar** (collapsible) with multiple options:
   - Sort by world number, soonest/latest spawn or end time, health, or favorites
   - Filter by favorites, P2P/F2P
   - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you want to cut
   - **Info filters** — tri-state chips (Intel, Hint, Location, Health) to show worlds that need a piece of information or already have it
 - **Visual effects** — lightning bolt animations on auto health transitions, ember spark particles on dead trees (can be toggled in settings)
-- **Settings panel** (⚙ button) — toggle visual effects and the scrolling tip ticker
+- **Sidebar panel** (opt-in, desktop only) — tool views and the detail view can open in a resizable panel beside the grid instead of replacing it, so you never lose sight of all 137 worlds. Dock left or right; drag the handle to resize; width is remembered. Enable in Settings (⚙)
+- **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, and sidebar mode
 - **Scrolling tip ticker** in the footer with gameplay tips and UI hints
 - **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket
 - State persists in `localStorage` between sessions; when in a sync session, the server is the source of truth
