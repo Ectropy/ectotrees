@@ -35,6 +35,7 @@ shared/
   types.ts              # Single source of truth: TreeType, WorldState, timing constants
   protocol.ts           # WebSocket message types (ClientMessage, ServerMessage)
   mutations.ts          # Pure state mutation functions (used by both client and server)
+  hints.ts              # Location hints database (17 hints → possible exact locations)
   __tests__/
     mutations.test.ts   # Vitest unit tests for all mutation functions
 
@@ -52,12 +53,14 @@ e2e/
 
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
+  data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
   constants/evilTree.ts # Re-exports from shared/types.ts + location hints, filterable types
   types/index.ts        # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
   hooks/
-    useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions
+    useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
     useFavorites.ts     # Favorite worlds persisted to localStorage
+    useSettings.ts      # Visual effects + tip ticker settings persisted to localStorage
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -70,7 +73,12 @@ src/
     WorldDetailView.tsx  # Full-screen: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
-    SortFilterBar.tsx    # Sort/filter controls for the world grid
+    SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
+    SettingsView.tsx     # Full-screen settings panel (visual effects toggles)
+    LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
+    SparkEffect.tsx      # GSAP-based ember particle animation (dead trees)
+    TipTicker.tsx        # Infinite-scrolling tip footer (tips from data/tips.json)
+    ui/switch.tsx        # Radix UI switch wrapper
 ```
 
 ## Key Architecture Decisions
@@ -83,9 +91,10 @@ CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×10
 ```typescript
 type ActiveView =
   | { kind: 'grid' }
-  | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
+  | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number }
+  | { kind: 'settings' };
 ```
-Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly so users don't need to return to the grid first.
+Full-screen views replace the entire grid. Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly so users don't need to return to the grid first. `settings` is opened from the ⚙ button in the header.
 
 ### State Model (per world)
 Defined in `shared/types.ts`, used by both client and server:
@@ -116,11 +125,17 @@ SpawnTimerView only allows setting a location **hint**, not an exact location. T
 ### Auto-Transitions
 Client checks every 1 second (for smooth countdown display), server checks every 10 seconds per session.
 - **Sapling → Mature**: 5 minutes after `treeSetAt`
+- **Health cap at 50%**: 10 minutes after `matureAt` (`LIGHTNING_1_MS`) — if health is undefined or >50%, it is capped to 50
+- **Health cap at 25%**: 20 minutes after `matureAt` (`LIGHTNING_2_MS`) — if health is undefined or >25%, it is capped to 25
 - **Mature/Alive → Dead**: 30 minutes after `matureAt`
 - **Dead → None**: 10 minutes after `deadAt` (fallen tree reward window)
 - **Spawn timer fires**: when `now >= nextSpawnTarget`, the world transitions to `treeStatus: 'sapling'` (treeType `sapling`, treeSetAt = nextSpawnTarget)
 
 Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by client and server.
+
+Health auto-transitions emit **lightning events** tracked in `useWorldStates`. These drive `LightningEffect` animations on the affected card and detail view. Event kinds: `lightning1` (10 min), `lightning2` (20 min), `death` (30 min). Death supersedes health events in the same tick. Events auto-expire after 3 seconds if not dismissed by the component.
+
+In dev mode, `window.__triggerLightning(worldId, kind?)` manually fires a lightning event for testing.
 
 ### Tree Types
 `sapling` | `sapling-tree` | `sapling-oak` | `sapling-willow` | `sapling-maple` | `sapling-yew` | `sapling-magic` | `sapling-elder` | `mature` | `tree` | `oak` | `willow` | `maple` | `yew` | `magic` | `elder`
@@ -128,9 +143,9 @@ Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by 
 Sapling variants allow recording the expected species during the sapling phase. On the `sapling → mature` auto-transition the variant suffix becomes the confirmed `treeType` (e.g. `sapling-oak` → `oak`). Plain `sapling` is used when the type is unknown.
 
 ### Sort & Filter Bar (SortFilterBar.tsx)
-The grid has a sort/filter bar with four sections:
+The grid has a collapsible sort/filter bar. A toggle button collapses it to a summary line of active filter pills (collapsed state persisted to `localStorage`). When expanded, there are four sections:
 - **Sort buttons**: W#, Soonest/Latest, Favorite, Health (with asc/desc toggle; clicking an active button toggles direction)
-  - `Soonest/Latest` sorts by the next relevant timestamp — ascending shows worlds ending/spawning soonest first, descending shows latest
+  - `Soonest/Latest` sorts by the next relevant timestamp across urgency buckets: dead trees → alive/mature → saplings → spawn timers → inactive
 - **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive)
 - **Tree type filter chips**: Unknown, Sapling, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
 - **Info tri-state filter chips**: Intel, Hint, Location, Health — each cycles through three states: off → **Needs** (show only worlds missing that info) → **Has** (show only worlds that have it)
@@ -151,9 +166,10 @@ All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `e
 
 Pure TypeScript code shared between client and server — the single source of truth for types, constants, protocol, and state mutations.
 
-- **`types.ts`** — `TreeType`, `WorldState`, `WorldStates`, timing constants (`SAPLING_MATURE_MS`, `ALIVE_DEAD_MS`, `DEAD_CLEAR_MS`), payload interfaces
+- **`types.ts`** — `TreeType`, `WorldState`, `WorldStates`, timing constants (`SAPLING_MATURE_MS`, `ALIVE_DEAD_MS`, `DEAD_CLEAR_MS`, `LIGHTNING_1_MS`, `LIGHTNING_2_MS`, `HEALTH_LIGHTNING_1`, `HEALTH_LIGHTNING_2`), payload interfaces
 - **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol
 - **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyTransitions`) that take a `WorldStates` map and return a new one
+- **`hints.ts`** — `LOCATION_HINTS` map: 17 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
 
 `src/types/index.ts` and `src/constants/evilTree.ts` re-export from `shared/types.ts`.
 
@@ -220,6 +236,41 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s
 
+## Settings (`useSettings.ts` + `SettingsView.tsx`)
+
+Three boolean settings, persisted to `localStorage` (`evilTree_settings`):
+
+| Setting | Default | Description |
+|---|---|---|
+| `effectsLightning` | `true` | Enable canvas lightning bolt animations on health auto-transitions |
+| `effectsSparks` | `true` | Enable GSAP ember particle animations on dead tree cards |
+| `showTipTicker` | `true` | Show scrolling tip ticker in the sticky footer |
+
+Settings are accessed via `useSettings()` and edited in `SettingsView` (⚙ button in header).
+
+## Visual Effects
+
+### Lightning (`LightningEffect.tsx`)
+Canvas-based procedural lightning bolt animation, 700ms duration. Triggered on three health auto-transitions (emitted as `LightningEvent` objects from `useWorldStates`):
+- **`lightning1`** — at 10 min (`LIGHTNING_1_MS`): health capped to 50%
+- **`lightning2`** — at 20 min (`LIGHTNING_2_MS`): health capped to 25%
+- **`death`** — at 30 min: tree dies
+
+Each event carries a `seq` counter that forces the component to remount so the animation retriggers if rapid events arrive. Rendered on both `WorldCard` and `WorldDetailView` (conditionally on `effectsLightning`).
+
+### Sparks (`SparkEffect.tsx`)
+GSAP-based orange ember particle animation shown on cards/detail views where `treeStatus === 'dead'`. Particles are density-scaled to the container size. Deferred via `requestIdleCallback` (mobile-safe fallback to `setTimeout`). Conditionally rendered on `effectsSparks`.
+
+### Tip Ticker (`TipTicker.tsx`)
+Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips are shuffled once on mount. Uses seamless CSS keyframe animation with two side-by-side copies and a duration calculated from content width at 20 px/s. Conditionally rendered on `showTipTicker`. The footer also shows the app version.
+
+## PWA
+
+- **Service worker** (`public/sw.js`): cache-first for app shell, network-first for navigate requests (fallback to `index.html`). Excludes `/api` and `/ws`.
+- **Web app manifest** (`public/manifest.webmanifest`): standalone display mode, dark theme (`#0f172a`).
+- **Registration** (`src/registerServiceWorker.ts`): registers in production only (`import.meta.env.PROD`).
+- iOS homescreen meta tags in `index.html` (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`).
+
 ## Client Sync Layer (`useSession.ts`)
 
 - `createSession(initialStates?)` — POST to `/api/session`, connect WebSocket, then send `initializeState` with the caller's local world state to seed the fresh session
@@ -228,6 +279,7 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 - `leaveSession()` — close WebSocket cleanly
 - `dismissError()` — clear the current error state
 - **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload
+- **`?join=CODE` URL parameter**: on page load, if a `?join=` query param is present with a valid 6-character code, the session is joined automatically and the param is removed from the URL history
 - **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.

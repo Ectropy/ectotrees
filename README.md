@@ -9,24 +9,29 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 - **137 world cards** displayed in a compact grid — all visible at once on a 1080p monitor
 - Per-world **status tracking**: no tree → sapling → mature → alive → dead → (cycle repeats)
 - **Automatic state transitions** based on known game timings (sapling matures at 5 min, tree dies at 30 min, fallen tree despawns at 10 min after death)
+- **Automatic health caps** reflecting lightning strikes mid-fight: health is capped to 50% at 10 minutes and 25% at 20 minutes, with animated lightning bolt effects on the affected card
 - Three tools on every card:
   - **Spawn timer** — set a countdown to the next expected spawn, with optional location hint
   - **Tree info** — record tree type, location hint, and exact location
   - **Mark dead** — mark a tree as dead with one click (with confirmation)
 - **Click any card** to open a full-screen detail view showing the complete status (tree type, full location, live countdowns). All three tools are accessible directly from the detail view, and a **clear world state** option lets you instantly reset a world if you recorded information on the wrong one
-- **Sort & filter bar** with multiple options:
+- **Sort & filter bar** (collapsible) with multiple options:
   - Sort by world number, soonest/latest spawn or end time, health, or favorites
   - Filter by favorites, P2P/F2P
   - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you want to cut
   - **Info filters** — tri-state chips (Intel, Hint, Location, Health) to show worlds that need a piece of information or already have it
+- **Visual effects** — lightning bolt animations on auto health transitions, ember spark particles on dead trees (can be toggled in settings)
+- **Settings panel** (⚙ button) — toggle visual effects and the scrolling tip ticker
+- **Scrolling tip ticker** in the footer with gameplay tips and UI hints
 - **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket
 - State persists in `localStorage` between sessions; when in a sync session, the server is the source of truth
+- **Installable as a PWA** — add to home screen on mobile for a standalone app experience (HTTPS required; see deployment section)
 
 ## Multi-user sync
 
 1. One player clicks **Create Session** in the session bar at the top of the grid
 2. A 6-character session code is generated (e.g. `A3KW7N`) — your current local state is shared into the new session automatically
-3. Share the code with friends — they click **Join Session** and type it in
+3. Share the code (or a `?join=A3KW7N` link) with friends — they click **Join Session** and type it in, or open the link to join automatically
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
@@ -169,4 +174,5 @@ Notes:
 - React 18 + TypeScript + Vite 7
 - Tailwind CSS v3
 - Express 5 + ws (WebSocket server)
+- GSAP for particle animations
 - Shared TypeScript types and mutation logic between client and server (`shared/`)
