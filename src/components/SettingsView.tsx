@@ -40,6 +40,39 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
             value={settings.showTipTicker}
             onChange={v => onUpdateSettings({ showTipTicker: v })}
           />
+          <SettingRow
+            label="Sidebar Panel"
+            description="Show tools in a panel beside the grid instead of full-screen (desktop only)"
+            value={settings.sidebarEnabled}
+            onChange={v => onUpdateSettings({ sidebarEnabled: v })}
+          />
+          {settings.sidebarEnabled && (
+            <div className="px-4 py-3">
+              <p className="text-xs text-gray-400 mb-2 ml-0">Dock side</p>
+              <div className="flex gap-2 ml-0">
+                <button
+                  onClick={() => onUpdateSettings({ sidebarSide: 'left' })}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    settings.sidebarSide === 'left'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  ← Left
+                </button>
+                <button
+                  onClick={() => onUpdateSettings({ sidebarSide: 'right' })}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    settings.sidebarSide === 'right'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Right →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <button

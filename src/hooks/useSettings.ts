@@ -4,10 +4,18 @@ export interface AppSettings {
   effectsLightning: boolean;
   effectsSparks: boolean;
   showTipTicker: boolean;
+  sidebarEnabled: boolean;
+  sidebarSide: 'left' | 'right';
 }
 
 const STORAGE_KEY = 'evilTree_settings';
-const DEFAULTS: AppSettings = { effectsLightning: true, effectsSparks: true, showTipTicker: true };
+const DEFAULTS: AppSettings = {
+  effectsLightning: true,
+  effectsSparks: true,
+  showTipTicker: true,
+  sidebarEnabled: false,
+  sidebarSide: 'right',
+};
 
 function loadSettings(): AppSettings {
   try {
@@ -19,8 +27,10 @@ function loadSettings(): AppSettings {
     return {
       effectsLightning: p.effectsLightning,
       effectsSparks: p.effectsSparks,
-      // Graceful migration: existing stored settings won't have this field
+      // Graceful migration: existing stored settings won't have these fields
       showTipTicker: typeof p?.showTipTicker === 'boolean' ? p.showTipTicker : true,
+      sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : false,
+      sidebarSide: p?.sidebarSide === 'left' ? 'left' : 'right',
     };
   } catch { return DEFAULTS; }
 }

@@ -3,6 +3,7 @@ import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
 import { useFavorites } from './hooks/useFavorites';
+import { useIsMobile } from './hooks/useIsMobile';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
@@ -12,6 +13,7 @@ import { SettingsView } from './components/SettingsView';
 import { SessionBar } from './components/SessionBar';
 import { TipTicker } from './components/TipTicker';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle, useDefaultLayout } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
@@ -87,6 +89,10 @@ function loadFilters(): Filters {
 
 const APP_VERSION = __APP_VERSION__;
 
+// Sidebar panel IDs for layout persistence
+const SIDEBAR_PANEL_ID = 'sidebar';
+const GRID_PANEL_ID = 'grid';
+
 export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
@@ -107,6 +113,7 @@ export default function App() {
   }, []);
   const { favorites, toggleFavorite } = useFavorites();
   const { settings, updateSettings } = useSettings();
+  const isMobile = useIsMobile();
 
   const worldStatesRef = useRef(worldStates);
   worldStatesRef.current = worldStates;
@@ -321,139 +328,250 @@ export default function App() {
     setActiveView({ kind: 'grid' });
   }
 
-  // Full-screen view rendering
-  if (activeView.kind === 'settings')
-    return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+  // Sidebar layout persistence via useDefaultLayout
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: 'ectotrees-sidebar',
+    storage: localStorage,
+    panelIds: [SIDEBAR_PANEL_ID, GRID_PANEL_ID],
+  });
 
-  if (activeView.kind !== 'grid') {
-    const { worldId } = activeView;
-    const world = worlds.find(w => w.id === worldId)!;
+  // Whether to render sidebar mode (desktop + enabled + a view is open)
+  const useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid';
 
-    if (activeView.kind === 'spawn')
-      return <SpawnTimerView
-        world={world}
-        onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleBack(); }}
-        onBack={handleBack}
-      />;
-    if (activeView.kind === 'tree') {
-      const currentState = worldStates[worldId] ?? { treeStatus: 'none' as const };
-      const existingState = (currentState.treeStatus === 'sapling' || currentState.treeStatus === 'mature' || currentState.treeStatus === 'alive')
-        ? currentState : undefined;
-      return <TreeInfoView
-        world={world}
-        existingState={existingState}
-        onSubmit={(info) => { setTreeInfo(worldId, info); handleBack(); }}
-        onUpdate={(fields) => { updateTreeFields(worldId, fields); handleBack(); }}
-        onBack={handleBack}
-      />;
+  // Render the current tool/detail/settings view component
+  function renderViewContent() {
+    if (activeView.kind === 'settings')
+      return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
+    if (activeView.kind !== 'grid') {
+      const { worldId } = activeView;
+      const world = worlds.find(w => w.id === worldId)!;
+
+      if (activeView.kind === 'spawn')
+        return <SpawnTimerView
+          world={world}
+          onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleBack(); }}
+          onBack={handleBack}
+        />;
+      if (activeView.kind === 'tree') {
+        const currentState = worldStates[worldId] ?? { treeStatus: 'none' as const };
+        const existingState = (currentState.treeStatus === 'sapling' || currentState.treeStatus === 'mature' || currentState.treeStatus === 'alive')
+          ? currentState : undefined;
+        return <TreeInfoView
+          world={world}
+          existingState={existingState}
+          onSubmit={(info) => { setTreeInfo(worldId, info); handleBack(); }}
+          onUpdate={(fields) => { updateTreeFields(worldId, fields); handleBack(); }}
+          onBack={handleBack}
+        />;
+      }
+      if (activeView.kind === 'dead')
+        return <TreeDeadView
+          world={world}
+          onConfirm={() => { markDead(worldId); handleBack(); }}
+          onBack={handleBack}
+        />;
+      if (activeView.kind === 'detail')
+        return <WorldDetailView
+          world={world}
+          state={worldStates[worldId] ?? { treeStatus: 'none' }}
+          isFavorite={favorites.has(worldId)}
+          onToggleFavorite={() => toggleFavorite(worldId)}
+          onClear={() => { clearWorld(worldId); handleBack(); }}
+          onUpdateHealth={(health) => updateHealth(worldId, health)}
+          onUpdateFields={(fields) => updateTreeFields(worldId, fields)}
+          onBack={handleBack}
+          onOpenTool={(tool) => handleOpenTool(worldId, tool)}
+          lightningEvent={lightningEvents.get(worldId)}
+          onDismissLightning={() => dismissLightningEvent(worldId)}
+          effectsLightning={settings.effectsLightning}
+          effectsSparks={settings.effectsSparks}
+        />;
     }
-    if (activeView.kind === 'dead')
-      return <TreeDeadView
-        world={world}
-        onConfirm={() => { markDead(worldId); handleBack(); }}
-        onBack={handleBack}
-      />;
-    if (activeView.kind === 'detail')
-      return <WorldDetailView
-        world={world}
-        state={worldStates[worldId] ?? { treeStatus: 'none' }}
-        isFavorite={favorites.has(worldId)}
-        onToggleFavorite={() => toggleFavorite(worldId)}
-        onClear={() => { clearWorld(worldId); handleBack(); }}
-        onUpdateHealth={(health) => updateHealth(worldId, health)}
-        onUpdateFields={(fields) => updateTreeFields(worldId, fields)}
-        onBack={handleBack}
-        onOpenTool={(tool) => handleOpenTool(worldId, tool)}
-        lightningEvent={lightningEvents.get(worldId)}
-        onDismissLightning={() => dismissLightningEvent(worldId)}
-        effectsLightning={settings.effectsLightning}
-        effectsSparks={settings.effectsSparks}
-      />;
+    return null;
   }
 
-  // Grid view
-  return (
-    <>
-    <div className="flex flex-col min-h-screen p-1.5 gap-1.5">
-      <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
-        <h1 className="text-base font-bold text-amber-400 tracking-wide">
-          Ecto Trees
-          <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
-        </h1>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
-          <button
-            onClick={() => setActiveView({ kind: 'settings' })}
-            className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
-            title="Settings"
-            aria-label="Open settings"
-          >⚙</button>
-        </div>
-      </header>
+  // Full-screen view (mobile or sidebar disabled)
+  if (!useSidebar && activeView.kind !== 'grid') {
+    return renderViewContent();
+  }
 
-      <SessionBar
-        session={session}
-        activeLocalCount={activeLocalCount}
-        onCreateSession={handleCreateSession}
-        onJoinSession={handleJoinSession}
-        onRejoinSession={rejoinSession}
-        onLeaveSession={handleLeaveSession}
-        onDismissError={dismissError}
-      />
-
-      <SortFilterBar
-        sortMode={sortMode}
-        setSortMode={setSortMode}
-        sortAsc={sortAsc}
-        setSortAsc={setSortAsc}
-        filters={filters}
-        setFilters={setFilters}
-      />
-
-      {sortedFilteredWorlds.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
-          <p className="text-sm">No worlds match the current filters. =(</p>
-          <button
-            onClick={() => setFilters(DEFAULT_FILTERS)}
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        <main
-          className="flex-1 overflow-visible"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
-            gap: '3px',
-            alignContent: 'start',
-          }}
-        >
-          {sortedFilteredWorlds.map(world => (
-            <WorldCard
-              key={world.id}
-              world={world}
-              state={worldStates[world.id] ?? { treeStatus: 'none' }}
-              isFavorite={favorites.has(world.id)}
-              onToggleFavorite={() => toggleFavorite(world.id)}
-              onCardClick={() => handleOpenCard(world.id)}
-              onOpenTool={(tool) => handleOpenTool(world.id, tool)}
-              lightningEvent={lightningEvents.get(world.id)}
-              onDismissLightning={() => dismissLightningEvent(world.id)}
-              effectsLightning={settings.effectsLightning}
-              effectsSparks={settings.effectsSparks}
-            />
-          ))}
-        </main>
-      )}
+  // World grid (shared between grid-only and sidebar modes)
+  const worldGrid = sortedFilteredWorlds.length === 0 ? (
+    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+      <p className="text-sm">No worlds match the current filters. =(</p>
+      <button
+        onClick={() => setFilters(DEFAULT_FILTERS)}
+        className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+      >
+        Clear filters
+      </button>
     </div>
-    <footer className="sticky bottom-0 px-2 py-1 bg-gray-800 flex-shrink-0">
-      <div className="flex items-center justify-end gap-3">
-        {settings.showTipTicker && <TipTicker />}
-        <span className="text-[10px] text-gray-500 flex-shrink-0">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+  ) : (
+    <div
+      className="flex-1 overflow-visible"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
+        gap: '3px',
+        alignContent: 'start',
+      }}
+    >
+      {sortedFilteredWorlds.map(world => (
+        <WorldCard
+          key={world.id}
+          world={world}
+          state={worldStates[world.id] ?? { treeStatus: 'none' }}
+          isFavorite={favorites.has(world.id)}
+          onToggleFavorite={() => toggleFavorite(world.id)}
+          onCardClick={() => handleOpenCard(world.id)}
+          onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+          lightningEvent={lightningEvents.get(world.id)}
+          onDismissLightning={() => dismissLightningEvent(world.id)}
+          effectsLightning={settings.effectsLightning}
+          effectsSparks={settings.effectsSparks}
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    // Outer shell is pinned to the viewport — nothing scrolls at the page level
+    <div className="flex flex-col h-screen">
+      <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
+        <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
+          <h1 className="text-base font-bold text-amber-400 tracking-wide">
+            Ecto Trees
+            <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            <button
+              onClick={() => setActiveView({ kind: 'settings' })}
+              className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
+              title="Settings"
+              aria-label="Open settings"
+            >⚙</button>
+          </div>
+        </header>
+
+        <SessionBar
+          session={session}
+          activeLocalCount={activeLocalCount}
+          onCreateSession={handleCreateSession}
+          onJoinSession={handleJoinSession}
+          onRejoinSession={rejoinSession}
+          onLeaveSession={handleLeaveSession}
+          onDismissError={dismissError}
+        />
+
+        <SortFilterBar
+          sortMode={sortMode}
+          setSortMode={setSortMode}
+          sortAsc={sortAsc}
+          setSortAsc={setSortAsc}
+          filters={filters}
+          setFilters={setFilters}
+        />
+
+        {useSidebar ? (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={onLayoutChanged}
+            className="flex-1 min-h-0"
+          >
+            {settings.sidebarSide === 'left' && (
+              <>
+                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })}>
+                    {renderViewContent()}
+                  </SidebarWrapper>
+                </ResizablePanel>
+                <ResizableHandle />
+              </>
+            )}
+
+            <ResizablePanel id={GRID_PANEL_ID} minSize="40%">
+              <div className="h-full overflow-y-auto">
+                <main className="p-0.5">
+                  {worldGrid}
+                </main>
+              </div>
+            </ResizablePanel>
+
+            {settings.sidebarSide === 'right' && (
+              <>
+                <ResizableHandle />
+                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })}>
+                    {renderViewContent()}
+                  </SidebarWrapper>
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        ) : (
+          // Non-sidebar: grid scrolls within remaining space; sidebar panel stays fixed
+          <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+            {worldGrid}
+          </div>
+        )}
       </div>
-    </footer>
-    </>
+
+      {/* Footer is a direct flex child of h-screen — always anchored to the bottom */}
+      <footer className="px-2 py-1 bg-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-end gap-3">
+          {settings.showTipTicker && <TipTicker />}
+          <span className="text-[10px] text-gray-500 flex-shrink-0">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function SidebarWrapper({
+  side,
+  onChangeSide,
+  children,
+}: {
+  side: 'left' | 'right';
+  onChangeSide: (side: 'left' | 'right') => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col h-full bg-gray-900 border-gray-700" style={{ borderLeftWidth: side === 'right' ? 0 : undefined }}>
+      {/* Dock toggle bar */}
+      <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-gray-700 flex-shrink-0">
+        <span className="text-[10px] text-gray-500 mr-auto">Dock:</span>
+        <button
+          onClick={() => onChangeSide('left')}
+          title="Dock left"
+          className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+            side === 'left'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+          }`}
+        >
+          ← Left
+        </button>
+        <button
+          onClick={() => onChangeSide('right')}
+          title="Dock right"
+          className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+            side === 'right'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+          }`}
+        >
+          Right →
+        </button>
+      </div>
+      {/* View content — scrollable. [&>*]:!min-h-full overrides the min-h-screen on view
+          root divs so they fill the panel height instead of forcing 100vh */}
+      <div className="flex-1 overflow-y-auto [&>*]:!min-h-full">
+        {children}
+      </div>
+    </div>
   );
 }
