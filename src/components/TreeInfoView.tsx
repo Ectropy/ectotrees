@@ -61,12 +61,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={onBack}
-            className="text-sm text-blue-400 hover:text-blue-300 mb-3 transition-colors"
-          >
-            ← Back
-          </button>
+
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">🌳 Tree Info</h1>

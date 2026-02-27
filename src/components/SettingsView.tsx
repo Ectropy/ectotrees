@@ -13,12 +13,7 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
       <div className="max-w-lg mx-auto">
         <div className="mb-6">
-          <button
-            onClick={onBack}
-            className="text-sm text-blue-400 hover:text-blue-300 mb-3 transition-colors"
-          >
-            ← Back
-          </button>
+
           <h1 className="text-2xl font-bold text-white">⚙ Settings</h1>
         </div>
 

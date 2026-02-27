@@ -16,12 +16,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={onBack}
-            className="text-sm text-blue-400 hover:text-blue-300 mb-3 transition-colors"
-          >
-            ← Back
-          </button>
+
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">☠ Mark Tree as Dead</h1>
             <p className="text-sm text-gray-400">

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X } from 'lucide-react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -394,7 +394,16 @@ export default function App() {
 
   // Full-screen view (mobile or sidebar disabled)
   if (!useSidebar && activeView.kind !== 'grid') {
-    return renderViewContent();
+    return (
+      <FullscreenWrapper
+        onClose={handleBack}
+        showDockControls={!isMobile}
+        onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
+        onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
+      >
+        {renderViewContent()}
+      </FullscreenWrapper>
+    );
   }
 
   // World grid (shared between grid-only and sidebar modes)
@@ -485,7 +494,7 @@ export default function App() {
             {settings.sidebarSide === 'left' && (
               <>
                 <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })}>
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -505,7 +514,7 @@ export default function App() {
               <>
                 <ResizableHandle />
                 <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })}>
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -535,17 +544,19 @@ function SidebarWrapper({
   side,
   onChangeSide,
   onExpand,
+  onClose,
   children,
 }: {
   side: 'left' | 'right';
   onChangeSide: (side: 'left' | 'right') => void;
   onExpand: () => void;
+  onClose: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-full bg-gray-900 border-gray-700" style={{ borderLeftWidth: side === 'right' ? 0 : undefined }}>
-      {/* Dock toggle bar */}
-      <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-gray-700 flex-shrink-0">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-700 flex-shrink-0">
         {side === 'right' ? (
           <button
             onClick={() => onChangeSide('left')}
@@ -570,9 +581,70 @@ function SidebarWrapper({
         >
           <Expand className="h-4 w-4" />
         </button>
+        <button
+          onClick={onClose}
+          title="Close"
+          className="ml-auto flex items-center gap-1 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+        >
+          <X className="h-4 w-4" />
+          <span className="text-xs">Close</span>
+        </button>
       </div>
       {/* View content — scrollable. [&>*]:!min-h-full overrides the min-h-screen on view
           root divs so they fill the panel height instead of forcing 100vh */}
+      <div className="flex-1 overflow-y-auto [&>*]:!min-h-full">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FullscreenWrapper({
+  onClose,
+  showDockControls,
+  onDockLeft,
+  onDockRight,
+  children,
+}: {
+  onClose: () => void;
+  showDockControls: boolean;
+  onDockLeft: () => void;
+  onDockRight: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col h-screen">
+      <div className="bg-gray-900 border-b border-gray-700 flex-shrink-0 px-4 sm:px-6 py-1">
+        <div className="max-w-lg mx-auto flex items-center gap-1">
+          {showDockControls && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onDockLeft}
+                title="Dock left"
+                className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onDockRight}
+                title="Dock right"
+                className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+              >
+                <PanelRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            title="Close"
+            className="ml-auto flex items-center gap-1.5 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+          >
+            <X className="h-4 w-4" />
+            <span className="text-xs">Close</span>
+          </button>
+        </div>
+      </div>
+      {/* [&>*]:!min-h-full overrides min-h-screen on view root divs */}
       <div className="flex-1 overflow-y-auto [&>*]:!min-h-full">
         {children}
       </div>
