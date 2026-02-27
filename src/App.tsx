@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { PanelLeft, PanelRight, Expand } from 'lucide-react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -484,7 +485,7 @@ export default function App() {
             {settings.sidebarSide === 'left' && (
               <>
                 <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })}>
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -504,7 +505,7 @@ export default function App() {
               <>
                 <ResizableHandle />
                 <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })}>
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -533,38 +534,41 @@ export default function App() {
 function SidebarWrapper({
   side,
   onChangeSide,
+  onExpand,
   children,
 }: {
   side: 'left' | 'right';
   onChangeSide: (side: 'left' | 'right') => void;
+  onExpand: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-full bg-gray-900 border-gray-700" style={{ borderLeftWidth: side === 'right' ? 0 : undefined }}>
       {/* Dock toggle bar */}
       <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-gray-700 flex-shrink-0">
-        <span className="text-[10px] text-gray-500 mr-auto">Dock:</span>
+        {side === 'right' ? (
+          <button
+            onClick={() => onChangeSide('left')}
+            title="Dock left"
+            className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => onChangeSide('right')}
+            title="Dock right"
+            className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+          >
+            <PanelRight className="h-4 w-4" />
+          </button>
+        )}
         <button
-          onClick={() => onChangeSide('left')}
-          title="Dock left"
-          className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-            side === 'left'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-          }`}
+          onClick={onExpand}
+          title="Open fullscreen"
+          className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
         >
-          ← Left
-        </button>
-        <button
-          onClick={() => onChangeSide('right')}
-          title="Dock right"
-          className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-            side === 'right'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-          }`}
-        >
-          Right →
+          <Expand className="h-4 w-4" />
         </button>
       </div>
       {/* View content — scrollable. [&>*]:!min-h-full overrides the min-h-screen on view

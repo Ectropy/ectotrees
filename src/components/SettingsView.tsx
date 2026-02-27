@@ -1,3 +1,4 @@
+import { PanelLeft, PanelRight } from 'lucide-react';
 import type { AppSettings } from '../hooks/useSettings';
 import { Switch } from '@/components/ui/switch';
 
@@ -47,29 +48,21 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
             onChange={v => onUpdateSettings({ sidebarEnabled: v })}
           />
           {settings.sidebarEnabled && (
-            <div className="px-4 py-3">
-              <p className="text-xs text-gray-400 mb-2 ml-0">Dock side</p>
-              <div className="flex gap-2 ml-0">
-                <button
-                  onClick={() => onUpdateSettings({ sidebarSide: 'left' })}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    settings.sidebarSide === 'left'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  ← Left
-                </button>
-                <button
-                  onClick={() => onUpdateSettings({ sidebarSide: 'right' })}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    settings.sidebarSide === 'right'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Right →
-                </button>
+            <div className="flex items-center justify-between px-4 py-3 gap-4">
+              <p className="text-sm font-medium text-gray-100">Dock side</p>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-xs text-gray-400">
+                  {settings.sidebarSide === 'left' ? (
+                    <><PanelLeft className="h-3.5 w-3.5" /> Left</>
+                  ) : (
+                    <><PanelRight className="h-3.5 w-3.5" /> Right</>
+                  )}
+                </span>
+                <Switch
+                  checked={settings.sidebarSide === 'right'}
+                  onCheckedChange={v => onUpdateSettings({ sidebarSide: v ? 'right' : 'left' })}
+                  className="data-[state=checked]:bg-white data-[state=unchecked]:bg-white"
+                />
               </div>
             </div>
           )}
