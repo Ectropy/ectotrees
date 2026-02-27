@@ -329,6 +329,14 @@ export default function App() {
     setActiveView({ kind: 'grid' });
   }
 
+  function handleToolSubmitted(worldId: number) {
+    if (useSidebar) {
+      setActiveView({ kind: 'detail', worldId });
+    } else {
+      setActiveView({ kind: 'grid' });
+    }
+  }
+
   // Sidebar width — stored as a percentage (0-100) shared between left and right sides so
   // switching sides feels like moving the same panel, not opening a differently-sized one.
   // defaultSize must be a percentage string (not a pixel number) so the library can compute
@@ -367,7 +375,7 @@ export default function App() {
       if (activeView.kind === 'spawn')
         return <SpawnTimerView
           world={world}
-          onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleBack(); }}
+          onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleToolSubmitted(worldId); }}
           onBack={handleBack}
         />;
       if (activeView.kind === 'tree') {
@@ -377,15 +385,15 @@ export default function App() {
         return <TreeInfoView
           world={world}
           existingState={existingState}
-          onSubmit={(info) => { setTreeInfo(worldId, info); handleBack(); }}
-          onUpdate={(fields) => { updateTreeFields(worldId, fields); handleBack(); }}
+          onSubmit={(info) => { setTreeInfo(worldId, info); handleToolSubmitted(worldId); }}
+          onUpdate={(fields) => { updateTreeFields(worldId, fields); handleToolSubmitted(worldId); }}
           onBack={handleBack}
         />;
       }
       if (activeView.kind === 'dead')
         return <TreeDeadView
           world={world}
-          onConfirm={() => { markDead(worldId); handleBack(); }}
+          onConfirm={() => { markDead(worldId); handleToolSubmitted(worldId); }}
           onBack={handleBack}
         />;
       if (activeView.kind === 'detail')
