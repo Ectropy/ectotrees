@@ -44,7 +44,10 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
           />
           {settings.sidebarEnabled && (
             <div className="flex items-center justify-between px-4 py-3 gap-4">
-              <p className="text-sm font-medium text-gray-100">Dock side</p>
+              <div>
+                <p className="text-sm font-medium text-gray-100">Dock side</p>
+                <p className="text-xs text-gray-400 mt-0.5">Which side the panel docks to</p>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1 text-xs text-gray-400">
                   {settings.sidebarSide === 'left' ? (
