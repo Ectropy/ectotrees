@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull, Settings } from 'lucide-react';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -486,7 +487,7 @@ export default function App() {
               className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
               title="Settings"
               aria-label="Open settings"
-            >⚙</button>
+            ><Settings className="h-4 w-4" /></button>
           </div>
         </header>
 
@@ -566,10 +567,10 @@ export default function App() {
 }
 
 const NAV_ITEMS = [
-  { kind: 'detail' as const, icon: HatGlasses, label: 'View' },
-  { kind: 'spawn'  as const, icon: Timer,         label: 'Timer' },
-  { kind: 'tree'   as const, icon: TreeDeciduous,  label: 'Tree' },
-  { kind: 'dead'   as const, icon: Skull,          label: 'Dead' },
+  { kind: 'detail' as const, icon: HatGlasses,    label: 'View',  activeColor: 'text-amber-400'    },
+  { kind: 'spawn'  as const, icon: Timer,          label: 'Timer', activeColor: SPAWN_COLOR.text    },
+  { kind: 'tree'   as const, icon: TreeDeciduous,  label: 'Tree',  activeColor: TREE_COLOR.text     },
+  { kind: 'dead'   as const, icon: Skull,          label: 'Dead',  activeColor: DEAD_COLOR.text     },
 ];
 
 function SidebarWrapper({
@@ -620,14 +621,14 @@ function SidebarWrapper({
         </div>
         {/* Center: world nav buttons */}
         <div className="flex items-center justify-center gap-0.5">
-          {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label }) => (
+          {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label, activeColor }) => (
             <button
               key={kind}
               onClick={() => worldNav.onNavigate(kind)}
               title={label}
               className={`px-1.5 py-1 rounded flex items-center gap-1 transition-colors ${
                 worldNav.activeKind === kind
-                  ? 'text-amber-400 bg-gray-700/60'
+                  ? `${activeColor} bg-gray-700/60`
                   : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
               }`}
             >
@@ -697,14 +698,14 @@ function FullscreenWrapper({
           )}
           {/* Nav buttons: left-aligned on mobile, absolutely centered on desktop */}
           <div className="flex items-center gap-0.5 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
-            {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label }) => (
+            {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label, activeColor }) => (
               <button
                 key={kind}
                 onClick={() => worldNav.onNavigate(kind)}
                 title={label}
                 className={`px-2 py-2 sm:px-1.5 sm:py-1 rounded flex items-center gap-1 transition-colors ${
                   worldNav.activeKind === kind
-                    ? 'text-amber-400 bg-gray-700/60'
+                    ? `${activeColor} bg-gray-700/60`
                     : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
                 }`}
               >

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPES, TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
+import { TREE_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -64,9 +66,9 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">🌳 Tree Info</h1>
+              <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2"><TreeDeciduous className="h-5 w-5" /> Tree Info</h1>
               <p className="text-sm text-gray-400">
-                World {world.id} · <span className={isP2P ? 'text-yellow-200' : 'text-blue-200'}>{world.type}</span>
+                World {world.id} · <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
               </p>
             </div>
           </div>
@@ -202,8 +204,8 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             <button
               type="submit"
               disabled={!hint}
-              className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed
-                text-white font-medium rounded py-2 transition-colors"
+              className={`flex-1 ${TREE_COLOR.bg} ${TREE_COLOR.bgHover} disabled:opacity-40 disabled:cursor-not-allowed
+                text-white font-medium rounded py-2 transition-colors`}
             >
               {isUpdateMode ? 'Update Tree Info' : 'Confirm'}
             </button>

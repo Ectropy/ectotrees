@@ -1,4 +1,4 @@
-import { PanelLeft, PanelRight } from 'lucide-react';
+import { PanelLeft, PanelRight, Settings } from 'lucide-react';
 import type { AppSettings } from '../hooks/useSettings';
 import { Switch } from '@/components/ui/switch';
 
@@ -14,7 +14,7 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
       <div className="max-w-lg mx-auto">
         <div className="mb-6">
 
-          <h1 className="text-2xl font-bold text-white">⚙ Settings</h1>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Settings className="h-5 w-5" /> Settings</h1>
         </div>
 
         <div className="bg-gray-800 border border-gray-700 rounded divide-y divide-gray-700">

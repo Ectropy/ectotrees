@@ -1,5 +1,7 @@
 import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
+import { Skull, Check } from 'lucide-react';
+import { DEAD_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
 
 interface Props {
   world: WorldConfig;
@@ -18,9 +20,9 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
         <div className="mb-6">
 
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">☠ Mark Tree as Dead</h1>
+            <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2"><Skull className="h-5 w-5" /> Mark Tree as Dead</h1>
             <p className="text-sm text-gray-400">
-              World {world.id} · <span className={isP2P ? 'text-yellow-200' : 'text-blue-200'}>{world.type}</span>
+              World {world.id} · <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
             </p>
           </div>
         </div>
@@ -28,7 +30,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
         {/* Confirmation card */}
         <div className="space-y-6">
           {/* Main message */}
-          <div className="bg-gray-800 border border-red-800 rounded p-6 text-center">
+          <div className={`bg-gray-800 border ${DEAD_COLOR.alertBorder} rounded p-6 text-center`}>
             <p className="text-lg text-gray-200 mb-2">Confirm: Tree is dead?</p>
             <p className="text-sm text-gray-400">
               This will start the {deadMinutes}-minute reward window timer.
@@ -39,9 +41,9 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <h3 className="text-sm font-semibold text-gray-200 mb-2">What happens:</h3>
             <ul className="text-sm text-gray-300 space-y-1">
-              <li>✓ Keeps any known hint/location intel</li>
-              <li>✓ Starts a {deadMinutes}-minute countdown for the reward window</li>
-              <li>✓ After {deadMinutes} min, the tree status resets to "none"</li>
+              <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-green-400" /> Keeps any known hint/location intel</li>
+              <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-green-400" /> Starts a {deadMinutes}-minute countdown for the reward window</li>
+              <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-green-400" /> After {deadMinutes} min, the tree status resets to "none"</li>
             </ul>
           </div>
 
@@ -50,7 +52,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
             <button
               autoFocus
               onClick={onConfirm}
-              className="flex-1 bg-red-700 hover:bg-red-600 text-white font-medium rounded py-2.5 transition-colors text-lg"
+              className={`flex-1 ${DEAD_COLOR.bg} ${DEAD_COLOR.bgHover} text-white font-medium rounded py-2.5 transition-colors text-lg`}
             >
               Confirm Dead
             </button>

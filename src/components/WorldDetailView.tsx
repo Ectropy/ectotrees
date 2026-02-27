@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull } from 'lucide-react';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
 import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
@@ -66,11 +68,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
                 }`}
               >
-                {isFavorite ? '★' : '☆'}
+                <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
               </button>
             </h1>
             <p className="text-sm text-gray-400">
-              <span className={isP2P ? 'text-yellow-200' : 'text-blue-200'}>{world.type}</span>
+              <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
             </p>
           </div>
         </div>
@@ -109,7 +111,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                     ) : hasActiveTree ? (
                       <button type="button" onClick={() => setEditingField('treeType')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
                         <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
-                        <span className="text-xs text-gray-500 leading-none">✎</span>
+                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
                     ) : (
                       <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
@@ -144,7 +146,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                     ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
                       <button type="button" onClick={() => setEditingField('treeHint')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
                         <span className="text-gray-100">{state.treeHint ?? '—'}</span>
-                        <span className="text-xs text-gray-500 leading-none">✎</span>
+                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
                     ) : (
                       <span className="text-gray-100">{state.treeHint ?? '—'}</span>
@@ -191,7 +193,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
                         <button type="button" onClick={() => setEditingField('treeExactLocation')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
                           <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
-                          <span className="text-xs text-gray-500 leading-none">✎</span>
+                          <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                         </button>
                       ) : (
                         <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
@@ -283,21 +285,21 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           <div className="flex gap-2">
             <button
               onClick={() => onOpenTool('spawn')}
-              className="flex-1 bg-gray-700 hover:bg-blue-700 text-white text-sm rounded py-2 transition-colors"
+              className={`flex-1 bg-gray-700 ${SPAWN_COLOR.toolHover} text-white text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
-              ⏱ Spawn Timer
+              <Timer className="h-3.5 w-3.5" /> Spawn Timer
             </button>
             <button
               onClick={() => onOpenTool('tree')}
-              className="flex-1 bg-gray-700 hover:bg-green-700 text-white text-sm rounded py-2 transition-colors"
+              className={`flex-1 bg-gray-700 ${TREE_COLOR.toolHover} text-white text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
-              🌳 Tree Info
+              <TreeDeciduous className="h-3.5 w-3.5" /> Tree Info
             </button>
             <button
               onClick={() => onOpenTool('dead')}
-              className="flex-1 bg-gray-700 hover:bg-red-700 text-white text-sm rounded py-2 transition-colors"
+              className={`flex-1 bg-gray-700 ${DEAD_COLOR.toolHover} text-white text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
-              ☠ Mark Dead
+              <Skull className="h-3.5 w-3.5" /> Mark Dead
             </button>
           </div>
 

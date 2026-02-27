@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Star } from 'lucide-react';
+import { P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
@@ -33,7 +35,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
     const timeoutId = window.setTimeout(() => setSparkReady(true), 0);
     return () => window.clearTimeout(timeoutId);
   }, [state.treeStatus]);
-  const borderColor = isP2P ? 'border-yellow-500' : 'border-blue-500';
+  const borderColor = isP2P ? P2P_COLOR.border : F2P_COLOR.border;
 
   return (
     <div
@@ -51,12 +53,12 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
               isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
             }`}
           >
-            {isFavorite ? '★' : '☆'}
+            <Star className={`h-2.5 w-2.5${isFavorite ? ' fill-current' : ''}`} />
           </button>
         </div>
         <span
           className={`text-[8px] font-semibold px-1 py-px rounded
-            ${isP2P ? 'text-yellow-100 border border-yellow-500' : 'text-blue-200 border border-blue-500'}`}
+            ${isP2P ? P2P_COLOR.badge : F2P_COLOR.badge}`}
         >
           {world.type}
         </span>

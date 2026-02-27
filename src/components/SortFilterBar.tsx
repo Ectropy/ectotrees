@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { FILTERABLE_TREE_TYPES } from '../constants/evilTree';
 
 export type SortMode = 'world' | 'soonest' | 'fav' | 'health';
@@ -92,10 +93,10 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     setFilters({ ...filters, treeTypes: types });
   };
 
-  const arrow = sortAsc ? '\u00A0▲' : '\u00A0▼';
   const sortSummaryLabel = sortMode === 'soonest'
     ? (sortAsc ? 'Soonest' : 'Latest')
-    : `${SORT_BUTTONS.find(s => s.mode === sortMode)?.label ?? sortMode}${arrow}`;
+    : SORT_BUTTONS.find(s => s.mode === sortMode)?.label ?? sortMode;
+  const SortArrow = sortAsc ? ChevronUp : ChevronDown;
   const activeSummary: { label: string; className: string }[] = [];
 
   if (filters.favorites) activeSummary.push({ label: 'Favorite', className: 'bg-blue-700 text-white font-semibold' });
@@ -139,9 +140,9 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
         <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
           <button
             onClick={() => setIsCompact(false)}
-            className="px-2 py-0.5 text-xs rounded bg-amber-700 text-white font-semibold hover:bg-amber-600 transition-colors"
+            className="px-2 py-0.5 text-xs rounded bg-amber-700 text-white font-semibold hover:bg-amber-600 transition-colors inline-flex items-center gap-0.5"
           >
-            Sort: {sortSummaryLabel}
+            Sort: {sortSummaryLabel}{sortMode !== 'soonest' && <SortArrow className="h-3 w-3 ml-0.5" />}
           </button>
           {activeSummary.length > 0 ? activeSummary.map(({ label, className }) => (
             <button
@@ -166,7 +167,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
           title="Expand"
           className="absolute top-1 right-1 py-1 sm:py-0.5 px-3 -mx-3 sm:px-0 sm:mx-0 text-xs sm:text-[11px] text-gray-400 hover:text-gray-200 transition-colors shrink-0"
         >
-          <span className="hidden sm:inline">Expand </span>▼
+          <span className="hidden sm:inline">Expand </span><ChevronDown className="inline h-3 w-3" />
         </button>
       </div>
     );
@@ -182,7 +183,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
             <button
               key={mode}
               onClick={() => handleSortClick(mode)}
-              className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center ${
+              className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center inline-flex items-center gap-0.5 ${
                 sortMode === mode
                   ? 'bg-amber-700 text-white font-semibold'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -190,7 +191,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
             >
               {mode === 'soonest' && sortMode === 'soonest'
                 ? (sortAsc ? 'Soonest' : 'Latest')
-                : `${label}${sortMode === mode ? arrow : ''}`}
+                : <>{label}{sortMode === mode && <SortArrow className="h-3 w-3 ml-0.5" />}</>}
             </button>
           ))}
         </div>
@@ -247,7 +248,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
         title="Collapse"
         className="absolute top-1 right-1 py-1 sm:py-0.5 px-3 -mx-3 sm:px-0 sm:mx-0 text-xs sm:text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
       >
-        <span className="hidden sm:inline">Collapse </span>▲
+        <span className="hidden sm:inline">Collapse </span><ChevronUp className="inline h-3 w-3" />
       </button>
     </div>
   );

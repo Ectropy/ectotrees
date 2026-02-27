@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS } from '../constants/evilTree';
+import { SPAWN_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 
@@ -110,9 +112,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
 
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">⏱ Set Spawn Timer</h1>
+              <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2"><Timer className="h-5 w-5" /> Set Spawn Timer</h1>
               <p className="text-sm text-gray-400">
-                World {world.id} · <span className={isP2P ? 'text-yellow-200' : 'text-blue-200'}>{world.type}</span>
+                World {world.id} · <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
               </p>
             </div>
           </div>
@@ -188,7 +190,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 onValueChange={handleHoursChange}
                 classNames={{
                   optionItem: 'text-gray-500',
-                  highlightWrapper: 'bg-blue-600/20',
+                  highlightWrapper: SPAWN_COLOR.subtle,
                   highlightItem: 'text-white font-semibold',
                 }}
               />
@@ -200,15 +202,15 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                 onValueChange={handleMinutesChange}
                 classNames={{
                   optionItem: 'text-gray-500',
-                  highlightWrapper: 'bg-blue-600/20',
+                  highlightWrapper: SPAWN_COLOR.subtle,
                   highlightItem: 'text-white font-semibold',
                 }}
               />
             </WheelPickerWrapper>
             </div>
 
-            <p className="text-xs text-gray-500 mt-2">
-              💡 There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.
+            <p className="text-xs text-gray-500 mt-2 flex items-start gap-1">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-px" /> <span>There are <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>several ways</a> to learn when the next Evil Tree will spawn.</span>
             </p>
           </div>
 
@@ -246,8 +248,8 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             <button
               type="submit"
               disabled={(hours * 60 + minutes) === 0}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed
-                text-white font-medium rounded py-2 transition-colors"
+              className={`flex-1 ${SPAWN_COLOR.bg} ${SPAWN_COLOR.bgHover} disabled:opacity-40 disabled:cursor-not-allowed
+                text-white font-medium rounded py-2 transition-colors`}
             >
               Set Timer
             </button>
