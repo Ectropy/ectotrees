@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull } from 'lucide-react';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -14,7 +14,7 @@ import { SettingsView } from './components/SettingsView';
 import { SessionBar } from './components/SessionBar';
 import { TipTicker } from './components/TipTicker';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle, useDefaultLayout } from './components/ui/resizable';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
@@ -329,15 +329,31 @@ export default function App() {
     setActiveView({ kind: 'grid' });
   }
 
-  // Sidebar layout persistence via useDefaultLayout
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: 'ectotrees-sidebar',
-    storage: localStorage,
-    panelIds: [SIDEBAR_PANEL_ID, GRID_PANEL_ID],
+  // Sidebar width — stored as a percentage (0-100) shared between left and right sides so
+  // switching sides feels like moving the same panel, not opening a differently-sized one.
+  // defaultSize must be a percentage string (not a pixel number) so the library can compute
+  // the initial layout before the container is mounted in the DOM.
+  const SIDEBAR_SIZE_KEY = 'ectotrees-sidebar-pct';
+  const DEFAULT_SIDEBAR_PCT = 30;
+  const [sidebarPct, setSidebarPct] = useState<number>(() => {
+    const stored = localStorage.getItem(SIDEBAR_SIZE_KEY);
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) && parsed > 5 && parsed < 90 ? parsed : DEFAULT_SIDEBAR_PCT;
   });
+  // onLayoutChanged fires after the user finishes dragging; Layout = { [panelId]: pct(0-100) }
+  const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
+    const pct = layout[SIDEBAR_PANEL_ID];
+    if (pct !== undefined && Number.isFinite(pct) && pct > 5) {
+      setSidebarPct(pct);
+      localStorage.setItem(SIDEBAR_SIZE_KEY, String(pct));
+    }
+  }, []);
 
   // Whether to render sidebar mode (desktop + enabled + a view is open)
   const useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid';
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings'
+    ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: activeView.worldId }) }
+    : undefined;
 
   // Render the current tool/detail/settings view component
   function renderViewContent() {
@@ -400,6 +416,7 @@ export default function App() {
         showDockControls={!isMobile}
         onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
         onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
+        worldNav={worldNavProp}
       >
         {renderViewContent()}
       </FullscreenWrapper>
@@ -487,14 +504,14 @@ export default function App() {
         {useSidebar ? (
           <ResizablePanelGroup
             orientation="horizontal"
-            defaultLayout={defaultLayout}
-            onLayoutChanged={onLayoutChanged}
+            onLayoutChanged={handleLayoutChanged}
+            key={settings.sidebarSide}
             className="flex-1 min-h-0"
           >
             {settings.sidebarSide === 'left' && (
               <>
-                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack}>
+                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize={`${sidebarPct}%`} minSize="365px">
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack} worldNav={worldNavProp}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -502,7 +519,7 @@ export default function App() {
               </>
             )}
 
-            <ResizablePanel id={GRID_PANEL_ID} minSize="40%">
+            <ResizablePanel id={GRID_PANEL_ID} minSize="300px">
               <div className="h-full overflow-y-auto">
                 <main className="p-0.5">
                   {worldGrid}
@@ -513,8 +530,8 @@ export default function App() {
             {settings.sidebarSide === 'right' && (
               <>
                 <ResizableHandle />
-                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize="30%" minSize="18%" maxSize="55%">
-                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack}>
+                <ResizablePanel id={SIDEBAR_PANEL_ID} defaultSize={`${sidebarPct}%`} minSize="365px">
+                  <SidebarWrapper side={settings.sidebarSide} onChangeSide={side => updateSettings({ sidebarSide: side })} onExpand={() => updateSettings({ sidebarEnabled: false })} onClose={handleBack} worldNav={worldNavProp}>
                     {renderViewContent()}
                   </SidebarWrapper>
                 </ResizablePanel>
@@ -540,55 +557,88 @@ export default function App() {
   );
 }
 
+const NAV_ITEMS = [
+  { kind: 'detail' as const, icon: HatGlasses, label: 'View' },
+  { kind: 'spawn'  as const, icon: Timer,         label: 'Timer' },
+  { kind: 'tree'   as const, icon: TreeDeciduous,  label: 'Tree' },
+  { kind: 'dead'   as const, icon: Skull,          label: 'Dead' },
+];
+
 function SidebarWrapper({
   side,
   onChangeSide,
   onExpand,
   onClose,
+  worldNav,
   children,
 }: {
   side: 'left' | 'right';
   onChangeSide: (side: 'left' | 'right') => void;
   onExpand: () => void;
   onClose: () => void;
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-full bg-gray-900 border-gray-700" style={{ borderLeftWidth: side === 'right' ? 0 : undefined }}>
       {/* Toolbar */}
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-700 flex-shrink-0">
-        {side === 'right' ? (
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-2 py-1 border-b border-gray-700 flex-shrink-0">
+        {/* Left: dock + expand */}
+        <div className="flex items-center gap-1">
+          {side === 'right' ? (
+            <button
+              onClick={() => onChangeSide('left')}
+              title="Dock left"
+              className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onChangeSide('right')}
+              title="Dock right"
+              className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            >
+              <PanelRight className="h-4 w-4" />
+            </button>
+          )}
           <button
-            onClick={() => onChangeSide('left')}
-            title="Dock left"
+            onClick={onExpand}
+            title="Open fullscreen"
             className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
           >
-            <PanelLeft className="h-4 w-4" />
+            <Expand className="h-4 w-4" />
           </button>
-        ) : (
+        </div>
+        {/* Center: world nav buttons */}
+        <div className="flex items-center justify-center gap-0.5">
+          {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label }) => (
+            <button
+              key={kind}
+              onClick={() => worldNav.onNavigate(kind)}
+              title={label}
+              className={`px-1.5 py-1 rounded flex items-center gap-1 transition-colors ${
+                worldNav.activeKind === kind
+                  ? 'text-amber-400 bg-gray-700/60'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="hidden sm:inline text-[11px]">{label}</span>
+            </button>
+          ))}
+        </div>
+        {/* Right: close */}
+        <div className="flex items-center justify-end">
           <button
-            onClick={() => onChangeSide('right')}
-            title="Dock right"
-            className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            onClick={onClose}
+            title="Close"
+            className="flex items-center gap-1 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
           >
-            <PanelRight className="h-4 w-4" />
+            <X className="h-4 w-4" />
+            <span className="text-xs">Close</span>
           </button>
-        )}
-        <button
-          onClick={onExpand}
-          title="Open fullscreen"
-          className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-        >
-          <Expand className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onClose}
-          title="Close"
-          className="ml-auto flex items-center gap-1 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-        >
-          <X className="h-4 w-4" />
-          <span className="text-xs">Close</span>
-        </button>
+        </div>
       </div>
       {/* View content — scrollable. [&>*]:!min-h-full overrides the min-h-screen on view
           root divs so they fill the panel height instead of forcing 100vh */}
@@ -604,18 +654,21 @@ function FullscreenWrapper({
   showDockControls,
   onDockLeft,
   onDockRight,
+  worldNav,
   children,
 }: {
   onClose: () => void;
   showDockControls: boolean;
   onDockLeft: () => void;
   onDockRight: () => void;
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-screen">
       <div className="bg-gray-900 border-b border-gray-700 flex-shrink-0 px-4 sm:px-6 py-1">
-        <div className="max-w-lg mx-auto flex items-center gap-1">
+        <div className="max-w-lg mx-auto relative flex items-center">
+          {/* Left: dock buttons (desktop only — never rendered on mobile) */}
           {showDockControls && (
             <div className="flex items-center gap-1">
               <button
@@ -634,12 +687,31 @@ function FullscreenWrapper({
               </button>
             </div>
           )}
+          {/* Nav buttons: left-aligned on mobile, absolutely centered on desktop */}
+          <div className="flex items-center gap-0.5 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
+            {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label }) => (
+              <button
+                key={kind}
+                onClick={() => worldNav.onNavigate(kind)}
+                title={label}
+                className={`px-2 py-2 sm:px-1.5 sm:py-1 rounded flex items-center gap-1 transition-colors ${
+                  worldNav.activeKind === kind
+                    ? 'text-amber-400 bg-gray-700/60'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                }`}
+              >
+                <Icon className="h-5 w-5 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline text-[11px]">{label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Close: always pushed to the right */}
           <button
             onClick={onClose}
             title="Close"
-            className="ml-auto flex items-center gap-1.5 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            className="ml-auto flex items-center gap-1.5 p-2 sm:p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5 sm:h-4 sm:w-4" />
             <span className="text-xs">Close</span>
           </button>
         </div>

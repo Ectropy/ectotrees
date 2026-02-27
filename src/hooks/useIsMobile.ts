@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const MOBILE_BREAKPOINT = 1024; // lg — below this the grid is too narrow to share with a sidebar
+const MOBILE_BREAKPOINT = 640; // sm — phones are below this; tablets and up can use the sidebar
 
 export function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(

@@ -6,6 +6,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 18** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars)
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
 - Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
@@ -61,7 +62,7 @@ src/
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
     useFavorites.ts     # Favorite worlds persisted to localStorage
     useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
-    useIsMobile.ts      # Reactive matchMedia hook (< 1024px) — drives sidebar mobile fallback
+    useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -91,12 +92,16 @@ CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×10
 The outer shell is `h-screen flex flex-col` so the viewport is always pinned — the world grid (and sidebar, when open) scroll independently within their panels; the page itself never scrolls.
 
 ### Sidebar Panel
-Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — numbers are **pixels** in v4, use strings like `"30%"` for percentages). `src/components/ui/resizable.tsx` provides shadcn/ui-style wrappers (`ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle`) plus a re-export of `useDefaultLayout` for `localStorage`-backed size persistence.
+Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — numbers are **pixels** in v4, use strings like `"30%"` for percentages). `src/components/ui/resizable.tsx` provides shadcn/ui-style wrappers (`ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle`) plus a re-export of `useDefaultLayout` (not used internally — sidebar sizing is handled manually).
 
-- Panel width defaults to 30%, min 18%, max 55%; user's last width is saved via `useDefaultLayout({ id: 'ectotrees-sidebar', storage: localStorage })`
-- The `SidebarWrapper` component renders a slim dock-toggle bar (← Left / Right →) above the scrollable view content
+- Panel `defaultSize` starts at 30% and is persisted as a percentage (0–100) to `localStorage` key `ectotrees-sidebar-pct` via `onLayoutChanged` on the Group. `defaultSize` is always passed as a percentage **string** (e.g. `"30%"`) — bare pixel numbers cause the library to crash at mount before the container is in the DOM.
+- Panel constraints: sidebar `minSize="365px"`, grid `minSize="300px"` (px strings, no maxSize enforced). The `ResizablePanelGroup` uses `key={settings.sidebarSide}` so switching sides forces a full remount — the new panel reads the stored `sidebarPct` as its `defaultSize`, making the sidebar appear at the same width after a side swap.
+- Both `SidebarWrapper` and `FullscreenWrapper` render a **3-section toolbar**: left (dock/expand controls) · center (4 tool-navigation buttons) · right (Close). The center buttons are defined in `NAV_ITEMS` (module-level constant in `App.tsx`) and only render when `worldNavProp` is non-null (i.e. a world tool/detail view is active — not grid or settings). Active button is highlighted `text-amber-400`. `worldNavProp` is `undefined` for the settings view.
+- **Tool nav buttons** (`NAV_ITEMS`): `HatGlasses` View · `Timer` Timer · `TreeDeciduous` Tree · `Skull` Dead. Labels use `hidden sm:inline` — icons only below 640px. On mobile fullscreen, buttons are larger (`h-5 w-5 px-2 py-2`) and left-aligned; on desktop they are smaller (`sm:h-3.5 sm:w-3.5 sm:px-1.5 sm:py-1`) and centered via `sm:absolute sm:left-1/2 sm:-translate-x-1/2`.
+- `SidebarWrapper` toolbar uses `grid grid-cols-[1fr_auto_1fr]`; `FullscreenWrapper` toolbar uses `relative flex` (left-aligned on mobile, absolute-centered nav on desktop).
 - `[&>*]:!min-h-full` on the scroll container overrides the `min-h-screen` class on view root divs so they fill the panel height rather than forcing `100vh`
-- `useIsMobile()` (`src/hooks/useIsMobile.ts`) reactively watches `window.matchMedia('(max-width: 1023px)')` and forces full-screen mode below 1024px regardless of the setting
+- `useIsMobile()` (`src/hooks/useIsMobile.ts`) reactively watches `window.matchMedia('(max-width: 639px)')` and forces full-screen mode below 640px (Tailwind `sm`) regardless of the setting — tablets (≥ 640px) can use the sidebar
+- The `FullscreenWrapper` component wraps every non-grid fullscreen view. Its top bar is constrained to `max-w-lg mx-auto`. On mobile `showDockControls={false}` so no `PanelLeft` / `PanelRight` buttons appear; clicking a dock button sets `sidebarEnabled: true` and the chosen `sidebarSide` in one action.
 
 ### Navigation (App.tsx)
 `activeView` discriminated union drives what is rendered:
@@ -108,7 +113,7 @@ type ActiveView =
 ```
 Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header.
 
-**Sidebar mode** (desktop only, opt-in): when `settings.sidebarEnabled` is true and the viewport is ≥ 1024px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
+**Sidebar mode** (opt-in, available on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
 
 ### State Model (per world)
 Defined in `shared/types.ts`, used by both client and server:
