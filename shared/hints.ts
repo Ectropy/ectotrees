@@ -5,7 +5,7 @@ export interface LocationHint {
 
 export const LOCATION_HINTS: LocationHint[] = [
   {
-    hint: 'Close to a collection of yew trees (Seers)',
+    hint: 'Close to a collection of yew trees',
     locations: ["South of Seers' Village flax field by the yew trees"],
   },
   {
