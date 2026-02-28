@@ -31,6 +31,7 @@ type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
+  const [editPendingValue, setEditPendingValue] = useState('');
   const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -40,9 +41,9 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
   const isDeadTree = state.treeStatus === 'dead';
   const hasSpawnTimer = state.nextSpawnTarget !== undefined;
+  const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
 
-  const inlineSelectClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
-  const inlineInputClass = 'bg-gray-700 text-white text-xs rounded px-1 py-0.5 border border-gray-500 focus:outline-none';
+  const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
 
   function resolveExactLocationFromHint(newHint: string): string | undefined {
     const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
@@ -52,6 +53,26 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   function commitField(fields: TreeFieldsPayload) {
     onUpdateFields(fields);
     setEditingField(null);
+  }
+
+  function startEdit(field: EditingField) {
+    if (field === 'treeType') setEditPendingValue(state.treeType ?? 'tree');
+    else if (field === 'treeHint') setEditPendingValue(state.treeHint ?? '');
+    else if (field === 'treeExactLocation') setEditPendingValue(state.treeExactLocation ?? '');
+    setEditingField(field);
+  }
+
+  function saveEdit() {
+    if (editingField === 'treeType') {
+      commitField({ treeType: editPendingValue as TreeType });
+    } else if (editingField === 'treeHint') {
+      commitField({
+        treeHint: editPendingValue || undefined,
+        treeExactLocation: editPendingValue ? resolveExactLocationFromHint(editPendingValue) : undefined,
+      });
+    } else if (editingField === 'treeExactLocation') {
+      commitField({ treeExactLocation: editPendingValue || undefined });
+    }
   }
   const now = Date.now();
 
@@ -82,8 +103,18 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>There are several ways to find Evil trees.</a> Consider scouting this world to help others.
               </p>
             ) : (
+              <>
               <dl className="space-y-2">
-                {(state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
+                {editingField === 'treeType' ? (
+                  <EditRow label="Tree Type">
+                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                      {TREE_TYPES
+                        .filter(t => state.treeStatus !== 'sapling' ? !t.startsWith('sapling') : true)
+                        .map(t => <option key={t} value={t}>{TREE_TYPE_LABELS[t]}</option>)}
+                    </select>
+                    <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} />
+                  </EditRow>
+                ) : (state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
                   <Row label="Tree type">
                     {state.treeStatus === 'dead' ? (
                       <span className={TREE_STATE_COLOR.dead}>
@@ -91,22 +122,8 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                           ? `Dead (${TREE_TYPE_LABELS[state.treeType]})`
                           : 'Dead'}
                       </span>
-                    ) : editingField === 'treeType' ? (
-                      <span className="flex items-center gap-1">
-                        <select
-                          autoFocus
-                          defaultValue={state.treeType ?? 'tree'}
-                          onChange={e => commitField({ treeType: e.target.value as TreeType })}
-                          className={inlineSelectClass}
-                        >
-                          {TREE_TYPES.map(t => (
-                            <option key={t} value={t}>{TREE_TYPE_LABELS[t]}</option>
-                          ))}
-                        </select>
-                        <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
-                      </span>
                     ) : hasActiveTree ? (
-                      <button type="button" onClick={() => setEditingField('treeType')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
+                      <button type="button" onClick={() => startEdit('treeType')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
                         <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
@@ -116,32 +133,18 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </Row>
                 )}
 
-                {(state.treeHint || hasActiveTree || hasSpawnTimer || isDeadTree) && (
-                  <Row label="Hint">
-                    {editingField === 'treeHint' ? (
-                      <span className="flex items-center gap-1">
-                        <select
-                          autoFocus
-                          defaultValue={state.treeHint ?? ''}
-                          onChange={e => {
-                            const newHint = e.target.value;
-                            if (!newHint) { setEditingField(null); return; }
-                            commitField({
-                              treeHint: newHint,
-                              treeExactLocation: resolveExactLocationFromHint(newHint),
-                            });
-                          }}
-                          className={inlineSelectClass}
-                        >
-                          <option value="">— select hint —</option>
-                          {LOCATION_HINTS.map(lh => (
-                            <option key={lh.hint} value={lh.hint}>{lh.hint}</option>
-                          ))}
-                        </select>
-                        <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
-                      </span>
-                    ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
-                      <button type="button" onClick={() => setEditingField('treeHint')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
+                {editingField === 'treeHint' ? (
+                  <EditRow label="Location Hint">
+                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                      <option value="">— select hint —</option>
+                      {LOCATION_HINTS.map(lh => <option key={lh.hint} value={lh.hint}>{lh.hint}</option>)}
+                    </select>
+                    <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} saveDisabled={!editPendingValue} />
+                  </EditRow>
+                ) : (state.treeHint || hasActiveTree || hasSpawnTimer || isDeadTree) && (
+                  <Row label="Location Hint">
+                    {(hasActiveTree || hasSpawnTimer || isDeadTree) ? (
+                      <button type="button" onClick={() => startEdit('treeHint')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
                         <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
@@ -151,53 +154,38 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </Row>
                 )}
 
-                {(state.treeHint || state.treeExactLocation || isDeadTree) && (() => {
-                  const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
-                  return (
-                    <Row label="Exact location">
-                      {editingField === 'treeExactLocation' ? (
-                        <span className="flex items-center gap-1">
-                          {availableLocations.length > 0 ? (
-                            <select
-                              autoFocus
-                              defaultValue={state.treeExactLocation ?? ''}
-                              onChange={e => commitField({ treeExactLocation: e.target.value || undefined })}
-                              className={inlineSelectClass}
-                            >
-                              <option value="">— unknown —</option>
-                              {availableLocations.map(loc => (
-                                <option key={loc} value={loc}>{loc}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              autoFocus
-                              type="text"
-                              defaultValue={state.treeExactLocation ?? ''}
-                              onBlur={e => commitField({ treeExactLocation: e.target.value.trim() || undefined })}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  commitField({ treeExactLocation: (e.currentTarget as HTMLInputElement).value.trim() || undefined });
-                                }
-                                if (e.key === 'Escape') setEditingField(null);
-                              }}
-                              placeholder="Type exact location"
-                              className={inlineInputClass}
-                            />
-                          )}
-                          <button type="button" onClick={() => setEditingField(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
-                        </span>
-                      ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
-                        <button type="button" onClick={() => setEditingField('treeExactLocation')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
-                          <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
-                          <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                        </button>
-                      ) : (
+                {editingField === 'treeExactLocation' ? (
+                  <EditRow label="Exact Location">
+                    {availableLocations.length > 0 ? (
+                      <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                        <option value="">— unknown —</option>
+                        {availableLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editPendingValue}
+                        onChange={e => setEditPendingValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingField(null); }}
+                        placeholder="Type exact location"
+                        className={selectClass}
+                      />
+                    )}
+                    <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} />
+                  </EditRow>
+                ) : (state.treeHint || state.treeExactLocation || isDeadTree) && (
+                  <Row label="Exact location">
+                    {(hasActiveTree || hasSpawnTimer || isDeadTree) ? (
+                      <button type="button" onClick={() => startEdit('treeExactLocation')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
                         <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
-                      )}
-                    </Row>
-                  )
-                })()}
+                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                      </button>
+                    ) : (
+                      <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
+                    )}
+                  </Row>
+                )}
 
                 {state.treeHealth !== undefined && (
                   <Row label="Health">
@@ -243,6 +231,8 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   }
                 })()}
               </dl>
+
+              </>
             )}
           </div>
 
@@ -405,7 +395,38 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="flex items-baseline gap-2">
       <dt className="text-sm text-gray-400 w-28 flex-shrink-0">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm min-w-0">{children}</dd>
+    </div>
+  );
+}
+
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs text-gray-400 font-semibold block">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function EditButtons({ onSave, onCancel, saveDisabled }: { onSave: () => void; onCancel: () => void; saveDisabled?: boolean }) {
+  return (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saveDisabled}
+        className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded py-1.5 transition-colors"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded py-1.5 transition-colors"
+      >
+        Cancel
+      </button>
     </div>
   );
 }
