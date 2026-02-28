@@ -38,6 +38,14 @@ type Listener<K extends EventKey> = (...args: EventMap[K]) => void;
 
 // ---------------------------------------------------------------------------
 
+function buildWsUrl(code: string): string {
+  if (WS_BASE) {
+    return `${WS_BASE}/ws?code=${code}`;
+  }
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${window.location.host}/ws?code=${code}`;
+}
+
 export class EctoSession {
   // Public readable state
   status: SessionStatus = 'disconnected';
@@ -272,7 +280,7 @@ export class EctoSession {
     this.setStatus('connecting');
     this.setError(null);
 
-    const ws = new WebSocket(`${WS_BASE}/ws?code=${code}`);
+    const ws = new WebSocket(buildWsUrl(code));
     this.ws = ws;
 
     ws.onopen = () => {
