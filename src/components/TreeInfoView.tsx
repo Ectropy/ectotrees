@@ -102,7 +102,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               onValueChange={v => v != null && setTreeType(v as TreeType)}
               autoHighlight
             >
-              <ComboboxInput autoFocus placeholder="Select tree type…" />
+              <ComboboxInput autoFocus placeholder="Select or type a tree type" />
               <ComboboxContent>
                 <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
                 <ComboboxList>
@@ -143,7 +143,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                   onValueChange={v => setTreeType(v ? `sapling-${v}` as TreeType : 'sapling')}
                   autoHighlight
                 >
-                  <ComboboxInput placeholder="— unknown —" />
+                  <ComboboxInput placeholder="Select or type a tree type" />
                   <ComboboxContent>
                     <ComboboxEmpty>No matching type.</ComboboxEmpty>
                     <ComboboxList>
@@ -170,7 +170,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               onValueChange={v => handleHintChange(v ?? '')}
               autoHighlight
             >
-              <ComboboxInput placeholder="— select hint —" />
+              <ComboboxInput placeholder="Select or type a location hint" />
               <ComboboxContent>
                 <ComboboxEmpty>No matching hint.</ComboboxEmpty>
                 <ComboboxList>
@@ -197,7 +197,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 onValueChange={v => setExactLocation(v ?? '')}
                 autoHighlight
               >
-                <ComboboxInput placeholder="— unknown —" />
+                <ComboboxInput placeholder="Select or type an exact location" />
                 <ComboboxContent>
                   <ComboboxEmpty>No matching location.</ComboboxEmpty>
                   <ComboboxList>

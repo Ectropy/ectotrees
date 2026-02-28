@@ -128,7 +128,7 @@ function ComboboxEmpty({
 }: React.ComponentProps<typeof ComboboxPrimitive.Empty>) {
   return (
     <ComboboxPrimitive.Empty
-      className={cn('text-sm text-gray-400 text-center py-3 px-2', className)}
+      className={cn('text-sm text-gray-400 text-center py-3 px-2 empty:hidden', className)}
       {...props}
     />
   );

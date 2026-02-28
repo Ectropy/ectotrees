@@ -246,7 +246,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                   onValueChange={v => setHint(v ?? '')}
                   autoHighlight
                 >
-                  <ComboboxInput ref={hintInputRef} placeholder="— none —" />
+                  <ComboboxInput ref={hintInputRef} placeholder="Select or type a location hint" />
                   <ComboboxContent>
                     <ComboboxEmpty>No matching hint.</ComboboxEmpty>
                     <ComboboxList>

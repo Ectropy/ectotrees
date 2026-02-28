@@ -134,7 +134,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       onValueChange={v => setEditPendingValue(v ?? '')}
                       autoHighlight
                     >
-                      <ComboboxInput autoFocus placeholder="Select tree type…" />
+                      <ComboboxInput autoFocus placeholder="Select or type a tree type" />
                       <ComboboxContent>
                         <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
                         <ComboboxList>
@@ -182,7 +182,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       onValueChange={v => setEditPendingValue(v ?? '')}
                       autoHighlight
                     >
-                      <ComboboxInput autoFocus placeholder="— select hint —" />
+                      <ComboboxInput autoFocus placeholder="Select or type a location hint" />
                       <ComboboxContent>
                         <ComboboxEmpty>No matching hint.</ComboboxEmpty>
                         <ComboboxList>
@@ -216,7 +216,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                         onValueChange={v => setEditPendingValue(v ?? '')}
                         autoHighlight
                       >
-                        <ComboboxInput autoFocus placeholder="— unknown —" />
+                        <ComboboxInput autoFocus placeholder="Select or type a location" />
                         <ComboboxContent>
                           <ComboboxEmpty>No matching location.</ComboboxEmpty>
                           <ComboboxList>
