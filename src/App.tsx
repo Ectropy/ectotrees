@@ -558,9 +558,9 @@ export default function App() {
 
       {/* Footer is a direct flex child of h-screen — always anchored to the bottom */}
       <footer className="px-2 py-1 bg-gray-800 flex-shrink-0">
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {settings.showTipTicker && <TipTicker />}
-          <span className="text-[10px] text-gray-200 leading-none flex-shrink-0">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+          <span className="text-[10px] text-gray-200 leading-none flex-shrink-0 text-center sm:text-left">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
         </div>
       </footer>
     </div>
