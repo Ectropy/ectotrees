@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses, Zap } from 'lucide-react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses } from 'lucide-react';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
@@ -12,6 +12,7 @@ import {
   Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem,
   ComboboxGroup, ComboboxGroupLabel, ComboboxCollection, ComboboxEmpty,
 } from './ui/combobox';
+import { trackUiEvent } from '../lib/analytics';
 
 interface Props {
   world: WorldConfig;
@@ -98,7 +99,15 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
         <div className="mb-6">
           <ViewHeader icon={<HatGlasses className="h-5 w-5" />} title="World Status" world={world}>
             <button
-              onClick={onToggleFavorite}
+              onClick={() => {
+                trackUiEvent('ui_world_action', {
+                  panel: 'detail',
+                  world_id: world.id,
+                  action: 'toggle_favorite',
+                  result: 'success',
+                });
+                onToggleFavorite();
+              }}
               className={`transition-colors ${isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
             >
               <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
@@ -424,7 +433,15 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 )}
                 <div className="flex gap-3 pt-1">
                   <button
-                    onClick={onClear}
+                    onClick={() => {
+                      trackUiEvent('ui_world_action', {
+                        panel: 'detail',
+                        world_id: world.id,
+                        action: 'clear_world',
+                        result: 'confirm',
+                      });
+                      onClear();
+                    }}
                     className="flex-1 bg-amber-700 hover:bg-amber-600 text-white font-medium rounded py-2 transition-colors"
                   >
                     Yes, clear

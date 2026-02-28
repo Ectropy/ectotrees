@@ -19,7 +19,7 @@ const TREE_TYPE_GROUPS = [
 interface Props {
   world: WorldConfig;
   existingState?: WorldState;
-  onSubmit: (info: TreeInfoPayload) => void;
+  onSubmit: (info: TreeInfoPayload, source?: 'default' | 'override') => void;
   onUpdate: (fields: TreeFieldsPayload) => void;
   onBack: () => void;
 }
@@ -69,7 +69,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
     if (isUpdateMode) {
       onUpdate(payload);
     } else {
-      onSubmit(payload);
+      onSubmit(payload, 'default');
     }
   }
 
@@ -267,7 +267,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                         treeHint: hint,
                         treeExactLocation: exactLocation || undefined,
                         treeHealth: isStrangeSapling ? undefined : (health ?? undefined),
-                      });
+                      }, 'override');
                     }}
                     className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed
                       text-white font-medium rounded py-2 text-sm transition-colors"

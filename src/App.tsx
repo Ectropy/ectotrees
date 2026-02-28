@@ -20,6 +20,7 @@ import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
+import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -157,6 +158,15 @@ export default function App() {
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
+  const lastTrackedPanelKeyRef = useRef<string | null>(null);
+
+  const getAnalyticsContext = useCallback((): { surface: UiSurface; sidebarSide: UiSidebarSide } => {
+    const surface: UiSurface = settings.sidebarEnabled && !isMobile ? 'sidebar' : 'fullscreen';
+    return {
+      surface,
+      sidebarSide: surface === 'sidebar' ? settings.sidebarSide : 'none',
+    };
+  }, [settings.sidebarEnabled, settings.sidebarSide, isMobile]);
 
   useEffect(() => {
     localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ mode: sortMode, asc: sortAsc }));
@@ -319,6 +329,14 @@ export default function App() {
   }, [worldStates, favorites, sortMode, sortAsc, filters]);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
+    const { surface, sidebarSide } = getAnalyticsContext();
+    trackUiEvent('ui_tool_open', {
+      panel: tool,
+      tool,
+      world_id: worldId,
+      surface,
+      sidebar_side: sidebarSide,
+    });
     setActiveView({ kind: tool, worldId });
   }
 
@@ -327,6 +345,17 @@ export default function App() {
   }
 
   function handleBack() {
+    if (activeView.kind !== 'grid') {
+      const { surface, sidebarSide } = getAnalyticsContext();
+      trackUiEvent('ui_nav_action', {
+        panel: activeView.kind,
+        world_id: activeView.kind === 'settings' ? undefined : activeView.worldId,
+        surface,
+        sidebar_side: sidebarSide,
+        action: 'close_view',
+        result: 'success',
+      });
+    }
     setActiveView({ kind: 'grid' });
   }
 
@@ -360,6 +389,28 @@ export default function App() {
 
   // Whether to render sidebar mode (desktop + enabled + a view is open)
   const useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid';
+
+  useEffect(() => {
+    if (activeView.kind === 'grid') return;
+
+    const panel = activeView.kind as UiPanel;
+    const worldId = activeView.kind === 'settings' ? undefined : activeView.worldId;
+    const surface: UiSurface = useSidebar ? 'sidebar' : 'fullscreen';
+    const sidebarSide: UiSidebarSide = useSidebar ? settings.sidebarSide : 'none';
+    const key = `${panel}:${worldId ?? 'none'}:${surface}:${sidebarSide}`;
+
+    // Dedupes strict-mode and no-op rerenders so each transition is tracked once.
+    if (lastTrackedPanelKeyRef.current === key) return;
+    lastTrackedPanelKeyRef.current = key;
+
+    trackUiEvent('ui_panel_open', {
+      panel,
+      world_id: worldId,
+      surface,
+      sidebar_side: sidebarSide,
+    });
+  }, [activeView, useSidebar, settings.sidebarSide]);
+
   const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings'
     ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: activeView.worldId }) }
     : undefined;
@@ -376,7 +427,20 @@ export default function App() {
       if (activeView.kind === 'spawn')
         return <SpawnTimerView
           world={world}
-          onSubmit={(ms, info) => { setSpawnTimer(worldId, ms, info); handleToolSubmitted(worldId); }}
+          onSubmit={(ms, info) => {
+            const { surface, sidebarSide } = getAnalyticsContext();
+            trackUiEvent('ui_tool_submit', {
+              panel: 'spawn',
+              tool: 'spawn',
+              world_id: worldId,
+              surface,
+              sidebar_side: sidebarSide,
+              action: 'set_timer',
+              result: 'success',
+            });
+            setSpawnTimer(worldId, ms, info);
+            handleToolSubmitted(worldId);
+          }}
           onBack={handleBack}
         />;
       if (activeView.kind === 'tree') {
@@ -386,15 +450,54 @@ export default function App() {
         return <TreeInfoView
           world={world}
           existingState={existingState}
-          onSubmit={(info) => { setTreeInfo(worldId, info); handleToolSubmitted(worldId); }}
-          onUpdate={(fields) => { updateTreeFields(worldId, fields); handleToolSubmitted(worldId); }}
+          onSubmit={(info, source = 'default') => {
+            const { surface, sidebarSide } = getAnalyticsContext();
+            trackUiEvent('ui_tool_submit', {
+              panel: 'tree',
+              tool: 'tree',
+              world_id: worldId,
+              surface,
+              sidebar_side: sidebarSide,
+              action: source === 'override' ? 'override_tree_info' : 'save_tree_info',
+              result: 'success',
+            });
+            setTreeInfo(worldId, info);
+            handleToolSubmitted(worldId);
+          }}
+          onUpdate={(fields) => {
+            const { surface, sidebarSide } = getAnalyticsContext();
+            trackUiEvent('ui_tool_submit', {
+              panel: 'tree',
+              tool: 'tree',
+              world_id: worldId,
+              surface,
+              sidebar_side: sidebarSide,
+              action: 'update_tree_info',
+              result: 'success',
+            });
+            updateTreeFields(worldId, fields);
+            handleToolSubmitted(worldId);
+          }}
           onBack={handleBack}
         />;
       }
       if (activeView.kind === 'dead')
         return <TreeDeadView
           world={world}
-          onConfirm={() => { markDead(worldId); handleToolSubmitted(worldId); }}
+          onConfirm={() => {
+            const { surface, sidebarSide } = getAnalyticsContext();
+            trackUiEvent('ui_tool_submit', {
+              panel: 'dead',
+              tool: 'dead',
+              world_id: worldId,
+              surface,
+              sidebar_side: sidebarSide,
+              action: 'mark_dead',
+              result: 'confirm',
+            });
+            markDead(worldId);
+            handleToolSubmitted(worldId);
+          }}
           onBack={handleBack}
         />;
       if (activeView.kind === 'detail')
@@ -484,7 +587,17 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
             <button
-              onClick={() => setActiveView({ kind: 'settings' })}
+              onClick={() => {
+                const { surface, sidebarSide } = getAnalyticsContext();
+                trackUiEvent('ui_nav_action', {
+                  panel: 'settings',
+                  surface,
+                  sidebar_side: sidebarSide,
+                  action: 'open_settings',
+                  result: 'success',
+                });
+                setActiveView({ kind: 'settings' });
+              }}
               className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
               title="Settings"
               aria-label="Open settings"
