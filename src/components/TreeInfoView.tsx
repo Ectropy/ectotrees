@@ -28,7 +28,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const isUpdateMode = existingState !== undefined &&
     (existingState.treeStatus === 'sapling' || existingState.treeStatus === 'mature' || existingState.treeStatus === 'alive');
 
-  const [treeType, setTreeType] = useState<TreeType>(existingState?.treeType ?? 'tree');
+  const [treeType, setTreeType] = useState<TreeType | null>(existingState?.treeType ?? null);
   const [hint, setHint] = useState(existingState?.treeHint ?? '');
   const [exactLocation, setExactLocation] = useState(existingState?.treeExactLocation ?? '');
   const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
@@ -44,7 +44,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
-  const isStrangeSapling = treeType === 'sapling' || treeType.startsWith('sapling-');
+  const isStrangeSapling = treeType != null && (treeType === 'sapling' || treeType.startsWith('sapling-'));
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'];
 
   function resolveExactLocationFromHint(newHint: string): string {
@@ -59,7 +59,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!hint) return;
+    if (!hint || !treeType) return;
     const payload = {
       treeType,
       treeHint: hint,
@@ -99,7 +99,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               items={TREE_TYPE_GROUPS}
               itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
               value={treeType}
-              onValueChange={v => v != null && setTreeType(v as TreeType)}
+              onValueChange={v => setTreeType(v as TreeType | null)}
               autoHighlight
             >
               <ComboboxInput autoFocus placeholder="Select or type a tree type" />
@@ -139,7 +139,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 <Combobox
                   items={saplingTypeOptions}
                   itemToStringLabel={item => TREE_TYPE_SHORT[item as TreeType] ?? item}
-                  value={treeType === 'sapling' ? null : treeType.replace('sapling-', '')}
+                  value={treeType === 'sapling' ? null : treeType!.replace('sapling-', '')}
                   onValueChange={v => setTreeType(v ? `sapling-${v}` as TreeType : 'sapling')}
                   autoHighlight
                 >
@@ -233,7 +233,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              disabled={!hint}
+              disabled={!hint || !treeType}
               className={`flex-1 ${TREE_COLOR.bg} ${TREE_COLOR.bgHover} disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-medium rounded py-2 transition-colors`}
             >
@@ -259,9 +259,9 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    disabled={!hint}
+                    disabled={!hint || !treeType}
                     onClick={() => {
-                      if (!hint) return;
+                      if (!hint || !treeType) return;
                       onSubmit({
                         treeType,
                         treeHint: hint,
