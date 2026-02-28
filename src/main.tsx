@@ -4,9 +4,12 @@ import './index.css'
 import '@ncdai/react-wheel-picker/style.css'
 import App from './App.tsx'
 import './registerServiceWorker.ts'
+import { TooltipProvider } from './components/ui/tooltip.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <TooltipProvider>
+      <App />
+    </TooltipProvider>
   </StrictMode>,
 )

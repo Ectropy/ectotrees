@@ -10,6 +10,7 @@ import {
   applyUpdateHealth,
   applyMarkDead,
   applyClearWorld,
+  applyReportLightning,
 } from '../../shared/mutations.ts';
 
 const STORAGE_KEY = 'evilTree_worldStates';
@@ -150,6 +151,12 @@ export function useWorldStates(sync?: SyncChannel | null) {
     sync?.sendMutation({ type: 'updateHealth', worldId, health });
   }, [sync]);
 
+  const reportLightning = useCallback((worldId: number, health: 50 | 25) => {
+    setWorldStates(prev => applyReportLightning(prev, worldId, health, Date.now()));
+    sync?.sendMutation({ type: 'reportLightning', worldId, health });
+    pendingLightningRef.current.push({ worldId, kind: health === 50 ? 'lightning1' : 'lightning2' });
+  }, [sync]);
+
   const updateTreeFields = useCallback((worldId: number, fields: TreeFieldsPayload) => {
     setWorldStates(prev => applyUpdateTreeFields(prev, worldId, fields, Date.now()));
     sync?.sendMutation({ type: 'updateTreeFields', worldId, fields });
@@ -197,5 +204,5 @@ export function useWorldStates(sync?: SyncChannel | null) {
     });
   }, []);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, tick, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent };
+  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, tick, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent };
 }

@@ -100,7 +100,7 @@ export default function App() {
     saveToLocalStorageRef.current();
   }, []);
   const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, dismissError } = useSession(handleSessionLost);
-  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
+  const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
 
@@ -405,6 +405,7 @@ export default function App() {
           onToggleFavorite={() => toggleFavorite(worldId)}
           onClear={() => { clearWorld(worldId); handleBack(); }}
           onUpdateHealth={(health) => updateHealth(worldId, health)}
+          onReportLightning={(health) => reportLightning(worldId, health)}
           onUpdateFields={(fields) => updateTreeFields(worldId, fields)}
           onBack={handleBack}
           onOpenTool={(tool) => handleOpenTool(worldId, tool)}

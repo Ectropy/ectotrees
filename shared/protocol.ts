@@ -5,6 +5,7 @@ export type ClientMessage =
   | { type: 'setTreeInfo';      worldId: number; info: TreeInfoPayload; msgId?: number }
   | { type: 'updateTreeFields'; worldId: number; fields: TreeFieldsPayload; msgId?: number }
   | { type: 'updateHealth';     worldId: number; health: number | undefined; msgId?: number }
+  | { type: 'reportLightning';  worldId: number; health: 50 | 25; msgId?: number }
   | { type: 'markDead';         worldId: number; msgId?: number }
   | { type: 'clearWorld';       worldId: number; msgId?: number }
   | { type: 'contributeWorlds'; worlds: WorldStates; msgId?: number }

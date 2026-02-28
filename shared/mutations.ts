@@ -227,3 +227,22 @@ export function applyClearWorld(
   delete next[worldId];
   return next;
 }
+
+export function applyReportLightning(
+  states: WorldStates,
+  worldId: number,
+  health: 50 | 25,
+  now: number,
+): WorldStates {
+  const current = states[worldId];
+  if (!current || (current.treeStatus !== 'mature' && current.treeStatus !== 'alive')) {
+    return states;
+  }
+  const matureAt = health === 50
+    ? now - LIGHTNING_1_MS  // 10 min ago → dies in 20 min
+    : now - LIGHTNING_2_MS; // 20 min ago → dies in 10 min
+  return {
+    ...states,
+    [worldId]: { ...current, treeHealth: health, matureAt },
+  };
+}

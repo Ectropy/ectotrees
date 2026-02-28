@@ -1,12 +1,20 @@
+import { Zap } from 'lucide-react';
+
 interface Props {
   value: number | undefined;
   onChange: (value: number | undefined) => void;
+  onLightning?: (value: 50 | 25) => void;
 }
 
 const HEALTH_VALUES = Array.from({ length: 20 }, (_, i) => 100 - i * 5);
 
 // Tailwind classes must be full literals for the JIT compiler to detect them.
 // Each button always shows its health color; selected button goes black.
+const LIGHTNING_COLORS: Record<50 | 25, string> = {
+  50: 'bg-amber-500 hover:bg-amber-600 text-gray-900',
+  25: 'bg-red-500 hover:bg-red-600 text-white',
+};
+
 const HEALTH_COLORS: Record<number, string> = {
   100: 'bg-green-600 text-white',
   95:  'bg-green-500 text-white',
@@ -30,10 +38,36 @@ const HEALTH_COLORS: Record<number, string> = {
   5:   'bg-red-900 text-white',
 };
 
-export function HealthButtonGrid({ value, onChange }: Props) {
+type GridItem = number | { lightning: 50 | 25 };
+
+export function HealthButtonGrid({ value, onChange, onLightning }: Props) {
+  const items: GridItem[] = [];
+  for (const pct of HEALTH_VALUES) {
+    if (onLightning && (pct === 50 || pct === 25)) {
+      items.push({ lightning: pct });
+    }
+    items.push(pct);
+  }
+
   return (
     <div className="grid grid-cols-5 gap-1.5">
-      {HEALTH_VALUES.map(pct => {
+      {items.map(item => {
+        if (typeof item === 'object') {
+          const { lightning: pct } = item;
+          return (
+            <button
+              key={`lightning-${pct}`}
+              type="button"
+              onClick={() => onLightning!(pct)}
+              className={`col-span-5 text-xs py-2 px-3 rounded transition-colors flex items-center justify-center gap-1.5 ${LIGHTNING_COLORS[pct]}`}
+            >
+              <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+              Report {pct}% lightning strike
+            </button>
+          );
+        }
+
+        const pct = item;
         const isSelected = value === pct;
         return (
           <button

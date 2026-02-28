@@ -12,6 +12,7 @@ import {
   applyUpdateTreeFields,
   applyUpdateHealth,
   applyMarkDead,
+  applyReportLightning,
 } from '../shared/mutations.ts';
 import {
   createSession,
@@ -281,6 +282,15 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'updateHealth': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
+      if (next !== session.worldStates) {
+        updateWorldState(session, msg.worldId, next[msg.worldId]);
+      }
+      break;
+    }
+
+    case 'reportLightning': {
+      log(`[mutation] ${session.code} ${c} W${msg.worldId} reportLightning ${msg.health}%`);
+      const next = applyReportLightning(session.worldStates, msg.worldId, msg.health, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId]);
       }

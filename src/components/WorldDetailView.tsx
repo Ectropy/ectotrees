@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses, Zap } from 'lucide-react';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
@@ -16,6 +16,7 @@ interface Props {
   onToggleFavorite: () => void;
   onClear: () => void;
   onUpdateHealth: (health: number | undefined) => void;
+  onReportLightning: (health: 50 | 25) => void;
   onUpdateFields: (fields: TreeFieldsPayload) => void;
   onBack: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
@@ -27,9 +28,14 @@ interface Props {
 
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
+  const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pendingLightning !== null) confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [pendingLightning]);
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
   const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
   const isDeadTree = state.treeStatus === 'dead';
@@ -264,11 +270,37 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               <p className="text-xs text-gray-400 font-semibold mb-2">Update health</p>
               <HealthButtonGrid
                 value={state.treeHealth}
-                onChange={onUpdateHealth}
+                onChange={v => { setPendingLightning(null); onUpdateHealth(v); }}
+                onLightning={setPendingLightning}
               />
-              <p className="text-xs text-gray-500 mt-2">
-                Tap to update, tap again to clear. Won't reset timers.
-              </p>
+              {pendingLightning !== null ? (
+                <div ref={confirmRef} className="mt-2 bg-amber-900/30 border border-amber-500/50 rounded p-3">
+                  <p className="text-xs text-amber-200">
+                    Report {pendingLightning}% lightning? This lightning occurs {pendingLightning === 50 ? '10 minutes' : '20 minutes'} after the tree matures. "Dies in" timer will be set to{' '}
+                    {pendingLightning === 50 ? '20 minutes' : '10 minutes'}.
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => { onReportLightning(pendingLightning); setPendingLightning(null); }}
+                      className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingLightning(null)}
+                      className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1 flex-wrap">
+                  Tap to update, tap again to clear. Won&apos;t reset timers.
+                </p>
+              )}
             </div>
           )}
 

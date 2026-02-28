@@ -261,6 +261,12 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       return { type: 'updateHealth', worldId, health: health as number | undefined, msgId };
     }
 
+    case 'reportLightning': {
+      const health = raw.health;
+      if (health !== 50 && health !== 25) return { error: 'Invalid lightning health value.' };
+      return { type: 'reportLightning', worldId, health, msgId };
+    }
+
     case 'markDead':
       return { type: 'markDead', worldId, msgId };
 

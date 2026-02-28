@@ -7,6 +7,7 @@ import {
   applyUpdateHealth,
   applyMarkDead,
   applyClearWorld,
+  applyReportLightning,
 } from '../mutations.ts';
 import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from '../types.ts';
 
@@ -539,5 +540,83 @@ describe('applyTransitions — lightning health caps', () => {
     const states = { 1: { treeStatus: 'dead' as const, matureAt, deadAt } };
     const result = applyTransitions(states, matureAt + LIGHTNING_1_MS);
     expect(result[1].treeHealth).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyReportLightning
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('applyReportLightning', () => {
+  it('50% report: sets treeHealth to 50 and matureAt to now - LIGHTNING_1_MS', () => {
+    const states = { 1: { treeStatus: 'alive' as const, treeHealth: 75 } };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result[1].treeHealth).toBe(50);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_1_MS);
+  });
+
+  it('25% report: sets treeHealth to 25 and matureAt to now - LIGHTNING_2_MS', () => {
+    const states = { 1: { treeStatus: 'alive' as const, treeHealth: 50 } };
+    const result = applyReportLightning(states, 1, 25, T);
+    expect(result[1].treeHealth).toBe(25);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_2_MS);
+  });
+
+  it('works on mature status', () => {
+    const states = { 1: { treeStatus: 'mature' as const } };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result[1].treeHealth).toBe(50);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_1_MS);
+  });
+
+  it('no-op when world does not exist', () => {
+    const states = {};
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result).toBe(states);
+  });
+
+  it('no-op when treeStatus is sapling', () => {
+    const states = { 1: { treeStatus: 'sapling' as const } };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result).toBe(states);
+  });
+
+  it('no-op when treeStatus is dead', () => {
+    const states = { 1: { treeStatus: 'dead' as const, deadAt: T } };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result).toBe(states);
+  });
+
+  it('preserves all other world state fields', () => {
+    const states = {
+      1: { treeStatus: 'alive' as const, treeType: 'oak' as const, treeHint: 'Near the bank', treeExactLocation: 'Lumbridge' },
+    };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result[1].treeType).toBe('oak');
+    expect(result[1].treeHint).toBe('Near the bank');
+    expect(result[1].treeExactLocation).toBe('Lumbridge');
+  });
+
+  it('does not affect other worlds', () => {
+    const states = {
+      1: { treeStatus: 'alive' as const },
+      2: { treeStatus: 'mature' as const },
+    };
+    const result = applyReportLightning(states, 1, 50, T);
+    expect(result[2]).toBe(states[2]);
+  });
+
+  it('50% report gives a death time ~20 minutes from now', () => {
+    const states = { 1: { treeStatus: 'alive' as const } };
+    const result = applyReportLightning(states, 1, 50, T);
+    const diesAt = result[1].matureAt! + (30 * 60 * 1000);
+    expect(diesAt).toBe(T + 20 * 60 * 1000);
+  });
+
+  it('25% report gives a death time ~10 minutes from now', () => {
+    const states = { 1: { treeStatus: 'alive' as const } };
+    const result = applyReportLightning(states, 1, 25, T);
+    const diesAt = result[1].matureAt! + (30 * 60 * 1000);
+    expect(diesAt).toBe(T + 10 * 60 * 1000);
   });
 });
