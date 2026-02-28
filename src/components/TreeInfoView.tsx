@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
 import { TreeDeciduous } from 'lucide-react';
-import { TREE_TYPES, TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { ViewHeader } from './ViewHeader';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
+import {
+  Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem,
+  ComboboxGroup, ComboboxGroupLabel, ComboboxCollection, ComboboxEmpty,
+} from './ui/combobox';
+
+const TREE_TYPE_GROUPS = [
+  { label: 'Strange Sapling', items: ['sapling'] as string[] },
+  { label: 'Evil Trees', items: [, 'mature','tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
+];
 
 interface Props {
   world: WorldConfig;
@@ -36,7 +45,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
   const isStrangeSapling = treeType === 'sapling' || treeType.startsWith('sapling-');
-  const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as const;
+  const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'];
 
   function resolveExactLocationFromHint(newHint: string): string {
     const match = LOCATION_HINTS.find(h => h.hint === newHint);
@@ -64,8 +73,6 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
     }
   }
 
-  const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
-
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
       <div className="max-w-lg mx-auto">
@@ -88,18 +95,32 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Tree type */}
           <div>
             <label className="text-xs text-gray-400 block mb-2 font-semibold">Tree Type</label>
-            <select
-              autoFocus
+            <Combobox
+              items={TREE_TYPE_GROUPS}
+              itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
               value={treeType}
-              onChange={e => setTreeType(e.target.value as TreeType)}
-              className={selectClass}
+              onValueChange={v => v != null && setTreeType(v as TreeType)}
+              autoHighlight
             >
-              {TREE_TYPES.filter(type => !type.startsWith('sapling-')).map(type => (
-                <option key={type} value={type}>
-                  {TREE_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
+              <ComboboxInput autoFocus placeholder="Select tree type…" />
+              <ComboboxContent>
+                <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
+                <ComboboxList>
+                  {(group: { label: string; items: string[] }) => (
+                    <ComboboxGroup key={group.label} items={group.items}>
+                      <ComboboxGroupLabel>{group.label}</ComboboxGroupLabel>
+                      <ComboboxCollection>
+                        {(type: string) => (
+                          <ComboboxItem key={type} value={type}>
+                            {TREE_TYPE_LABELS[type as TreeType]}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxCollection>
+                    </ComboboxGroup>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
             <p className="text-xs text-gray-500 mt-2">
               The type of Evil Tree that currently exists.
             </p>
@@ -115,24 +136,25 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 <label className="text-xs text-gray-400 block mb-2 font-semibold">
                   Expected type <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
-                <select
-                  value={treeType === 'sapling' ? '' : treeType.replace('sapling-', '')}
-                  onChange={e => {
-                    if (e.target.value === '') {
-                      setTreeType('sapling');
-                    } else {
-                      setTreeType(`sapling-${e.target.value}` as TreeType);
-                    }
-                  }}
-                  className={selectClass}
+                <Combobox
+                  items={saplingTypeOptions}
+                  itemToStringLabel={item => TREE_TYPE_SHORT[item as TreeType] ?? item}
+                  value={treeType === 'sapling' ? null : treeType.replace('sapling-', '')}
+                  onValueChange={v => setTreeType(v ? `sapling-${v}` as TreeType : 'sapling')}
+                  autoHighlight
                 >
-                  <option value="">— unknown —</option>
-                  {saplingTypeOptions.map(type => (
-                    <option key={type} value={type}>
-                      {TREE_TYPE_SHORT[type]}
-                    </option>
-                  ))}
-                </select>
+                  <ComboboxInput placeholder="— unknown —" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No matching type.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(type: string) => (
+                        <ComboboxItem key={type} value={type}>
+                          {TREE_TYPE_SHORT[type as TreeType]}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </div>
             </div>
           )}
@@ -142,19 +164,22 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             <label className="text-xs text-gray-400 block mb-2 font-semibold">
               Location hint <span className="text-red-400">*</span>
             </label>
-            <select
-              value={hint}
-              onChange={e => handleHintChange(e.target.value)}
-              className={selectClass}
-              required
+            <Combobox
+              items={LOCATION_HINTS.map(lh => lh.hint)}
+              value={hint || null}
+              onValueChange={v => handleHintChange(v ?? '')}
+              autoHighlight
             >
-              <option value="">— select hint —</option>
-              {LOCATION_HINTS.map(lh => (
-                <option key={lh.hint} value={lh.hint}>
-                  {lh.hint}
-                </option>
-              ))}
-            </select>
+              <ComboboxInput placeholder="— select hint —" />
+              <ComboboxContent>
+                <ComboboxEmpty>No matching hint.</ComboboxEmpty>
+                <ComboboxList>
+                  {(h: string) => (
+                    <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
             <p className="text-xs text-gray-500 mt-2">
               A general area or region where the tree is located. Required.
             </p>
@@ -166,18 +191,22 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               <label className="text-xs text-gray-400 block mb-2 font-semibold">
                 Exact location <span className="text-gray-500 font-normal">(optional)</span>
               </label>
-              <select
-                value={exactLocation}
-                onChange={e => setExactLocation(e.target.value)}
-                className={selectClass}
+              <Combobox
+                items={availableLocations}
+                value={exactLocation || null}
+                onValueChange={v => setExactLocation(v ?? '')}
+                autoHighlight
               >
-                <option value="">— unknown —</option>
-                {availableLocations.map(loc => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </select>
+                <ComboboxInput placeholder="— unknown —" />
+                <ComboboxContent>
+                  <ComboboxEmpty>No matching location.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(loc: string) => (
+                      <ComboboxItem key={loc} value={loc}>{loc}</ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
               <p className="text-xs text-gray-500 mt-2">
                 The specific spawn location, if known.
               </p>

@@ -21,6 +21,7 @@
     "postversion": "git push --follow-tags"
   },
   "dependencies": {
+    "@base-ui/react": "^1.2.0",
     "@ncdai/react-wheel-picker": "^1.2.0",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",

@@ -4,10 +4,14 @@ import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { ViewHeader } from './ViewHeader';
-import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
+import {
+  Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem,
+  ComboboxGroup, ComboboxGroupLabel, ComboboxCollection, ComboboxEmpty,
+} from './ui/combobox';
 
 interface Props {
   world: WorldConfig;
@@ -43,7 +47,6 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const hasSpawnTimer = state.nextSpawnTarget !== undefined;
   const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
 
-  const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
 
   function resolveExactLocationFromHint(newHint: string): string | undefined {
     const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
@@ -115,11 +118,41 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               <dl className="space-y-2">
                 {editingField === 'treeType' ? (
                   <EditRow label="Tree Type">
-                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
-                      {TREE_TYPES
-                        .filter(t => state.treeStatus !== 'sapling' ? !t.startsWith('sapling') : true)
-                        .map(t => <option key={t} value={t}>{TREE_TYPE_LABELS[t]}</option>)}
-                    </select>
+                    <Combobox
+                      items={state.treeStatus === 'sapling'
+                        ? [
+                            { label: 'Strange Sapling', items: ['sapling', 'sapling-tree', 'sapling-oak', 'sapling-willow', 'sapling-maple', 'sapling-yew', 'sapling-magic', 'sapling-elder'] as string[] },
+                            { label: 'Evil Trees', items: ['mature', 'tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
+                          ]
+                        : [
+                            { label: 'Strange Sapling', items: ['sapling', 'mature'] as string[] },
+                            { label: 'Evil Trees', items: ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
+                          ]
+                      }
+                      itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
+                      value={editPendingValue || null}
+                      onValueChange={v => setEditPendingValue(v ?? '')}
+                      autoHighlight
+                    >
+                      <ComboboxInput autoFocus placeholder="Select tree type…" />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
+                        <ComboboxList>
+                          {(group: { label: string; items: string[] }) => (
+                            <ComboboxGroup key={group.label} items={group.items}>
+                              <ComboboxGroupLabel>{group.label}</ComboboxGroupLabel>
+                              <ComboboxCollection>
+                                {(type: string) => (
+                                  <ComboboxItem key={type} value={type}>
+                                    {TREE_TYPE_LABELS[type as TreeType]}
+                                  </ComboboxItem>
+                                )}
+                              </ComboboxCollection>
+                            </ComboboxGroup>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
                     <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} />
                   </EditRow>
                 ) : (state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
@@ -143,10 +176,22 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {editingField === 'treeHint' ? (
                   <EditRow label="Location Hint">
-                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && editPendingValue) saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
-                      <option value="">— select hint —</option>
-                      {LOCATION_HINTS.map(lh => <option key={lh.hint} value={lh.hint}>{lh.hint}</option>)}
-                    </select>
+                    <Combobox
+                      items={LOCATION_HINTS.map(lh => lh.hint)}
+                      value={editPendingValue || null}
+                      onValueChange={v => setEditPendingValue(v ?? '')}
+                      autoHighlight
+                    >
+                      <ComboboxInput autoFocus placeholder="— select hint —" />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No matching hint.</ComboboxEmpty>
+                        <ComboboxList>
+                          {(h: string) => (
+                            <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
                     <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} saveDisabled={!editPendingValue} />
                   </EditRow>
                 ) : (state.treeHint || hasActiveTree || hasSpawnTimer || isDeadTree) && (
@@ -165,10 +210,22 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 {editingField === 'treeExactLocation' ? (
                   <EditRow label="Exact Location">
                     {availableLocations.length > 0 ? (
-                      <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
-                        <option value="">— unknown —</option>
-                        {availableLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-                      </select>
+                      <Combobox
+                        items={availableLocations}
+                        value={editPendingValue || null}
+                        onValueChange={v => setEditPendingValue(v ?? '')}
+                        autoHighlight
+                      >
+                        <ComboboxInput autoFocus placeholder="— unknown —" />
+                        <ComboboxContent>
+                          <ComboboxEmpty>No matching location.</ComboboxEmpty>
+                          <ComboboxList>
+                            {(loc: string) => (
+                              <ComboboxItem key={loc} value={loc}>{loc}</ComboboxItem>
+                            )}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
                     ) : (
                       <input
                         autoFocus
@@ -177,7 +234,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                         onChange={e => setEditPendingValue(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }}
                         placeholder="Type exact location"
-                        className={selectClass}
+                        className="w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400"
                       />
                     )}
                     <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} />

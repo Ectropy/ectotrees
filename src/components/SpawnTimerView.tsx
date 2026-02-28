@@ -5,6 +5,7 @@ import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { ViewHeader } from './ViewHeader';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
+import { Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem, ComboboxEmpty } from './ui/combobox';
 
 const HOUR_VALUES = Array.from({ length: 2 }, (_, i) => i);      // [0..1]
 const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
@@ -42,7 +43,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const hoursFocused = useRef(false);
   const minutesFocused = useRef(false);
   const minutesInputRef = useRef<HTMLInputElement>(null);
-  const hintSelectRef = useRef<HTMLSelectElement>(null);
+  const hintInputRef = useRef<HTMLInputElement>(null);
   const hoursCommitted = useRef(false);
 
   // Grab cursor state for wheel picker
@@ -114,7 +115,6 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
     doSubmit(minutes);
   }
 
-  const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
   const inputClass = 'bg-gray-600 text-white text-center text-lg font-semibold rounded px-2 py-1.5 border border-gray-500 focus:border-blue-400 focus:outline-none w-full';
 
   return (
@@ -185,7 +185,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                     }
                     if (e.key === 'Tab' && !e.shiftKey) {
                       e.preventDefault();
-                      hintSelectRef.current?.focus();
+                      hintInputRef.current?.focus();
                     }
                   }}
                   className={inputClass}
@@ -240,19 +240,22 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Location hint</label>
-                <select
-                  ref={hintSelectRef}
-                  value={hint}
-                  onChange={e => setHint(e.target.value)}
-                  className={selectClass}
+                <Combobox
+                  items={LOCATION_HINTS.map(lh => lh.hint)}
+                  value={hint || null}
+                  onValueChange={v => setHint(v ?? '')}
+                  autoHighlight
                 >
-                  <option value="">— none —</option>
-                  {LOCATION_HINTS.map(lh => (
-                    <option key={lh.hint} value={lh.hint}>
-                      {lh.hint}
-                    </option>
-                  ))}
-                </select>
+                  <ComboboxInput ref={hintInputRef} placeholder="— none —" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No matching hint.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(h: string) => (
+                        <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
                 <p className="text-xs text-gray-500 mt-1">
                   Hint revealing where the next Evil Tree will spawn.
                 </p>
