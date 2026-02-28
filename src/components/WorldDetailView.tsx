@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses } from 'lucide-react';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { ViewHeader } from './ViewHeader';
 import { TREE_TYPES, TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
@@ -29,7 +30,6 @@ type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
-  const isP2P = world.type === 'P2P';
   const isBlank = state.treeStatus === 'none' && !state.nextSpawnTarget;
   const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
   const isDeadTree = state.treeStatus === 'dead';
@@ -58,23 +58,14 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">
-              W{world.id} Status
-              <button
-                onClick={onToggleFavorite}
-                className={`ml-2 text-lg transition-colors ${
-                  isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
-                }`}
-              >
-                <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
-              </button>
-            </h1>
-            <p className="text-sm text-gray-400">
-              <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
-            </p>
-          </div>
+          <ViewHeader icon={<HatGlasses className="h-5 w-5" />} title="World Status" world={world}>
+            <button
+              onClick={onToggleFavorite}
+              className={`transition-colors ${isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
+            >
+              <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
+            </button>
+          </ViewHeader>
         </div>
 
         <div className="space-y-6">
@@ -89,7 +80,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 {(state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
                   <Row label="Tree type">
                     {state.treeStatus === 'dead' ? (
-                      <span className="text-red-400">
+                      <span className={TREE_STATE_COLOR.dead}>
                         {state.treeType && state.treeType !== 'sapling' && state.treeType !== 'mature'
                           ? `Dead (${TREE_TYPE_LABELS[state.treeType]})`
                           : 'Dead'}
@@ -110,11 +101,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       </span>
                     ) : hasActiveTree ? (
                       <button type="button" onClick={() => setEditingField('treeType')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
-                        <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
+                        <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
                     ) : (
-                      <span className="text-gray-100">{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
+                      <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
                     )}
                   </Row>
                 )}
@@ -145,11 +136,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       </span>
                     ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
                       <button type="button" onClick={() => setEditingField('treeHint')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
-                        <span className="text-gray-100">{state.treeHint ?? '—'}</span>
+                        <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                       </button>
                     ) : (
-                      <span className="text-gray-100">{state.treeHint ?? '—'}</span>
+                      <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
                     )}
                   </Row>
                 )}
@@ -192,11 +183,11 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                         </span>
                       ) : (hasActiveTree || hasSpawnTimer || isDeadTree) ? (
                         <button type="button" onClick={() => setEditingField('treeExactLocation')} className="flex items-center gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
-                          <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
+                          <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
                           <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
                         </button>
                       ) : (
-                        <span className="text-gray-100">{state.treeExactLocation ?? '—'}</span>
+                        <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
                       )}
                     </Row>
                   )
@@ -204,7 +195,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {state.treeHealth !== undefined && (
                   <Row label="Health">
-                    <span className="text-gray-100">{state.treeHealth}%</span>
+                    <span className={TEXT_COLOR.prominent}>{state.treeHealth}%</span>
                   </Row>
                 )}
 
@@ -212,7 +203,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   const remaining = (state.treeSetAt + SAPLING_MATURE_MS) - now;
                   return (
                     <Row label="Matures in">
-                      <span className="text-yellow-300">
+                      <span className={TREE_STATE_COLOR.saplingTimer}>
                         {remaining > 0 ? `~${formatMs(remaining)}` : 'Now'}
                       </span>
                     </Row>
@@ -221,7 +212,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {(state.treeStatus === 'mature' || state.treeStatus === 'alive') && state.matureAt !== undefined && (
                   <Row label="Dies in">
-                    <span className="text-orange-400">
+                    <span className={TREE_STATE_COLOR.deathTimer}>
                       ~{formatMs((state.matureAt + ALIVE_DEAD_MS) - now)}
                     </span>
                   </Row>
@@ -229,7 +220,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {state.treeStatus === 'dead' && state.deadAt !== undefined && (
                   <Row label="Clears in">
-                    <span className="text-gray-300">
+                    <span className={TREE_STATE_COLOR.rewardTimer}>
                       {formatMs((state.deadAt + DEAD_CLEAR_MS) - now)}
                     </span>
                   </Row>
@@ -240,7 +231,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   if (remaining > 0) {
                     return (
                       <Row label="Spawn in">
-                        <span className="text-blue-300">{formatMs(remaining)}</span>
+                        <span className={TREE_STATE_COLOR.spawnTimer}>{formatMs(remaining)}</span>
                       </Row>
                     );
                   }
@@ -327,7 +318,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
             return (
               <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
-                <p className="text-sm text-gray-200">Reset World {world.id} to blank?</p>
+                <p className={`text-sm ${TEXT_COLOR.prominent}`}>Reset World {world.id} to blank?</p>
                 <p className="text-xs text-gray-400">
                   Use this to correct a mistake — wrong world, accidental entry, or test data. All recorded data will be wiped immediately.
                 </p>

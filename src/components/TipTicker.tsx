@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import tipsData from '../data/tips.json';
+import { TEXT_COLOR } from '../constants/toolColors';
 
 // Pixels per second — controls scroll speed
 const SPEED_PX_PER_S = 20;
@@ -39,10 +40,10 @@ export function TipTicker() {
           ? { animationDuration: `${duration}s` }
           : { visibility: 'hidden' }}
       >
-        <span ref={copyRef} className="inline-block whitespace-nowrap text-[10px] text-gray-500 leading-none">
+        <span ref={copyRef} className={`inline-block whitespace-nowrap text-[10px] ${TEXT_COLOR.prominent} leading-none`}>
           {text}
         </span>
-        <span aria-hidden="true" className="inline-block whitespace-nowrap text-[10px] text-gray-500 leading-none">
+        <span aria-hidden="true" className={`inline-block whitespace-nowrap text-[10px] ${TEXT_COLOR.prominent} leading-none`}>
           {text}
         </span>
       </div>

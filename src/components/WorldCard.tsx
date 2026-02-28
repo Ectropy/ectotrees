@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Star } from 'lucide-react';
-import { P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
@@ -46,7 +46,7 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
         <div className="flex items-center gap-1">
-          <span className="text-[11px] font-bold text-gray-100">w{world.id}</span>
+          <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}</span>
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
             className={`text-[11px] leading-none transition-colors ${

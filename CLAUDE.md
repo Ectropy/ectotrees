@@ -6,7 +6,8 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 18** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars)
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere)
+- **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
 - Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
@@ -55,8 +56,9 @@ e2e/
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
-  constants/evilTree.ts # Re-exports from shared/types.ts + location hints, filterable types
-  types/index.ts        # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
+  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types
+  constants/toolColors.ts # Canonical UI color tokens (SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR)
+  types/index.ts         # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
@@ -66,9 +68,10 @@ src/
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
     StatusSection.tsx    # Compact in-card status display with countdowns
-    SpawnTimerTool.tsx   # ⏱ button — navigates to SpawnTimerView
-    TreeInfoTool.tsx     # 🌳 button — navigates to TreeInfoView
-    TreeDeadTool.tsx     # ☠ button — navigates to TreeDeadView
+    SpawnTimerTool.tsx   # Timer icon button — navigates to SpawnTimerView
+    TreeInfoTool.tsx     # TreeDeciduous icon button — navigates to TreeInfoView
+    TreeDeadTool.tsx     # Skull icon button — navigates to TreeDeadView
+    ViewHeader.tsx       # Shared view header: icon + title + "World {id} · type badge" subtitle
     SpawnTimerView.tsx   # Full-screen/sidebar: set spawn countdown + optional location hint
     TreeInfoView.tsx     # Full-screen/sidebar: record tree type, hint, exact location, health
     TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)

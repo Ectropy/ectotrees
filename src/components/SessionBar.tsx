@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
+import { CONNECTION_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -14,15 +15,15 @@ interface SessionBarProps {
 }
 
 const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
-  connected: 'bg-green-500',
-  connecting: 'bg-yellow-500 animate-pulse',
-  disconnected: 'bg-red-500',
+  connected:    CONNECTION_COLOR.connectedDot,
+  connecting:   CONNECTION_COLOR.connectingDot,
+  disconnected: CONNECTION_COLOR.disconnectedDot,
 };
 
 const STATUS_TEXT_COLORS: Record<SessionState['status'], string> = {
-  connected: 'text-green-500 hover:text-green-400',
-  connecting: 'text-yellow-500 hover:text-yellow-400',
-  disconnected: 'text-red-500 hover:text-red-400',
+  connected:    CONNECTION_COLOR.connectedText,
+  connecting:   CONNECTION_COLOR.connectingText,
+  disconnected: CONNECTION_COLOR.disconnectedText,
 };
 
 function DismissableError({ message, onDismiss }: { message: string; onDismiss: () => void }) {

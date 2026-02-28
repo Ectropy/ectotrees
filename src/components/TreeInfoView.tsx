@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPES, TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
-import { TREE_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
+import { TREE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { ViewHeader } from './ViewHeader';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -26,7 +27,6 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
-  const isP2P = world.type === 'P2P';
   const isStrangeSapling = treeType === 'sapling' || treeType.startsWith('sapling-');
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as const;
 
@@ -63,15 +63,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2"><TreeDeciduous className="h-5 w-5" /> Tree Info</h1>
-              <p className="text-sm text-gray-400">
-                World {world.id} · <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
-              </p>
-            </div>
-          </div>
+          <ViewHeader icon={<TreeDeciduous className="h-5 w-5" />} title="Tree Info" world={world} />
         </div>
 
         {/* Form */}
@@ -222,7 +214,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {isUpdateMode && (
             confirmOverride ? (
               <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
-                <p className="text-sm text-gray-200">Replace all data and restart timers?</p>
+                <p className={`text-sm ${TEXT_COLOR.prominent}`}>Replace all data and restart timers?</p>
                 <p className="text-xs text-gray-400">
                   This will discard the current timer and treat this as a brand-new tree sighting. Use this if the previous data was wrong
                 </p>

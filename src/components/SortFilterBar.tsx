@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { FILTERABLE_TREE_TYPES } from '../constants/evilTree';
+import { CHIP_COLOR } from '../constants/toolColors';
 
 export type SortMode = 'world' | 'soonest' | 'fav' | 'health';
 
@@ -99,39 +100,31 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
   const SortArrow = sortAsc ? ChevronUp : ChevronDown;
   const activeSummary: { label: string; className: string }[] = [];
 
-  if (filters.favorites) activeSummary.push({ label: 'Favorite', className: 'bg-blue-700 text-white font-semibold' });
-  if (filters.p2p) activeSummary.push({ label: 'P2P', className: 'bg-blue-700 text-white font-semibold' });
-  if (filters.f2p) activeSummary.push({ label: 'F2P', className: 'bg-blue-700 text-white font-semibold' });
+  if (filters.favorites) activeSummary.push({ label: 'Favorite', className: CHIP_COLOR.active });
+  if (filters.p2p) activeSummary.push({ label: 'P2P', className: CHIP_COLOR.active });
+  if (filters.f2p) activeSummary.push({ label: 'F2P', className: CHIP_COLOR.active });
   if (filters.treeTypes.length > 0) {
     const typeLabels = FILTERABLE_TREE_TYPES
       .filter((treeType) => filters.treeTypes.includes(treeType.key))
       .map((treeType) => treeType.label);
     const treeLabel = typeLabels.length > 1 ? 'Trees' : 'Tree';
-    activeSummary.push({ label: `${treeLabel}: ${typeLabels.join(', ')}`, className: 'bg-blue-700 text-white font-semibold' });
+    activeSummary.push({ label: `${treeLabel}: ${typeLabels.join(', ')}`, className: CHIP_COLOR.active });
   }
   if (filters.intel) activeSummary.push({
     label: `${filters.intel === 'needs' ? 'Needs' : 'Has'} intel`,
-    className: filters.intel === 'needs'
-      ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
-      : 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500',
+    className: filters.intel === 'needs' ? CHIP_COLOR.needs : CHIP_COLOR.has,
   });
   if (filters.hint) activeSummary.push({
     label: `${filters.hint === 'needs' ? 'Needs' : 'Has'} hint`,
-    className: filters.hint === 'needs'
-      ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
-      : 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500',
+    className: filters.hint === 'needs' ? CHIP_COLOR.needs : CHIP_COLOR.has,
   });
   if (filters.location) activeSummary.push({
     label: `${filters.location === 'needs' ? 'Needs' : 'Has'} location`,
-    className: filters.location === 'needs'
-      ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
-      : 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500',
+    className: filters.location === 'needs' ? CHIP_COLOR.needs : CHIP_COLOR.has,
   });
   if (filters.health) activeSummary.push({
     label: `${filters.health === 'needs' ? 'Needs' : 'Has'} health`,
-    className: filters.health === 'needs'
-      ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
-      : 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500',
+    className: filters.health === 'needs' ? CHIP_COLOR.needs : CHIP_COLOR.has,
   });
 
   if (isCompact) {
@@ -140,7 +133,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
         <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
           <button
             onClick={() => setIsCompact(false)}
-            className="px-2 py-0.5 text-xs rounded bg-amber-700 text-white font-semibold hover:bg-amber-600 transition-colors inline-flex items-center gap-0.5"
+            className={`px-2 py-0.5 text-xs rounded ${CHIP_COLOR.sortActive} hover:bg-amber-600 transition-colors inline-flex items-center gap-0.5`}
           >
             Sort: {sortSummaryLabel}{sortMode !== 'soonest' && <SortArrow className="h-3 w-3 ml-0.5" />}
           </button>
@@ -184,9 +177,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
               key={mode}
               onClick={() => handleSortClick(mode)}
               className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center inline-flex items-center gap-0.5 ${
-                sortMode === mode
-                  ? 'bg-amber-700 text-white font-semibold'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                sortMode === mode ? CHIP_COLOR.sortActive : CHIP_COLOR.inactive
               }`}
             >
               {mode === 'soonest' && sortMode === 'soonest'
@@ -259,9 +250,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
     <button
       onClick={onClick}
       className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center ${
-        active
-          ? 'bg-blue-700 text-white font-semibold'
-          : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+        active ? CHIP_COLOR.active : CHIP_COLOR.inactive
       }`}
     >
       {label}
@@ -282,11 +271,9 @@ function TriStateChip({
     <button
       onClick={onClick}
       className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center ${
-        state === 'needs'
-          ? 'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500'
-          : state === 'has'
-            ? 'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500'
-            : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+        state === 'needs' ? CHIP_COLOR.needs
+          : state === 'has' ? CHIP_COLOR.has
+          : CHIP_COLOR.inactive
       }`}
     >
       {state && `${state[0].toUpperCase() + state.slice(1)} `}

@@ -1,6 +1,7 @@
 import { PanelLeft, PanelRight, Settings } from 'lucide-react';
 import type { AppSettings } from '../hooks/useSettings';
 import { Switch } from '@/components/ui/switch';
+import { TEXT_COLOR } from '../constants/toolColors';
 
 interface Props {
   settings: AppSettings;
@@ -45,7 +46,7 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
           {settings.sidebarEnabled && (
             <div className="flex items-center justify-between px-4 py-3 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-100">Dock side</p>
+                <p className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Dock side</p>
                 <p className="text-xs text-gray-400 mt-0.5">Which side the panel docks to</p>
               </div>
               <div className="flex items-center gap-2">
@@ -91,7 +92,7 @@ function SettingRow({
   return (
     <div className="flex items-center justify-between px-4 py-3 gap-4">
       <div>
-        <p className="text-sm font-medium text-gray-100">{label}</p>
+        <p className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>{label}</p>
         <p className="text-xs text-gray-400 mt-0.5">{description}</p>
       </div>
       <div className="flex items-center gap-2">

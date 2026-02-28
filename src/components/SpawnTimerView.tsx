@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS } from '../constants/evilTree';
-import { SPAWN_COLOR, P2P_COLOR, F2P_COLOR } from '../constants/toolColors';
+import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { ViewHeader } from './ViewHeader';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 
@@ -35,7 +36,6 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(30);
   const [hint, setHint] = useState('');
-  const isP2P = world.type === 'P2P';
 
   const [hoursText, setHoursText] = useState('0');
   const [minutesText, setMinutesText] = useState('30');
@@ -109,15 +109,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2"><Timer className="h-5 w-5" /> Set Spawn Timer</h1>
-              <p className="text-sm text-gray-400">
-                World {world.id} · <span className={isP2P ? P2P_COLOR.text : F2P_COLOR.text}>{world.type}</span>
-              </p>
-            </div>
-          </div>
+          <ViewHeader icon={<Timer className="h-5 w-5" />} title="Set Spawn Timer" world={world} />
         </div>
 
         {/* Form */}
@@ -131,7 +123,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
 
           {/* Time inputs */}
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-200">Time until spawn</label>
+            <label className={`block text-sm font-semibold ${TEXT_COLOR.prominent}`}>Time until spawn</label>
 
             {/* Text entry row */}
             <div className="flex items-center gap-2">
@@ -216,7 +208,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
 
           {/* Optional tree info section */}
           <div className="border-t border-gray-700 pt-6">
-            <h2 className="text-sm font-semibold text-gray-200 mb-4">
+            <h2 className={`text-sm font-semibold ${TEXT_COLOR.prominent} mb-4`}>
               Upcoming tree location <span className="text-gray-500 font-normal">(optional)</span>
             </h2>
 

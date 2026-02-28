@@ -1,5 +1,6 @@
 import type { WorldState } from '../types';
 import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import { TREE_STATE_COLOR } from '../constants/toolColors';
 
 interface Props {
   state: WorldState;
@@ -26,13 +27,13 @@ export function StatusSection({ state }: Props) {
     const remaining = clearAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-red-400 text-[11px] font-bold leading-tight">R.I.P.</div>
+        <div className={`${TREE_STATE_COLOR.dead} text-[11px] font-bold leading-tight`}>R.I.P.</div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}
           </div>
         )}
-        <div className="text-red-400 text-[9px] leading-tight">
+        <div className={`${TREE_STATE_COLOR.dead} text-[9px] leading-tight`}>
           {`Rewards avail. for <${formatMs(remaining)}`}
         </div>
       </div>
@@ -45,13 +46,13 @@ export function StatusSection({ state }: Props) {
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Sapling (unknown)';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-cyan-400 text-[10px] font-bold leading-tight">{label}</div>
+        <div className={`${TREE_STATE_COLOR.sapling} text-[10px] font-bold leading-tight`}>{label}</div>
         {locationLabel && (
           <div className="text-gray-400 text-[9px] leading-tight truncate">
             {locationLabel}
           </div>
         )}
-        <div className="text-yellow-300 text-[9px] leading-tight">
+        <div className={`${TREE_STATE_COLOR.saplingTimer} text-[9px] leading-tight`}>
           {`Matures in ~${formatMs(remaining)} or less`}
         </div>
       </div>
@@ -66,7 +67,7 @@ export function StatusSection({ state }: Props) {
       : 'Mature';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-emerald-400 text-[10px] font-bold leading-tight">
+        <div className={`${TREE_STATE_COLOR.matureAlive} text-[10px] font-bold leading-tight`}>
           {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
@@ -74,7 +75,7 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className="text-orange-400 text-[9px] leading-tight">
+        <div className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}>
           {`Dies in ~${formatMs(remaining)} or less`}
         </div>
       </div>
@@ -87,7 +88,7 @@ export function StatusSection({ state }: Props) {
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Tree';
     return (
       <div className="flex flex-col justify-center h-full">
-        <div className="text-emerald-400 text-[10px] font-bold leading-tight">
+        <div className={`${TREE_STATE_COLOR.matureAlive} text-[10px] font-bold leading-tight`}>
           {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
@@ -95,7 +96,7 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className="text-orange-400 text-[9px] leading-tight">
+        <div className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}>
           {`Dies in ~${formatMs(remaining)} or less`}
         </div>
       </div>
@@ -107,7 +108,7 @@ export function StatusSection({ state }: Props) {
     if (remaining > 0) {
       return (
         <div className={`flex ${locationLabel ? 'flex-col justify-center' : 'items-center'} h-full`}>
-          <div className="text-blue-300 text-[10px] font-bold leading-tight">Next: {formatMs(remaining)}</div>
+          <div className={`${TREE_STATE_COLOR.spawnTimer} text-[10px] font-bold leading-tight`}>Next: {formatMs(remaining)}</div>
           {locationLabel && (
             <div className="text-gray-400 text-[9px] leading-tight truncate">
               {locationLabel}
