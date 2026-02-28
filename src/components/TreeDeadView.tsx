@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
 import { Skull, Check } from 'lucide-react';
@@ -11,6 +12,13 @@ interface Props {
 }
 
 export function TreeDeadView({ world, onConfirm, onBack }: Props) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onBack();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onBack]);
   const deadMinutes = DEAD_CLEAR_MS / 60_000;
 
   return (

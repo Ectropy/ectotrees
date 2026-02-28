@@ -62,6 +62,14 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
     setEditingField(field);
   }
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && editingField === null) onBack();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [editingField, onBack]);
+
   function saveEdit() {
     if (editingField === 'treeType') {
       commitField({ treeType: editPendingValue as TreeType });
@@ -107,7 +115,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               <dl className="space-y-2">
                 {editingField === 'treeType' ? (
                   <EditRow label="Tree Type">
-                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
                       {TREE_TYPES
                         .filter(t => state.treeStatus !== 'sapling' ? !t.startsWith('sapling') : true)
                         .map(t => <option key={t} value={t}>{TREE_TYPE_LABELS[t]}</option>)}
@@ -135,7 +143,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {editingField === 'treeHint' ? (
                   <EditRow label="Location Hint">
-                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                    <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && editPendingValue) saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
                       <option value="">— select hint —</option>
                       {LOCATION_HINTS.map(lh => <option key={lh.hint} value={lh.hint}>{lh.hint}</option>)}
                     </select>
@@ -157,7 +165,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 {editingField === 'treeExactLocation' ? (
                   <EditRow label="Exact Location">
                     {availableLocations.length > 0 ? (
-                      <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} className={selectClass}>
+                      <select autoFocus value={editPendingValue} onChange={e => setEditPendingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }} className={selectClass}>
                         <option value="">— unknown —</option>
                         {availableLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
                       </select>
@@ -167,7 +175,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                         type="text"
                         value={editPendingValue}
                         onChange={e => setEditPendingValue(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingField(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { e.stopPropagation(); setEditingField(null); } }}
                         placeholder="Type exact location"
                         className={selectClass}
                       />

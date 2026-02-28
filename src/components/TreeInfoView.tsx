@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPES, TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR } from '../constants/toolColors';
@@ -24,6 +24,14 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const [exactLocation, setExactLocation] = useState(existingState?.treeExactLocation ?? '');
   const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
   const [confirmOverride, setConfirmOverride] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onBack();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onBack]);
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
@@ -81,6 +89,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           <div>
             <label className="text-xs text-gray-400 block mb-2 font-semibold">Tree Type</label>
             <select
+              autoFocus
               value={treeType}
               onChange={e => setTreeType(e.target.value as TreeType)}
               className={selectClass}

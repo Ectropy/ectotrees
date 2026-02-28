@@ -42,6 +42,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const hoursFocused = useRef(false);
   const minutesFocused = useRef(false);
   const minutesInputRef = useRef<HTMLInputElement>(null);
+  const hintSelectRef = useRef<HTMLSelectElement>(null);
   const hoursCommitted = useRef(false);
 
   // Grab cursor state for wheel picker
@@ -90,15 +91,27 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
     setMinutesText(String(clamped));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const totalMs = ((hours * 60) + minutes) * 60 * 1000;
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onBack();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onBack]);
+
+  function doSubmit(finalMinutes: number) {
+    const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
     if (totalMs <= 0) return;
     const match = hint ? LOCATION_HINTS.find(lh => lh.hint === hint) : undefined;
     const treeInfo: SpawnTreeInfo | undefined = hint
       ? { treeHint: hint, treeExactLocation: match?.locations.length === 1 ? match.locations[0] : undefined }
       : undefined;
     onSubmit(totalMs, treeInfo);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    doSubmit(minutes);
   }
 
   const selectClass = 'w-full bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500 focus:outline-none focus:border-blue-400';
@@ -130,6 +143,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Hours</label>
                 <input
+                  autoFocus
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
@@ -162,7 +176,18 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                   onFocus={e => { minutesFocused.current = true; e.target.select(); }}
                   onBlur={() => { minutesFocused.current = false; commitMinutes(); }}
                   onChange={e => setMinutesText(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const typed = parseInt(minutesText, 10);
+                      const finalMinutes = isNaN(typed) || minutesText.trim() === '' ? minutes : clampToValues(typed, MINUTE_VALUES);
+                      doSubmit(finalMinutes);
+                    }
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      e.preventDefault();
+                      hintSelectRef.current?.focus();
+                    }
+                  }}
                   className={inputClass}
                 />
               </div>
@@ -216,6 +241,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Location hint</label>
                 <select
+                  ref={hintSelectRef}
                   value={hint}
                   onChange={e => setHint(e.target.value)}
                   className={selectClass}
