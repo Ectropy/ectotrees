@@ -5,7 +5,7 @@ import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { ViewHeader } from './ViewHeader';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
-import { Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem, ComboboxEmpty } from './ui/combobox';
+import { SelectCombobox } from './ui/select-combobox';
 
 const HOUR_VALUES = Array.from({ length: 2 }, (_, i) => i);      // [0..1]
 const MINUTE_VALUES = Array.from({ length: 59 }, (_, i) => i + 1); // [1..59]
@@ -240,22 +240,15 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Location hint</label>
-                <Combobox
+                <SelectCombobox
                   items={LOCATION_HINTS.map(lh => lh.hint)}
                   value={hint || null}
                   onValueChange={v => setHint(v ?? '')}
+                  inputRef={hintInputRef}
+                  clearLabel="— none —"
                   autoHighlight
-                >
-                  <ComboboxInput ref={hintInputRef} placeholder="Select or type a location hint" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>No matching hint.</ComboboxEmpty>
-                    <ComboboxList>
-                      {(h: string) => (
-                        <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
+                  placeholder="Select or type a location hint"
+                />
                 <p className="text-xs text-gray-500 mt-1">
                   Hint revealing where the next Evil Tree will spawn.
                 </p>

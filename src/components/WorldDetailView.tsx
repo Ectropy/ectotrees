@@ -8,10 +8,7 @@ import { TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEA
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
-import {
-  Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem,
-  ComboboxGroup, ComboboxGroupLabel, ComboboxCollection, ComboboxEmpty,
-} from './ui/combobox';
+import { SelectCombobox } from './ui/select-combobox';
 import { trackUiEvent } from '../lib/analytics';
 
 interface Props {
@@ -127,7 +124,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
               <dl className="space-y-2">
                 {editingField === 'treeType' ? (
                   <EditRow label="Tree Type">
-                    <Combobox
+                    <SelectCombobox
                       items={state.treeStatus === 'sapling'
                         ? [
                             { label: 'Strange Sapling', items: ['sapling', 'sapling-tree', 'sapling-oak', 'sapling-willow', 'sapling-maple', 'sapling-yew', 'sapling-magic', 'sapling-elder'] as string[] },
@@ -141,27 +138,10 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                       itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
                       value={editPendingValue || null}
                       onValueChange={v => setEditPendingValue(v ?? '')}
+                      autoFocus
                       autoHighlight
-                    >
-                      <ComboboxInput autoFocus placeholder="Select or type a tree type" />
-                      <ComboboxContent>
-                        <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
-                        <ComboboxList>
-                          {(group: { label: string; items: string[] }) => (
-                            <ComboboxGroup key={group.label} items={group.items}>
-                              <ComboboxGroupLabel>{group.label}</ComboboxGroupLabel>
-                              <ComboboxCollection>
-                                {(type: string) => (
-                                  <ComboboxItem key={type} value={type}>
-                                    {TREE_TYPE_LABELS[type as TreeType]}
-                                  </ComboboxItem>
-                                )}
-                              </ComboboxCollection>
-                            </ComboboxGroup>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
+                      placeholder="Select or type a tree type"
+                    />
                     <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} />
                   </EditRow>
                 ) : (state.treeType || hasActiveTree || state.treeStatus === 'dead') && (
@@ -185,22 +165,14 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 
                 {editingField === 'treeHint' ? (
                   <EditRow label="Location Hint">
-                    <Combobox
+                    <SelectCombobox
                       items={LOCATION_HINTS.map(lh => lh.hint)}
                       value={editPendingValue || null}
                       onValueChange={v => setEditPendingValue(v ?? '')}
+                      autoFocus
                       autoHighlight
-                    >
-                      <ComboboxInput autoFocus placeholder="Select or type a location hint" />
-                      <ComboboxContent>
-                        <ComboboxEmpty>No matching hint.</ComboboxEmpty>
-                        <ComboboxList>
-                          {(h: string) => (
-                            <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
+                      placeholder="Select or type a location hint"
+                    />
                     <EditButtons onSave={saveEdit} onCancel={() => setEditingField(null)} saveDisabled={!editPendingValue} />
                   </EditRow>
                 ) : (state.treeHint || hasActiveTree || hasSpawnTimer || isDeadTree) && (
@@ -219,22 +191,15 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 {editingField === 'treeExactLocation' ? (
                   <EditRow label="Exact Location">
                     {availableLocations.length > 0 ? (
-                      <Combobox
+                      <SelectCombobox
                         items={availableLocations}
                         value={editPendingValue || null}
                         onValueChange={v => setEditPendingValue(v ?? '')}
+                        autoFocus
+                        clearLabel="— none —"
                         autoHighlight
-                      >
-                        <ComboboxInput autoFocus placeholder="Select or type a location" />
-                        <ComboboxContent>
-                          <ComboboxEmpty>No matching location.</ComboboxEmpty>
-                          <ComboboxList>
-                            {(loc: string) => (
-                              <ComboboxItem key={loc} value={loc}>{loc}</ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
+                        placeholder="Select or type a location"
+                      />
                     ) : (
                       <input
                         autoFocus

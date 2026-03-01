@@ -6,14 +6,11 @@ import { ViewHeader } from './ViewHeader';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
-import {
-  Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem,
-  ComboboxGroup, ComboboxGroupLabel, ComboboxCollection, ComboboxEmpty,
-} from './ui/combobox';
+import { SelectCombobox } from './ui/select-combobox';
 
 const TREE_TYPE_GROUPS = [
   { label: 'Strange Sapling', items: ['sapling'] as string[] },
-  { label: 'Evil Trees', items: [, 'mature','tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
+  { label: 'Evil Trees', items: ['mature', 'tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
 ];
 
 interface Props {
@@ -95,32 +92,15 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Tree type */}
           <div>
             <label className="text-xs text-gray-400 block mb-2 font-semibold">Tree Type</label>
-            <Combobox
+            <SelectCombobox
               items={TREE_TYPE_GROUPS}
               itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
               value={treeType}
               onValueChange={v => setTreeType(v as TreeType | null)}
+              autoFocus
               autoHighlight
-            >
-              <ComboboxInput autoFocus placeholder="Select or type a tree type" />
-              <ComboboxContent>
-                <ComboboxEmpty>No matching tree type.</ComboboxEmpty>
-                <ComboboxList>
-                  {(group: { label: string; items: string[] }) => (
-                    <ComboboxGroup key={group.label} items={group.items}>
-                      <ComboboxGroupLabel>{group.label}</ComboboxGroupLabel>
-                      <ComboboxCollection>
-                        {(type: string) => (
-                          <ComboboxItem key={type} value={type}>
-                            {TREE_TYPE_LABELS[type as TreeType]}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxCollection>
-                    </ComboboxGroup>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+              placeholder="Select or type a tree type"
+            />
             <p className="text-xs text-gray-500 mt-2">
               The type of Evil Tree that currently exists.
             </p>
@@ -136,25 +116,15 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 <label className="text-xs text-gray-400 block mb-2 font-semibold">
                   Expected type <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
-                <Combobox
+                <SelectCombobox
                   items={saplingTypeOptions}
                   itemToStringLabel={item => TREE_TYPE_SHORT[item as TreeType] ?? item}
                   value={treeType === 'sapling' ? null : treeType!.replace('sapling-', '')}
                   onValueChange={v => setTreeType(v ? `sapling-${v}` as TreeType : 'sapling')}
+                  clearLabel="Unknown"
                   autoHighlight
-                >
-                  <ComboboxInput placeholder="Select or type a tree type" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>No matching type.</ComboboxEmpty>
-                    <ComboboxList>
-                      {(type: string) => (
-                        <ComboboxItem key={type} value={type}>
-                          {TREE_TYPE_SHORT[type as TreeType]}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
+                  placeholder="Unknown"
+                />
               </div>
             </div>
           )}
@@ -164,22 +134,13 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             <label className="text-xs text-gray-400 block mb-2 font-semibold">
               Location hint <span className="text-red-400">*</span>
             </label>
-            <Combobox
+            <SelectCombobox
               items={LOCATION_HINTS.map(lh => lh.hint)}
               value={hint || null}
               onValueChange={v => handleHintChange(v ?? '')}
               autoHighlight
-            >
-              <ComboboxInput placeholder="Select or type a location hint" />
-              <ComboboxContent>
-                <ComboboxEmpty>No matching hint.</ComboboxEmpty>
-                <ComboboxList>
-                  {(h: string) => (
-                    <ComboboxItem key={h} value={h}>{h}</ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+              placeholder="Select or type a location hint"
+            />
             <p className="text-xs text-gray-500 mt-2">
               A general area or region where the tree is located. Required.
             </p>
@@ -191,22 +152,14 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               <label className="text-xs text-gray-400 block mb-2 font-semibold">
                 Exact location <span className="text-gray-500 font-normal">(optional)</span>
               </label>
-              <Combobox
+              <SelectCombobox
                 items={availableLocations}
                 value={exactLocation || null}
                 onValueChange={v => setExactLocation(v ?? '')}
+                clearLabel="— none —"
                 autoHighlight
-              >
-                <ComboboxInput placeholder="Select or type an exact location" />
-                <ComboboxContent>
-                  <ComboboxEmpty>No matching location.</ComboboxEmpty>
-                  <ComboboxList>
-                    {(loc: string) => (
-                      <ComboboxItem key={loc} value={loc}>{loc}</ComboboxItem>
-                    )}
-                  </ComboboxList>
-                </ComboboxContent>
-              </Combobox>
+                placeholder="Select or type an exact location"
+              />
               <p className="text-xs text-gray-500 mt-2">
                 The specific spawn location, if known.
               </p>
