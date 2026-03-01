@@ -13,7 +13,7 @@ RUN cd alt1-plugin && npm ci
 COPY . .
 
 # Build arg to override the production API URL baked into the alt1 plugin bundle.
-# Defaults to the live server URL in webpack.config.js when not set.
+# Defaults to the live server URL in vite.config.ts when not set.
 ARG ECTOTREES_API
 RUN npm run build
 RUN cd alt1-plugin && npm run build

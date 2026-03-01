@@ -17,7 +17,7 @@ export interface SelectComboboxProps {
   /** Desktop only — skipped on mobile to avoid immediately popping the iOS picker */
   autoFocus?: boolean;
   /** Desktop only — for programmatic Tab-focus (e.g. SpawnTimerView) */
-  inputRef?: React.RefObject<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
   /** When set, adds a selectable "none" option (mobile) / shows clear option (desktop) */
   clearLabel?: string;
   autoHighlight?: boolean;
