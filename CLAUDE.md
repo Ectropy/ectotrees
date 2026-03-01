@@ -4,10 +4,12 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 ## Tech Stack
 
-- **React 18** + **TypeScript** + **Vite 7**
+- **React 19** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
 - **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
+- **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
+- **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
 - Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
@@ -59,6 +61,10 @@ src/
   constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types
   constants/toolColors.ts # Canonical UI color tokens (SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR)
   types/index.ts         # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
+  lib/
+    utils.ts            # cn() helper (clsx + tailwind-merge)
+    analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
+    sessionUrl.ts       # ?join=CODE URL param parsing and cleanup
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
@@ -77,6 +83,7 @@ src/
     TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)
     WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator
+    SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
     SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar toggles)
@@ -85,6 +92,9 @@ src/
     TipTicker.tsx        # Infinite-scrolling tip footer (tips from data/tips.json)
     ui/switch.tsx        # Radix UI switch wrapper
     ui/resizable.tsx     # react-resizable-panels v4 wrappers (shadcn/ui-style handle)
+    ui/tooltip.tsx       # Radix UI tooltip wrapper
+    ui/combobox.tsx      # @base-ui/react Combobox primitives (base layer for SelectCombobox)
+    ui/select-combobox.tsx # High-level combobox: desktop uses combobox.tsx, mobile falls back to native <select>
 ```
 
 ## Key Architecture Decisions
@@ -112,9 +122,10 @@ Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — number
 type ActiveView =
   | { kind: 'grid' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number }
-  | { kind: 'settings' };
+  | { kind: 'settings' }
+  | { kind: 'session-join'; code: string };
 ```
-Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data.
 
 **Sidebar mode** (opt-in, available on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
 
@@ -190,7 +201,7 @@ Pure TypeScript code shared between client and server — the single source of t
 
 - **`types.ts`** — `TreeType`, `WorldState`, `WorldStates`, timing constants (`SAPLING_MATURE_MS`, `ALIVE_DEAD_MS`, `DEAD_CLEAR_MS`, `LIGHTNING_1_MS`, `LIGHTNING_2_MS`, `HEALTH_LIGHTNING_1`, `HEALTH_LIGHTNING_2`), payload interfaces
 - **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol
-- **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyTransitions`) that take a `WorldStates` map and return a new one
+- **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyReportLightning`, `applyTransitions`) that take a `WorldStates` map and return a new one
 - **`hints.ts`** — `LOCATION_HINTS` map: 17 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
 
 `src/types/index.ts` and `src/constants/evilTree.ts` re-export from `shared/types.ts`.
@@ -209,8 +220,9 @@ Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (
 ### REST Endpoints
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/session` | Create a new session. Returns `{ code }`. Rate-limited: 5/IP/hour |
+| `POST` | `/api/session` | Create a new session. Returns `{ code }` |
 | `GET` | `/api/session/:code` | Check if session exists. Returns `{ code, clientCount }` |
+| `GET` | `/api/session/:code/worlds` | Preview session world state (active worlds only). Returns `{ worlds }` — used by `SessionJoinView` before joining |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients }` |
 
 ### WebSocket Protocol
@@ -227,6 +239,7 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 | `clearWorld` | `worldId`, optional `msgId` |
 | `contributeWorlds` | `worlds: WorldStates`, optional `msgId` — merges joiner's local state into session; only worlds not already present are inserted |
 | `initializeState` | `worlds: WorldStates` — seeds a fresh session with the creator's local state (no `msgId`) |
+| `reportLightning` | `worldId`, `health: 50 \| 25`, optional `msgId` — reports a client-observed lightning strike; server applies `applyReportLightning` and broadcasts |
 | `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):

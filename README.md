@@ -152,27 +152,19 @@ Caddy routes `/api/*` and `/ws` to the Node backend and falls through to the app
 
 ### Host-agnostic endpoint configuration
 
-By default, the frontend is host agnostic:
-- API calls use `/api`
-- WebSocket uses the browser origin (`ws://<current-host>/ws` or `wss://<current-host>/ws`)
+The main app is host-agnostic by design: API calls use the relative path `/api` and WebSocket connects to `ws(s)://<current-host>/ws`. Caddy routes both to the Node backend, so no build-time configuration is needed.
 
-If you need custom routing, set Vite env vars at build time:
+The **Alt1 plugin** bakes the API/WS URL into its bundle at build time. If you self-host the backend at a non-standard URL, override it with a Docker build arg:
 
 ```bash
-# Example: API under a prefixed path on the same host
-VITE_API_BASE=/backend/api
-
-# Example: explicit WebSocket endpoint
-VITE_WS_BASE=wss://example.com/realtime
+docker build --build-arg ECTOTREES_API=https://your-domain.com -t ectotrees:local .
 ```
 
-Notes:
-- `VITE_API_BASE` accepts either a full `http(s)://...` URL or a path like `/api`.
-- `VITE_WS_BASE` accepts either a full `ws(s)://...` URL or a path prefix on the current host.
+When `ECTOTREES_API` is set, the WebSocket URL is derived from it automatically (`https://` → `wss://`). You can also set `ECTOTREES_WS` separately if needed.
 
 ## Tech stack
 
-- React 18 + TypeScript + Vite 7
+- React 19 + TypeScript + Vite 7
 - Tailwind CSS v3
 - Express 5 + ws (WebSocket server)
 - GSAP for particle animations
