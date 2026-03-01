@@ -91,6 +91,32 @@ app.get('/api/session/:code', (req, res) => {
   res.json({ code: session.code, clientCount: session.clients.size });
 });
 
+// Preview endpoint: returns a lightweight summary of active world states for a session.
+// Used by the client's SessionJoinView to show a before-you-join comparison.
+app.get('/api/session/:code/worlds', (req, res) => {
+  const code = validateSessionCode(req.params.code);
+  if (!code) {
+    res.status(400).json({ error: 'Invalid session code.' });
+    return;
+  }
+  const session = getSession(code);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found.' });
+    return;
+  }
+  // Return only active worlds with summary fields needed for comparison — not full state
+  const summary: Record<number, { treeStatus: string; treeType?: string; nextSpawnTarget?: number }> = {};
+  for (const [id, state] of Object.entries(session.worldStates)) {
+    if (state.treeStatus === 'none' && state.nextSpawnTarget === undefined) continue;
+    summary[Number(id)] = {
+      treeStatus: state.treeStatus,
+      ...(state.treeType !== undefined && { treeType: state.treeType }),
+      ...(state.nextSpawnTarget !== undefined && { nextSpawnTarget: state.nextSpawnTarget }),
+    };
+  }
+  res.json({ worlds: summary });
+});
+
 app.get('/api/health', (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
   const h = Math.floor(uptimeSeconds / 3600);

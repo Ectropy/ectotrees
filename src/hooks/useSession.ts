@@ -488,6 +488,17 @@ export function useSession(onSessionLost?: () => void) {
     return () => { handlersRef.current = null; };
   }, []);
 
+  const fetchSessionWorlds = useCallback(async (code: string): Promise<Record<number, { treeStatus: string; treeType?: string; nextSpawnTarget?: number }> | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/session/${code}/worlds`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.worlds ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const dismissError = useCallback(() => {
     setSession(prev => ({ ...prev, error: null }));
   }, []);
@@ -520,6 +531,7 @@ export function useSession(onSessionLost?: () => void) {
     joinSession,
     rejoinSession,
     leaveSession,
+    fetchSessionWorlds,
     dismissError,
   };
 }

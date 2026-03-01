@@ -12,12 +12,13 @@ import { TreeInfoView } from './components/TreeInfoView';
 import { TreeDeadView } from './components/TreeDeadView';
 import { WorldDetailView } from './components/WorldDetailView';
 import { SettingsView } from './components/SettingsView';
+import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
 import { TipTicker } from './components/TipTicker';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
-import type { WorldConfig, WorldState } from './types';
+import type { WorldConfig, WorldState, WorldStates } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
@@ -27,6 +28,7 @@ const worlds = worldsConfig.worlds as WorldConfig[];
 type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
+  | { kind: 'session-join'; code: string }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 function isActive(state: WorldState): boolean {
@@ -100,7 +102,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, dismissError } = useSession(handleSessionLost);
+  const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, fetchSessionWorlds, dismissError } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -125,8 +127,18 @@ export default function App() {
     return createSession(worldStatesRef.current);
   }, [createSession]);
 
-  const handleJoinSession = useCallback(async (code: string, contribute?: boolean): Promise<boolean> => {
-    return joinSession(code, contribute ? worldStatesRef.current : undefined);
+  const handleJoinSession = useCallback(async (code: string): Promise<boolean> => {
+    return joinSession(code);
+  }, [joinSession]);
+
+  const handleRequestSessionJoin = useCallback((code: string) => {
+    setActiveView({ kind: 'session-join', code });
+  }, []);
+
+  const handleJoinFromView = useCallback(async (code: string, localStates?: WorldStates): Promise<boolean> => {
+    const ok = await joinSession(code, localStates);
+    if (ok) setActiveView({ kind: 'grid' });
+    return ok;
   }, [joinSession]);
 
   const activeLocalCount = useMemo(() => {
@@ -349,7 +361,7 @@ export default function App() {
       const { surface, sidebarSide } = getAnalyticsContext();
       trackUiEvent('ui_nav_action', {
         panel: activeView.kind,
-        world_id: activeView.kind === 'settings' ? undefined : activeView.worldId,
+        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session-join') ? activeView.worldId : undefined,
         surface,
         sidebar_side: sidebarSide,
         action: 'close_view',
@@ -394,7 +406,7 @@ export default function App() {
     if (activeView.kind === 'grid') return;
 
     const panel = activeView.kind as UiPanel;
-    const worldId = activeView.kind === 'settings' ? undefined : activeView.worldId;
+    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session-join') ? activeView.worldId : undefined;
     const surface: UiSurface = useSidebar ? 'sidebar' : 'fullscreen';
     const sidebarSide: UiSidebarSide = useSidebar ? settings.sidebarSide : 'none';
     const key = `${panel}:${worldId ?? 'none'}:${surface}:${sidebarSide}`;
@@ -411,14 +423,23 @@ export default function App() {
     });
   }, [activeView, useSidebar, settings.sidebarSide]);
 
-  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings'
-    ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: activeView.worldId }) }
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session-join'
+    ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
   // Render the current tool/detail/settings view component
   function renderViewContent() {
     if (activeView.kind === 'settings')
       return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
+    if (activeView.kind === 'session-join')
+      return <SessionJoinView
+        code={activeView.code}
+        localWorldStates={worldStates}
+        fetchSessionWorlds={fetchSessionWorlds}
+        onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}
+        onCancel={handleBack}
+      />;
 
     if (activeView.kind !== 'grid') {
       const { worldId } = activeView;
@@ -610,6 +631,7 @@ export default function App() {
           activeLocalCount={activeLocalCount}
           onCreateSession={handleCreateSession}
           onJoinSession={handleJoinSession}
+          onRequestSessionJoin={handleRequestSessionJoin}
           onRejoinSession={rejoinSession}
           onLeaveSession={handleLeaveSession}
           onDismissError={dismissError}
