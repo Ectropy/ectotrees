@@ -105,6 +105,7 @@ Output ONLY the updated file content. No preamble, no explanation, no markdown c
       echo "   On Windows, install the Claude CLI and try again:"
       echo "   npm install -g @anthropic-ai/claude-code"
     fi
+    FAILED=true
     return
   fi
 
@@ -112,6 +113,9 @@ Output ONLY the updated file content. No preamble, no explanation, no markdown c
   git add "$FILE"
   echo "✅ $FILE staged."
 }
+
+# ── Run updates ───────────────────────────────────────────────────────────────
+FAILED=false
 
 # ── README.md ─────────────────────────────────────────────────────────────────
 update_file "README.md" \
@@ -129,6 +133,12 @@ Preserve all existing structure, headings, and content that is unaffected.
 Be precise and technical; this file is read by AI coding assistants."
 
 # ── Done ──────────────────────────────────────────────────────────────────────
+if [[ "$FAILED" == true ]]; then
+  echo ""
+  echo "❌ Doc update failed. Fix the issue above and re-run before bumping the version."
+  exit 1
+fi
+
 echo ""
 echo "Review staged changes:"
 echo "  git diff --cached README.md CLAUDE.md"
