@@ -101,10 +101,8 @@ Output ONLY the updated file content. No preamble, no explanation, no markdown c
 
   if [[ -z "$UPDATED" ]]; then
     echo "⚠️  No output from Claude for $FILE."
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "${OS:-}" == "Windows_NT" ]]; then
-      echo "   On Windows, install the Claude CLI and try again:"
-      echo "   npm install -g @anthropic-ai/claude-code"
-    fi
+    echo "   Install the Claude CLI and try again:"
+    echo "   https://code.claude.com/docs/en/quickstart#native-install-recommended"
     FAILED=true
     return
   fi
