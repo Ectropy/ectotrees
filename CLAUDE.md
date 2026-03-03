@@ -211,6 +211,12 @@ Pure TypeScript code shared between client and server — the single source of t
 ### Overview
 Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory** (no database; state is lost on server restart).
 
+Security response headers applied to all HTTP responses:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-XSS-Protection: 0`
+
 ### Environment Variables
 | Variable | Default | Description |
 |---|---|---|

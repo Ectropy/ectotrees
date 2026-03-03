@@ -36,7 +36,7 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
-Session limits: max 1000 concurrent sessions, max 1000 clients per session. Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
+Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session limits: max 1000 concurrent sessions, max 1000 clients per session. Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
 
 > **Tip:** If you already have local tracking data when you join a session, you'll be prompted to contribute it to the session — only worlds not already tracked in the session will be added.
 
