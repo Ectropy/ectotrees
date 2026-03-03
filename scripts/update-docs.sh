@@ -43,7 +43,13 @@ git log --oneline "$BASE"..HEAD
 echo ""
 
 if [[ "$APPLY" == false ]]; then
-  echo "Dry run — pass --apply to update and stage files."
+  echo "Run 'bash scripts/update-docs.sh --apply' to update docs first."
+  echo ""
+  read -rp "Docs up to date? Continue with npm version? [y/N] " confirm
+  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    echo "Aborted."
+    exit 1
+  fi
   exit 0
 fi
 
