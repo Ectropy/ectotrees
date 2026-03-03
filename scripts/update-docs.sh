@@ -43,7 +43,10 @@ git log --oneline "$BASE"..HEAD
 echo ""
 
 if [[ "$APPLY" == false ]]; then
-  echo "Run 'bash scripts/update-docs.sh --apply' to update docs first."
+  read -rp "Update docs now with --apply? [y/N] " apply_now
+  if [[ "$apply_now" == "y" || "$apply_now" == "Y" ]]; then
+    exec bash "$0" --apply
+  fi
   echo ""
   read -rp "Docs up to date? Continue with npm version? [y/N] " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -98,6 +101,10 @@ Output ONLY the updated file content. No preamble, no explanation, no markdown c
 
   if [[ -z "$UPDATED" ]]; then
     echo "⚠️  No output from Claude for $FILE."
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "${OS:-}" == "Windows_NT" ]]; then
+      echo "   On Windows, install the Claude CLI and try again:"
+      echo "   npm install -g @anthropic-ai/claude-code"
+    fi
     return
   fi
 
