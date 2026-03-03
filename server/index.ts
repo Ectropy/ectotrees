@@ -38,6 +38,21 @@ const RATE_LIMIT_MAX = 10;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
 
+// --- Origin allowlist ---
+
+const IS_PROD = process.env.NODE_ENV === 'production';
+const ALLOWED_ORIGINS = new Set([
+  'https://trees.ectropyarts.com',
+  'https://ectotrees.ectropyarts.com',
+  ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',').map(s => s.trim()) : []),
+]);
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!IS_PROD) return true; // dev: allow all (handles localhost + any LAN IP from --host)
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.has(origin);
+}
+
 // --- Rate limiting ---
 
 interface RateState {
@@ -63,6 +78,21 @@ function checkRateLimit(ws: WebSocket): boolean {
 
 const app = express();
 app.use(express.json({ limit: '1kb' }));
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 
 app.post('/api/session', (_req, res) => {
   const result = createSession();
@@ -147,6 +177,12 @@ const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
+  if (!isOriginAllowed(req.headers.origin)) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
   const url = new URL(req.url ?? '', `http://${req.headers.host}`);
   if (url.pathname !== '/ws') {
     socket.destroy();
