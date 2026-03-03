@@ -280,6 +280,6 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
 
 export function validateSessionCode(code: unknown): string | null {
   if (typeof code !== 'string') return null;
-  if (!/^[A-Z0-9]{6}$/.test(code)) return null;
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return null;
   return code;
 }

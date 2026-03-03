@@ -6,7 +6,7 @@
  *   - Join URL:    "https://…?join=ABC123" → "ABC123"
  *
  * Always returns the value uppercased. Does not validate the code format —
- * callers are responsible for checking against /^[A-Z2-9]{6}$/.
+ * callers are responsible for checking against /^[A-HJ-NP-Z2-9]{6}$/.
  */
 export function extractSessionCode(raw: string): string {
   try {

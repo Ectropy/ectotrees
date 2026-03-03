@@ -79,7 +79,7 @@ function loadPersistedSessionCode(): string | null {
     const raw = localStorage.getItem(SESSION_CODE_STORAGE_KEY);
     if (!raw) return null;
     const code = raw.trim().toUpperCase();
-    return /^[A-Z2-9]{6}$/.test(code) ? code : null;
+    return /^[A-HJ-NP-Z2-9]{6}$/.test(code) ? code : null;
   } catch {
     return null;
   }
