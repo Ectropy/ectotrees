@@ -35,6 +35,8 @@ const MAX_MESSAGE_SIZE = 4096;           // 4 KB (normal messages)
 const MAX_INIT_MESSAGE_SIZE = 64 * 1024; // 64 KB (initializeState)
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 10;
+const HTTP_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute sliding window
+const HTTP_RATE_LIMIT_MAX = 20;           // requests per window per IP
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
 
@@ -60,6 +62,7 @@ interface RateState {
   windowStart: number;
 }
 
+// WebSocket: per-connection, stored on the socket object
 const wsRateLimits = new WeakMap<WebSocket, RateState>();
 
 function checkRateLimit(ws: WebSocket): boolean {
@@ -74,9 +77,34 @@ function checkRateLimit(ws: WebSocket): boolean {
   return state.count <= RATE_LIMIT_MAX;
 }
 
+// HTTP: per-IP sliding window, applied to session REST endpoints
+const httpRateLimits = new Map<string, RateState>();
+
+function checkHttpRateLimit(ip: string): boolean {
+  const now = Date.now();
+  let state = httpRateLimits.get(ip);
+  if (!state || now - state.windowStart > HTTP_RATE_LIMIT_WINDOW_MS) {
+    httpRateLimits.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  state.count++;
+  return state.count <= HTTP_RATE_LIMIT_MAX;
+}
+
+function httpRateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+  if (!checkHttpRateLimit(ip)) {
+    res.status(429).json({ error: 'Too many requests.' });
+    return;
+  }
+  next();
+}
+
 // --- Express app ---
 
 const app = express();
+// Trust the first hop (Caddy reverse proxy) so req.ip reflects the real client IP.
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '1kb' }));
 
 app.use((req, res, next) => {
@@ -102,7 +130,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.post('/api/session', (_req, res) => {
+app.post('/api/session', httpRateLimitMiddleware, (_req, res) => {
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });
@@ -113,7 +141,7 @@ app.post('/api/session', (_req, res) => {
   res.json({ code: result.code });
 });
 
-app.get('/api/session/:code', (req, res) => {
+app.get('/api/session/:code', httpRateLimitMiddleware, (req, res) => {
   const code = validateSessionCode(req.params.code);
   if (!code) {
     log(`[session] Lookup rejected for invalid code "${req.params.code}"`);
@@ -131,7 +159,7 @@ app.get('/api/session/:code', (req, res) => {
 
 // Preview endpoint: returns a lightweight summary of active world states for a session.
 // Used by the client's SessionJoinView to show a before-you-join comparison.
-app.get('/api/session/:code/worlds', (req, res) => {
+app.get('/api/session/:code/worlds', httpRateLimitMiddleware, (req, res) => {
   const code = validateSessionCode(req.params.code);
   if (!code) {
     res.status(400).json({ error: 'Invalid session code.' });
@@ -428,7 +456,16 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
 
 // --- Periodic cleanup ---
 
-setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL_MS);
+setInterval(() => {
+  cleanupExpiredSessions();
+  // Evict stale HTTP rate limit entries (IPs whose window has long expired)
+  const now = Date.now();
+  for (const [ip, state] of httpRateLimits) {
+    if (now - state.windowStart > HTTP_RATE_LIMIT_WINDOW_MS) {
+      httpRateLimits.delete(ip);
+    }
+  }
+}, CLEANUP_INTERVAL_MS);
 
 // --- Start ---
 
