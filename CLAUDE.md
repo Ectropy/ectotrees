@@ -227,8 +227,6 @@ Security response headers applied to all HTTP responses:
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/session` | Create a new session. Returns `{ code }` |
-| `GET` | `/api/session/:code` | Check if session exists. Returns `{ code, clientCount }` |
-| `GET` | `/api/session/:code/worlds` | Preview session world state (active worlds only). Returns `{ worlds }` — used by `SessionJoinView` before joining |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients }` |
 
 ### WebSocket Protocol
@@ -317,8 +315,11 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 ## Client Sync Layer (`useSession.ts`)
 
 - `createSession(initialStates?)` — POST to `/api/session`, connect WebSocket, then send `initializeState` with the caller's local world state to seed the fresh session
-- `joinSession(code)` — GET to `/api/session/:code` to validate, then connect
+- `joinSession(code)` — validate format client-side (synchronous), then connect WebSocket directly; errors (session not found, full) arrive asynchronously via the WS `error` message
 - `rejoinSession(code)` — same as `joinSession` but resets the reconnect counter (used by the UI's manual retry button)
+- `previewJoin(code)` — opens a separate preview WebSocket and returns a `Promise<WorldStates | null>` that resolves on the first `snapshot`; keeps the WS open so subsequent `worldUpdate` messages keep `previewWorlds` state live while the user reviews the join screen
+- `confirmPreviewJoin(code, localStates?)` — closes the preview WS, sets merge state, and calls `connectWs` for the real session connection; reuses existing snapshot merge + `contributeWorlds` logic
+- `cancelPreview()` — closes the preview WS without joining; clears `previewWorlds`
 - `leaveSession()` — close WebSocket cleanly
 - `dismissError()` — clear the current error state
 - **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload
