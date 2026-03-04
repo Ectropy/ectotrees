@@ -179,6 +179,18 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
+// --- Error handler ---
+
+// Catches errors thrown by middleware (e.g. body-parser's 413) and returns
+// a consistent JSON response instead of Express's default HTML error page.
+app.use((err: { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err.status === 413 || err.type === 'entity.too.large') {
+    res.status(413).json({ error: 'Request body too large.' });
+    return;
+  }
+  res.status(500).json({ error: 'Internal server error.' });
+});
+
 // --- HTTP + WS server ---
 
 const server = createServer(app);
