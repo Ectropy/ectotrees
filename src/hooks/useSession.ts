@@ -193,7 +193,9 @@ export function useSession(onSessionLost?: () => void) {
     snapshotReceivedRef.current = false;
     setSession(prev => ({ ...prev, status: 'connecting', error: null }));
 
-    const ws = new WebSocket(`${WS_BASE}/ws?code=${code}`);
+    const wsUrl = new URL(`${WS_BASE}/ws`);
+    wsUrl.searchParams.set('code', code);
+    const ws = new WebSocket(wsUrl.href);
     wsRef.current = ws;
 
     ws.onopen = () => {
