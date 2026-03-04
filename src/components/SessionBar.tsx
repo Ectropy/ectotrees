@@ -8,9 +8,9 @@ interface SessionBarProps {
   session: SessionState;
   activeLocalCount: number;
   onCreateSession: () => Promise<string | null>;
-  onJoinSession: (code: string) => Promise<boolean>;
-  onRequestSessionJoin: (code: string) => void;
-  onRejoinSession: (code: string) => Promise<boolean>;
+  onJoinSession: (code: string) => boolean;
+  onRequestSessionJoin: (code: string) => Promise<void>;
+  onRejoinSession: (code: string) => void;
   onLeaveSession: () => void;
   onDismissError: () => void;
 }
@@ -69,15 +69,17 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleJoin() {
     const code = joinCode.trim().toUpperCase();
-    if (!/^[A-Z2-9]{6}$/.test(code)) return;
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
     if (activeLocalCount > 0) {
       setJoinCode('');
       setShowJoinInput(false);
-      onRequestSessionJoin(code);
+      setLoading(true);
+      await onRequestSessionJoin(code); // waits for WS preview snapshot
+      setLoading(false);
       return;
     }
     setLoading(true);
-    const ok = await onJoinSession(code);
+    const ok = onJoinSession(code); // synchronous
     setLoading(false);
     if (ok) {
       setJoinCode('');
@@ -242,7 +244,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           />
           <button
             type="submit"
-            disabled={loading || !/^[A-Z2-9]{6}$/.test(joinCode.trim())}
+            disabled={loading || !/^[A-HJ-NP-Z2-9]{6}$/.test(joinCode.trim())}
             className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded transition-colors"
           >
             {loading ? '...' : 'Join'}

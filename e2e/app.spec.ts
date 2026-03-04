@@ -139,43 +139,33 @@ test('perf: all 137 worlds dead — grid renders and stays responsive', async ({
 const JOIN_CODE = 'ABCD23';
 
 test('?join= valid code: strips param from URL on load', async ({ page }) => {
-  await page.route(`/api/session/${JOIN_CODE}`, route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ code: JOIN_CODE, clientCount: 0 }),
-    })
-  );
-
+  // URL stripping happens client-side before any WS connection — no mock needed
   await page.goto(`/?join=${JOIN_CODE}`);
 
   // URL must be cleaned regardless of whether the WS connection succeeds
   await expect(page).not.toHaveURL(/join=/);
 });
 
-test('?join= invalid code: URL is unchanged, no API call made', async ({ page }) => {
-  let apiCalled = false;
-  await page.route('/api/session/**', () => { apiCalled = true; });
+test('?join= invalid code: URL is unchanged, no WS connection made', async ({ page }) => {
+  let wsCalled = false;
+  await page.routeWebSocket(/\/ws/, () => { wsCalled = true; });
 
   await page.goto('/?join=TOOLONG');
 
-  // Invalid codes are silently ignored — URL left as-is
+  // Invalid codes are silently ignored — URL left as-is, no WS attempted
   await expect(page).toHaveURL(/join=TOOLONG/);
-  expect(apiCalled).toBe(false);
+  expect(wsCalled).toBe(false);
 });
 
 test('?join= session not found: URL is cleaned, error shown', async ({ page }) => {
-  await page.route(`/api/session/${JOIN_CODE}`, route =>
-    route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Session not found.' }),
-    })
-  );
+  await page.routeWebSocket(new RegExp(`\\/ws\\?code=${JOIN_CODE}`), ws => {
+    ws.send(JSON.stringify({ type: 'error', message: 'Session not found.' }));
+    ws.close();
+  });
 
   await page.goto(`/?join=${JOIN_CODE}`);
 
-  // URL is cleaned even when the session lookup fails
+  // URL is cleaned even when the session is not found
   await expect(page).not.toHaveURL(/join=/);
 
   // Error message is shown in the session bar
@@ -183,14 +173,6 @@ test('?join= session not found: URL is cleaned, error shown', async ({ page }) =
 });
 
 test('?join= valid code: session code appears in bar when WS connects', async ({ page }) => {
-  await page.route(`/api/session/${JOIN_CODE}`, route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ code: JOIN_CODE, clientCount: 1 }),
-    })
-  );
-
   await page.routeWebSocket(/\/ws/, ws => {
     // Respond to client messages (ping → pong, mutations → ack)
     ws.onMessage(raw => {

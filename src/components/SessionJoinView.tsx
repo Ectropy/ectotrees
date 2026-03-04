@@ -1,17 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import worldsConfig from '../data/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 
-type ServerWorldSummary = Record<number, { treeStatus: string; treeType?: string; nextSpawnTarget?: number }>;
-
 interface Props {
   code: string;
   localWorldStates: WorldStates;
-  fetchSessionWorlds: (code: string) => Promise<ServerWorldSummary | null>;
-  onJoin: (localStates?: WorldStates) => Promise<boolean>;
+  serverWorlds: WorldStates;
+  onJoin: (localStates?: WorldStates) => void;
   onCancel: () => void;
 }
 
@@ -40,7 +38,7 @@ function localStatusLabel(state: WorldState): string {
   }
 }
 
-function serverStatusLabel(s: { treeStatus: string; treeType?: string; nextSpawnTarget?: number }): string {
+function serverStatusLabel(s: WorldState): string {
   if (s.nextSpawnTarget !== undefined && s.treeStatus === 'none') return 'Spawn timer';
   if (s.treeType) return TREE_TYPE_SHORT[s.treeType as TreeType] ?? s.treeStatus;
   switch (s.treeStatus) {
@@ -93,29 +91,8 @@ function Section({ title, count, description, accentClass, empty, children }: Se
   );
 }
 
-export function SessionJoinView({ code, localWorldStates, fetchSessionWorlds, onJoin, onCancel }: Props) {
-  const [serverWorlds, setServerWorlds] = useState<ServerWorldSummary | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [joining, setJoining] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchSessionWorlds(code).then(result => {
-      if (cancelled) return;
-      if (result === null) {
-        setLoadError(true);
-      } else {
-        setServerWorlds(result);
-      }
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [code, fetchSessionWorlds]);
-
+export function SessionJoinView({ code, localWorldStates, serverWorlds, onJoin, onCancel }: Props) {
   const { toContribute, conflicts, serverGains } = useMemo(() => {
-    if (!serverWorlds) return { toContribute: [] as { id: number; state: WorldState }[], conflicts: [] as { id: number; state: WorldState }[], serverGains: [] as { id: number; summary: ServerWorldSummary[number] }[] };
-
     const localActive = Object.entries(localWorldStates)
       .filter(([, s]) => isLocalActive(s))
       .map(([id, s]) => ({ id: Number(id), state: s }));
@@ -123,17 +100,14 @@ export function SessionJoinView({ code, localWorldStates, fetchSessionWorlds, on
     const toContribute = localActive.filter(({ id }) => !(id in serverWorlds));
     const conflicts    = localActive.filter(({ id }) =>   id in serverWorlds);
     const serverGains  = Object.entries(serverWorlds)
-      .map(([id, summary]) => ({ id: Number(id), summary }))
+      .map(([id, state]) => ({ id: Number(id), state }))
       .filter(({ id }) => !isLocalActive(localWorldStates[id] ?? { treeStatus: 'none' }));
 
     return { toContribute, conflicts, serverGains };
   }, [serverWorlds, localWorldStates]);
 
-  async function handleJoin(contribute: boolean) {
-    setJoining(true);
-    await onJoin(contribute ? localWorldStates : undefined);
-    // onJoin navigates away on success; if it returns, joining failed
-    setJoining(false);
+  function handleJoin(contribute: boolean) {
+    onJoin(contribute ? localWorldStates : undefined);
   }
 
   const canContribute = toContribute.length > 0;
@@ -150,120 +124,88 @@ export function SessionJoinView({ code, localWorldStates, fetchSessionWorlds, on
           </p>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className={`text-sm ${TEXT_COLOR.muted} py-6 text-center`}>
-            Loading session data…
-          </div>
-        )}
-
-        {/* Error */}
-        {loadError && (
-          <div className="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
-            Could not load session data. The session may have expired or there was a network error.
-          </div>
-        )}
-
         {/* Comparison sections */}
-        {serverWorlds && (
-          <>
-            {/* Worlds to contribute */}
-            <Section
-              title="Your worlds to contribute"
-              count={toContribute.length}
-              description="Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute."
-              accentClass="text-green-400"
-              empty="None — you have nothing to add."
-            >
-              <WorldList items={toContribute.map(({ id, state }) => (
-                <li key={id} className="flex items-center gap-1.5 text-[11px]">
-                  <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-                  <WorldTypeBadge worldId={id} />
-                  <span className={TEXT_COLOR.muted}>{localStatusLabel(state)}</span>
-                </li>
-              ))} />
-            </Section>
+        {/* Worlds to contribute */}
+        <Section
+          title="Your worlds to contribute"
+          count={toContribute.length}
+          description="Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute."
+          accentClass="text-green-400"
+          empty="None — you have nothing to add."
+        >
+          <WorldList items={toContribute.map(({ id, state }) => (
+            <li key={id} className="flex items-center gap-1.5 text-[11px]">
+              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+              <WorldTypeBadge worldId={id} />
+              <span className={TEXT_COLOR.muted}>{localStatusLabel(state)}</span>
+            </li>
+          ))} />
+        </Section>
 
-            {/* Conflicts */}
-            <Section
-              title="Your worlds the session overrides"
-              count={conflicts.length}
-              description="Both you and the session have data for these worlds. The session's version will be used; your local version is replaced."
-              accentClass="text-amber-400"
-              empty="None — no conflicts."
-            >
-              <WorldList items={conflicts.map(({ id, state }) => (
-                <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
-                  <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-                  <WorldTypeBadge worldId={id} />
-                  <span className={TEXT_COLOR.muted}>
-                    <span className="line-through opacity-60">{localStatusLabel(state)}</span>
-                    <span className="mx-1 opacity-50">→</span>
-                    <span>{serverStatusLabel(serverWorlds[id])}</span>
-                  </span>
-                </li>
-              ))} />
-            </Section>
+        {/* Conflicts */}
+        <Section
+          title="Your worlds the session overrides"
+          count={conflicts.length}
+          description="Both you and the session have data for these worlds. The session's version will be used; your local version is replaced."
+          accentClass="text-amber-400"
+          empty="None — no conflicts."
+        >
+          <WorldList items={conflicts.map(({ id, state }) => (
+            <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
+              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+              <WorldTypeBadge worldId={id} />
+              <span className={TEXT_COLOR.muted}>
+                <span className="line-through opacity-60">{localStatusLabel(state)}</span>
+                <span className="mx-1 opacity-50">→</span>
+                <span>{serverStatusLabel(serverWorlds[id])}</span>
+              </span>
+            </li>
+          ))} />
+        </Section>
 
-            {/* New worlds from server */}
-            <Section
-              title="New worlds you'll receive"
-              count={serverGains.length}
-              description="Active in the session but not in your local data. You gain this intel just by joining."
-              accentClass="text-blue-400"
-              empty="None — the session has no extra intel."
-            >
-              <WorldList items={serverGains.map(({ id, summary }) => (
-                <li key={id} className="flex items-center gap-1.5 text-[11px]">
-                  <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-                  <WorldTypeBadge worldId={id} />
-                  <span className={TEXT_COLOR.muted}>{serverStatusLabel(summary)}</span>
-                </li>
-              ))} />
-            </Section>
-          </>
-        )}
+        {/* New worlds from server */}
+        <Section
+          title="New worlds you'll receive"
+          count={serverGains.length}
+          description="Active in the session but not in your local data. You gain this intel just by joining."
+          accentClass="text-blue-400"
+          empty="None — the session has no extra intel."
+        >
+          <WorldList items={serverGains.map(({ id, state }) => (
+            <li key={id} className="flex items-center gap-1.5 text-[11px]">
+              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+              <WorldTypeBadge worldId={id} />
+              <span className={TEXT_COLOR.muted}>{serverStatusLabel(state)}</span>
+            </li>
+          ))} />
+        </Section>
 
         {/* Action buttons */}
         <div className="flex flex-col gap-2 pt-1">
-          {loadError ? (
+          {canContribute && (
             <button
-              onClick={onCancel}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+              onClick={() => handleJoin(true)}
+              className="w-full bg-green-700 hover:bg-green-600 text-white font-medium rounded py-2.5 transition-colors"
             >
-              Go back
+              {`Join and contribute (${toContribute.length} world${toContribute.length !== 1 ? 's' : ''})`}
             </button>
-          ) : serverWorlds ? (
-            <>
-              {canContribute && (
-                <button
-                  onClick={() => handleJoin(true)}
-                  disabled={joining}
-                  className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-medium rounded py-2.5 transition-colors"
-                >
-                  {joining ? 'Joining…' : `Join and contribute (${toContribute.length} world${toContribute.length !== 1 ? 's' : ''})`}
-                </button>
-              )}
-              <button
-                onClick={() => handleJoin(false)}
-                disabled={joining}
-                className={`w-full disabled:opacity-50 text-white font-medium rounded py-2.5 transition-colors ${
-                  canContribute
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-blue-700 hover:bg-blue-600'
-                }`}
-              >
-                {joining ? 'Joining…' : canContribute ? 'Join, discard my local data' : 'Join session'}
-              </button>
-              <button
-                onClick={onCancel}
-                disabled={joining}
-                className={`w-full text-sm disabled:opacity-50 transition-colors ${TEXT_COLOR.muted} hover:text-gray-200`}
-              >
-                Don't join
-              </button>
-            </>
-          ) : null}
+          )}
+          <button
+            onClick={() => handleJoin(false)}
+            className={`w-full text-white font-medium rounded py-2.5 transition-colors ${
+              canContribute
+                ? 'bg-gray-700 hover:bg-gray-600'
+                : 'bg-blue-700 hover:bg-blue-600'
+            }`}
+          >
+            {canContribute ? 'Join, discard my local data' : 'Join session'}
+          </button>
+          <button
+            onClick={onCancel}
+            className={`w-full text-sm transition-colors ${TEXT_COLOR.muted} hover:text-gray-200`}
+          >
+            Don't join
+          </button>
         </div>
 
       </div>

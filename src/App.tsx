@@ -102,7 +102,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, syncChannel, createSession, joinSession, rejoinSession, leaveSession, fetchSessionWorlds, dismissError } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -127,19 +127,20 @@ export default function App() {
     return createSession(worldStatesRef.current);
   }, [createSession]);
 
-  const handleJoinSession = useCallback(async (code: string): Promise<boolean> => {
+  const handleJoinSession = useCallback((code: string): boolean => {
     return joinSession(code);
   }, [joinSession]);
 
-  const handleRequestSessionJoin = useCallback((code: string) => {
+  const handleRequestSessionJoin = useCallback(async (code: string): Promise<void> => {
+    const serverWorlds = await previewJoin(code);
+    if (!serverWorlds) return; // error already in session.error
     setActiveView({ kind: 'session-join', code });
-  }, []);
+  }, [previewJoin]);
 
-  const handleJoinFromView = useCallback(async (code: string, localStates?: WorldStates): Promise<boolean> => {
-    const ok = await joinSession(code, localStates);
-    if (ok) setActiveView({ kind: 'grid' });
-    return ok;
-  }, [joinSession]);
+  const handleJoinFromView = useCallback((code: string, localStates?: WorldStates): void => {
+    confirmPreviewJoin(code, localStates);
+    setActiveView({ kind: 'grid' });
+  }, [confirmPreviewJoin]);
 
   const activeLocalCount = useMemo(() => {
     return Object.values(worldStates).filter(
@@ -158,7 +159,7 @@ export default function App() {
     const raw = params.get('join');
     if (!raw) return;
     const code = raw.trim().toUpperCase();
-    if (!/^[A-Z2-9]{6}$/.test(code)) return;
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
     // Remove the param from the URL without a page reload
     const url = new URL(window.location.href);
     url.searchParams.delete('join');
@@ -368,6 +369,7 @@ export default function App() {
         result: 'success',
       });
     }
+    if (activeView.kind === 'session-join') cancelPreview();
     setActiveView({ kind: 'grid' });
   }
 
@@ -436,7 +438,7 @@ export default function App() {
       return <SessionJoinView
         code={activeView.code}
         localWorldStates={worldStates}
-        fetchSessionWorlds={fetchSessionWorlds}
+        serverWorlds={previewWorlds ?? {}}
         onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}
         onCancel={handleBack}
       />;

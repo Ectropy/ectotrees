@@ -107,8 +107,11 @@ export function useSession(onSessionLost?: () => void) {
     reconnectAttempt: 0,
     reconnectAt: null,
   });
+  const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const previewWsRef = useRef<WebSocket | null>(null);
+  const previewResolveRef = useRef<((worlds: WorldStates | null) => void) | null>(null);
   const handlersRef = useRef<{
     onSnapshot: (states: WorldStates) => void;
     onWorldUpdate: (worldId: number, state: WorldState | null) => void;
@@ -414,21 +417,12 @@ export function useSession(onSessionLost?: () => void) {
     }
   }, []);
 
-  const joinSession = useCallback(async (code: string, localStates?: WorldStates): Promise<boolean> => {
-    setSession(prev => ({ ...prev, error: null }));
-    // Validate the session exists before connecting
-    try {
-      const res = await fetch(`${API_BASE}/session/${code}`);
-      if (!res.ok) {
-        const data = await res.json();
-        setSession(prev => ({ ...prev, error: data.error ?? 'Session not found.' }));
-        return false;
-      }
-    } catch {
-      setSession(prev => ({ ...prev, error: 'Network error joining session.' }));
+  const joinSession = useCallback((code: string, localStates?: WorldStates): boolean => {
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+      setSession(prev => ({ ...prev, error: 'Invalid session code.' }));
       return false;
     }
-
+    setSession(prev => ({ ...prev, error: null }));
     joinMergeStatesRef.current = localStates ?? null;
     codeRef.current = code;
     persistSessionCode(code);
@@ -452,11 +446,103 @@ export function useSession(onSessionLost?: () => void) {
     setSession({ status: 'disconnected', code: null, clientCount: 0, error: null, reconnectAttempt: 0, reconnectAt: null });
   }, []);
 
-  const rejoinSession = useCallback(async (code: string): Promise<boolean> => {
+  const rejoinSession = useCallback((code: string): void => {
     reconnectAttemptRef.current = 0;
     clearPending();
-    return joinSession(code);
+    joinSession(code);
   }, [joinSession]);
+
+  const previewJoin = useCallback((code: string): Promise<WorldStates | null> => {
+    // Cancel any in-flight preview
+    if (previewWsRef.current) {
+      previewWsRef.current.close();
+      previewWsRef.current = null;
+    }
+    if (previewResolveRef.current) {
+      previewResolveRef.current(null);
+      previewResolveRef.current = null;
+    }
+
+    setSession(prev => ({ ...prev, error: null }));
+
+    return new Promise<WorldStates | null>((resolve) => {
+      previewResolveRef.current = resolve;
+
+      const wsUrl = new URL(`${WS_BASE}/ws`);
+      wsUrl.searchParams.set('code', code);
+      const ws = new WebSocket(wsUrl.href);
+      previewWsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        if (previewWsRef.current !== ws) return;
+        let msg: ServerMessage;
+        try { msg = JSON.parse(event.data as string); } catch { return; }
+
+        if (msg.type === 'snapshot') {
+          const res = previewResolveRef.current;
+          previewResolveRef.current = null;
+          setPreviewWorlds(msg.worlds);
+          // Keep WS open — confirmPreviewJoin will close it
+          res?.(msg.worlds);
+        } else if (msg.type === 'worldUpdate') {
+          setPreviewWorlds(prev => {
+            if (!prev) return prev;
+            if (msg.state === null) {
+              const next = { ...prev };
+              delete next[msg.worldId];
+              return next;
+            }
+            return { ...prev, [msg.worldId]: msg.state };
+          });
+        } else if (msg.type === 'error') {
+          lastServerErrorRef.current = msg.message;
+          setSession(prev => ({ ...prev, error: msg.message }));
+          // onclose fires next and will resolve null
+        }
+      };
+
+      ws.onclose = () => {
+        if (previewWsRef.current !== ws) return; // snapshot already resolved; close was intentional
+        previewWsRef.current = null;
+        const res = previewResolveRef.current;
+        previewResolveRef.current = null;
+        res?.(null);
+      };
+
+      ws.onerror = () => { /* onclose fires after this */ };
+    });
+  }, []);
+
+  const confirmPreviewJoin = useCallback((code: string, localStates?: WorldStates): void => {
+    // Close the preview WS (connectWs only cleans up wsRef, not previewWsRef)
+    const previewWs = previewWsRef.current;
+    previewWsRef.current = null;
+    if (previewWs && previewWs.readyState !== WebSocket.CLOSED) {
+      previewWs.close();
+    }
+    previewResolveRef.current = null;
+    setPreviewWorlds(null);
+
+    // The existing snapshot handler applies merge + contributeWorlds via joinMergeStatesRef
+    joinMergeStatesRef.current = localStates ?? null;
+    codeRef.current = code;
+    persistSessionCode(code);
+    clearPending();
+    setSession(prev => ({ ...prev, code, reconnectAttempt: 0, error: null }));
+    connectWs(code);
+  }, []);
+
+  const cancelPreview = useCallback((): void => {
+    if (previewWsRef.current) {
+      previewWsRef.current.close();
+      previewWsRef.current = null;
+    }
+    if (previewResolveRef.current) {
+      previewResolveRef.current(null);
+      previewResolveRef.current = null;
+    }
+    setPreviewWorlds(null);
+  }, []);
 
   const sendMutation = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;
@@ -490,17 +576,6 @@ export function useSession(onSessionLost?: () => void) {
     return () => { handlersRef.current = null; };
   }, []);
 
-  const fetchSessionWorlds = useCallback(async (code: string): Promise<Record<number, { treeStatus: string; treeType?: string; nextSpawnTarget?: number }> | null> => {
-    try {
-      const res = await fetch(`${API_BASE}/session/${code}/worlds`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.worlds ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
-
   const dismissError = useCallback(() => {
     setSession(prev => ({ ...prev, error: null }));
   }, []);
@@ -510,6 +585,10 @@ export function useSession(onSessionLost?: () => void) {
     return () => {
       intentionalCloseRef.current = true;
       cleanup();
+      previewWsRef.current?.close();
+      previewWsRef.current = null;
+      previewResolveRef.current?.(null);
+      previewResolveRef.current = null;
     };
   }, []);
 
@@ -528,12 +607,15 @@ export function useSession(onSessionLost?: () => void) {
 
   return {
     session,
+    previewWorlds,
     syncChannel,
     createSession,
     joinSession,
     rejoinSession,
     leaveSession,
-    fetchSessionWorlds,
+    previewJoin,
+    confirmPreviewJoin,
+    cancelPreview,
     dismissError,
   };
 }
