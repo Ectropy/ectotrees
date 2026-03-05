@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
   const emptyModule = path.resolve(__dirname, 'src/shims/empty-module.ts');
 
   return {
+    base: './',
     resolve: {
       alias: [
         { find: '@shared', replacement: path.resolve(__dirname, '../shared') },
