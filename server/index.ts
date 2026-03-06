@@ -19,6 +19,7 @@ import {
   getSession,
   addClient,
   removeClient,
+  setClientType,
   updateWorldState,
   cleanupExpiredSessions,
   getSessionCount,
@@ -321,6 +322,11 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'ping': {
       const pong: ServerMessage = { type: 'pong' };
       ws.send(JSON.stringify(pong));
+      break;
+    }
+
+    case 'identify': {
+      setClientType(session, ws, msg.clientType);
       break;
     }
 

@@ -16,6 +16,8 @@ export interface SessionState {
   status: SessionStatus;
   code: string | null;
   clientCount: number;
+  scouts: number;
+  dashboards: number;
   error: string | null;
   reconnectAttempt: number;
   reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
@@ -103,6 +105,8 @@ export function useSession(onSessionLost?: () => void) {
     status: 'disconnected',
     code: initialCode,
     clientCount: 0,
+    scouts: 0,
+    dashboards: 0,
     error: null,
     reconnectAttempt: 0,
     reconnectAt: null,
@@ -207,6 +211,9 @@ export function useSession(onSessionLost?: () => void) {
       lastServerErrorRef.current = null;
       setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
 
+      // Identify as a dashboard
+      ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
+
       // Send local state to populate a newly created session
       if (initialStatesRef.current) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
@@ -283,7 +290,7 @@ export function useSession(onSessionLost?: () => void) {
           handlersRef.current?.onWorldUpdate(msg.worldId, msg.state);
           break;
         case 'clientCount':
-          setSession(prev => ({ ...prev, clientCount: msg.count }));
+          setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards }));
           break;
         case 'pong':
           if (pingAckTimerRef.current) {
@@ -309,7 +316,7 @@ export function useSession(onSessionLost?: () => void) {
           cleanup();
           codeRef.current = null;
           clearPending();
-          setSession({ status: 'disconnected', code: null, clientCount: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null });
+          setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null });
           break;
       }
     };
@@ -443,7 +450,7 @@ export function useSession(onSessionLost?: () => void) {
     persistSessionCode(null);
     reconnectAttemptRef.current = 0;
     clearPending();
-    setSession({ status: 'disconnected', code: null, clientCount: 0, error: null, reconnectAttempt: 0, reconnectAt: null });
+    setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: null, reconnectAttempt: 0, reconnectAt: null });
   }, []);
 
   const rejoinSession = useCallback((code: string): void => {

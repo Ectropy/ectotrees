@@ -124,6 +124,13 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
 
   if (type === 'ping') return { type: 'ping' };
 
+  if (type === 'identify') {
+    if (raw.clientType !== 'scout' && raw.clientType !== 'dashboard') {
+      return { error: 'Invalid clientType.' };
+    }
+    return { type: 'identify', clientType: raw.clientType as 'scout' | 'dashboard' };
+  }
+
   if (type === 'initializeState') {
     const result = validateInitializeState(raw);
     if ('error' in result) return result;

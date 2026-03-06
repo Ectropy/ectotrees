@@ -178,7 +178,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
         {!canRejoin && (
           <span className="text-gray-500">
-            {session.clientCount} {session.clientCount === 1 ? 'scout' : 'scouts'}
+            {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
+            {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
           </span>
         )}
 

@@ -75,7 +75,7 @@ export function SessionPanel({
     'bg-muted-foreground';
 
   const statusLabel = connected
-    ? `${code} · ${clientCount} scout${clientCount !== 1 ? 's' : ''}`
+    ? `${code} · ${clientCount} member${clientCount !== 1 ? 's' : ''}`
     : connecting
     ? 'Connecting...'
     : 'Disconnected';

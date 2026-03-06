@@ -19,6 +19,7 @@ export interface Session {
   worldStates: WorldStates;
   clients: Set<WebSocket>;
   clientIds: Map<WebSocket, number>;
+  clientTypes: Map<WebSocket, 'scout' | 'dashboard' | 'unknown'>;
   nextClientId: number;
   transitionTimer: ReturnType<typeof setInterval>;
 }
@@ -45,7 +46,12 @@ function broadcast(session: Session, msg: ServerMessage) {
 }
 
 function broadcastClientCount(session: Session) {
-  broadcast(session, { type: 'clientCount', count: session.clients.size });
+  let scouts = 0, dashboards = 0;
+  for (const t of session.clientTypes.values()) {
+    if (t === 'scout') scouts++;
+    else if (t === 'dashboard') dashboards++;
+  }
+  broadcast(session, { type: 'clientCount', count: session.clients.size, scouts, dashboards });
 }
 
 export function createSession(): { code: string } | { error: string } {
@@ -73,6 +79,7 @@ export function createSession(): { code: string } | { error: string } {
     worldStates: {},
     clients: new Set(),
     clientIds: new Map(),
+    clientTypes: new Map(),
     nextClientId: 1,
     transitionTimer: setInterval(() => {
       const s = sessions.get(code);
@@ -114,6 +121,7 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   const clientId = session.nextClientId++;
   session.clients.add(ws);
   session.clientIds.set(ws, clientId);
+  session.clientTypes.set(ws, 'unknown');
   session.emptySince = null;
 
   // Send current state snapshot (only active worlds)
@@ -134,12 +142,18 @@ export function getClientId(session: Session, ws: WebSocket): number | undefined
   return session.clientIds.get(ws);
 }
 
+export function setClientType(session: Session, ws: WebSocket, type: 'scout' | 'dashboard'): void {
+  session.clientTypes.set(ws, type);
+  broadcastClientCount(session);
+}
+
 export function removeClient(session: Session, ws: WebSocket) {
   if (!session.clients.has(ws)) {
     return false;
   }
   session.clients.delete(ws);
   session.clientIds.delete(ws);
+  session.clientTypes.delete(ws);
   if (session.clients.size === 0) {
     session.emptySince = Date.now();
   }

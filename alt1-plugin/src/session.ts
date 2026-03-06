@@ -51,6 +51,7 @@ export class EctoSession {
   status: SessionStatus = 'disconnected';
   code: string | null = null;
   clientCount = 0;
+  scoutCount = 0;
   error: string | null = null;
   reconnectAttempt = 0;
   reconnectAt: number | null = null;
@@ -151,6 +152,7 @@ export class EctoSession {
     this.setStatus('disconnected');
     this.emit('codeChange', null);
     this.clientCount = 0;
+    this.scoutCount = 0;
     this.emit('clientCount', 0);
   }
 
@@ -283,6 +285,9 @@ export class EctoSession {
       this.reconnectAt = null;
       this.setStatus('connected');
 
+      // Identify as a scout
+      ws.send(JSON.stringify({ type: 'identify', clientType: 'scout' }));
+
       if (this.initialStates) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: this.initialStates }));
         this.initialStates = null;
@@ -343,6 +348,7 @@ export class EctoSession {
           break;
         case 'clientCount':
           this.clientCount = msg.count;
+          this.scoutCount = msg.scouts;
           this.emit('clientCount', msg.count);
           break;
         case 'pong':

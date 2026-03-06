@@ -10,12 +10,13 @@ export type ClientMessage =
   | { type: 'clearWorld';       worldId: number; msgId?: number }
   | { type: 'contributeWorlds'; worlds: WorldStates; msgId?: number }
   | { type: 'initializeState'; worlds: WorldStates }
+  | { type: 'identify'; clientType: 'scout' | 'dashboard' }
   | { type: 'ping' };
 
 export type ServerMessage =
   | { type: 'snapshot';       worlds: WorldStates }
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null }
-  | { type: 'clientCount';    count: number }
+  | { type: 'clientCount';    count: number; scouts: number; dashboards: number }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }
   | { type: 'error';          message: string }
