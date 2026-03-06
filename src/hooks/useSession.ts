@@ -21,6 +21,13 @@ export interface SessionState {
   error: string | null;
   reconnectAttempt: number;
   reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
+  // Pairing
+  pairToken: string | null;
+  pairTokenExpiresAt: number | null;
+  pairId: string | null;
+  isPaired: boolean;
+  pairedScoutWorld: number | null;
+  recentOwnWorldId: number | null;
 }
 
 const API_BASE = resolveApiBase();
@@ -31,6 +38,7 @@ const PING_ACK_TIMEOUT_MS = 8_000;  // force-close if pong not received within t
 export const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
+const PAIR_ID_STORAGE_KEY = 'evilTree_pairId';
 
 const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
 
@@ -99,8 +107,26 @@ function persistSessionCode(code: string | null) {
   }
 }
 
+function loadPersistedPairId(): string | null {
+  try {
+    const raw = localStorage.getItem(PAIR_ID_STORAGE_KEY);
+    if (!raw) return null;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistPairId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(PAIR_ID_STORAGE_KEY, id);
+    else localStorage.removeItem(PAIR_ID_STORAGE_KEY);
+  } catch { /* ignore */ }
+}
+
 export function useSession(onSessionLost?: () => void) {
   const initialCode = loadPersistedSessionCode();
+  const initialPairId = loadPersistedPairId();
   const [session, setSession] = useState<SessionState>({
     status: 'disconnected',
     code: initialCode,
@@ -110,6 +136,12 @@ export function useSession(onSessionLost?: () => void) {
     error: null,
     reconnectAttempt: 0,
     reconnectAt: null,
+    pairToken: null,
+    pairTokenExpiresAt: null,
+    pairId: initialPairId,
+    isPaired: false,
+    pairedScoutWorld: null,
+    recentOwnWorldId: null,
   });
   const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
 
@@ -134,6 +166,8 @@ export function useSession(onSessionLost?: () => void) {
   const joinMergeStatesRef = useRef<WorldStates | null>(null);
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
+  const pairIdRef = useRef<string | null>(initialPairId);
+  const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onSessionLostRef.current = onSessionLost;
@@ -214,6 +248,11 @@ export function useSession(onSessionLost?: () => void) {
       // Identify as a dashboard
       ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
 
+      // Resume pair if we have one
+      if (pairIdRef.current) {
+        ws.send(JSON.stringify({ type: 'resumePair', pairId: pairIdRef.current }));
+      }
+
       // Send local state to populate a newly created session
       if (initialStatesRef.current) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
@@ -288,6 +327,50 @@ export function useSession(onSessionLost?: () => void) {
         }
         case 'worldUpdate':
           handlersRef.current?.onWorldUpdate(msg.worldId, msg.state);
+          // Own submission: scout's mutation that arrives at our paired dashboard with source
+          if (msg.source && msg.source === pairIdRef.current) {
+            if (recentOwnTimerRef.current) clearTimeout(recentOwnTimerRef.current);
+            setSession(prev => ({ ...prev, recentOwnWorldId: msg.worldId }));
+            recentOwnTimerRef.current = setTimeout(() => {
+              setSession(prev => ({ ...prev, recentOwnWorldId: null }));
+            }, 3000);
+          }
+          break;
+        case 'pairToken':
+          setSession(prev => ({
+            ...prev,
+            pairToken: msg.token,
+            pairTokenExpiresAt: Date.now() + msg.expiresIn * 1000,
+          }));
+          break;
+        case 'paired':
+          pairIdRef.current = msg.pairId;
+          persistPairId(msg.pairId);
+          setSession(prev => ({
+            ...prev,
+            pairId: msg.pairId,
+            isPaired: true,
+            pairToken: null,
+            pairTokenExpiresAt: null,
+          }));
+          break;
+        case 'unpaired': {
+          // Keep pairId when peer disconnected (allows Scout-initiated resumePair)
+          const keepPairId = msg.reason === 'Peer disconnected';
+          if (!keepPairId) {
+            pairIdRef.current = null;
+            persistPairId(null);
+          }
+          setSession(prev => ({
+            ...prev,
+            isPaired: false,
+            pairedScoutWorld: null,
+            ...(keepPairId ? {} : { pairId: null }),
+          }));
+          break;
+        }
+        case 'peerWorld':
+          setSession(prev => ({ ...prev, pairedScoutWorld: msg.worldId }));
           break;
         case 'clientCount':
           setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards }));
@@ -315,8 +398,10 @@ export function useSession(onSessionLost?: () => void) {
           onSessionLostRef.current?.();
           cleanup();
           codeRef.current = null;
+          pairIdRef.current = null;
+          persistPairId(null);
           clearPending();
-          setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null });
+          setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null, pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false, pairedScoutWorld: null, recentOwnWorldId: null });
           break;
       }
     };
@@ -448,9 +533,11 @@ export function useSession(onSessionLost?: () => void) {
     cleanup();
     codeRef.current = null;
     persistSessionCode(null);
+    pairIdRef.current = null;
+    persistPairId(null);
     reconnectAttemptRef.current = 0;
     clearPending();
-    setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: null, reconnectAttempt: 0, reconnectAt: null });
+    setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: null, reconnectAttempt: 0, reconnectAt: null, pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false, pairedScoutWorld: null, recentOwnWorldId: null });
   }, []);
 
   const rejoinSession = useCallback((code: string): void => {
@@ -587,6 +674,30 @@ export function useSession(onSessionLost?: () => void) {
     setSession(prev => ({ ...prev, error: null }));
   }, []);
 
+  const requestPairToken = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'requestPairToken' }));
+    }
+  }, []);
+
+  const unpair = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'unpair' }));
+    }
+    pairIdRef.current = null;
+    persistPairId(null);
+    setSession(prev => ({
+      ...prev,
+      isPaired: false,
+      pairId: null,
+      pairedScoutWorld: null,
+      pairToken: null,
+      pairTokenExpiresAt: null,
+    }));
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -624,5 +735,7 @@ export function useSession(onSessionLost?: () => void) {
     confirmPreviewJoin,
     cancelPreview,
     dismissError,
+    requestPairToken,
+    unpair,
   };
 }

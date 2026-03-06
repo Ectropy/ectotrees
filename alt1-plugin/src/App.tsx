@@ -3,14 +3,16 @@ import { useScoutSession } from './hooks/useScoutSession';
 import { useAlt1 } from './hooks/useAlt1';
 import { StatusBanner } from './components/StatusBanner';
 import { SessionPanel } from './components/SessionPanel';
+import { LinkPanel } from './components/LinkPanel';
 import { WorldInput } from './components/WorldInput';
 import { ReportForm } from './components/ReportForm';
 
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, clientCount, error,
+    status, code, clientCount, error, isPaired, pairId,
     session, createSession, joinSession, leaveSession, sendMutation, dismissError,
+    submitPairToken, unpair,
   } = useScoutSession();
 
   // Form state
@@ -234,6 +236,19 @@ export function App() {
         onLeave={leaveSession}
         onError={(msg) => showBanner(msg, 'error', 2500)}
       />
+
+      {status === 'connected' && (
+        <>
+          <hr className="border-t border-border" />
+          <LinkPanel
+            isPaired={isPaired}
+            pairId={pairId}
+            sessionCode={code}
+            onSubmitToken={submitPairToken}
+            onUnpair={unpair}
+          />
+        </>
+      )}
 
       <hr className="border-t border-border" />
 

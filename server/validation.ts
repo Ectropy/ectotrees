@@ -124,6 +124,26 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
 
   if (type === 'ping') return { type: 'ping' };
 
+  if (type === 'requestPairToken') return { type: 'requestPairToken' };
+
+  if (type === 'unpair') return { type: 'unpair' };
+
+  if (type === 'resumePair') {
+    const pairId = raw.pairId;
+    if (typeof pairId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pairId)) {
+      return { error: 'Invalid pairId.' };
+    }
+    return { type: 'resumePair', pairId };
+  }
+
+  if (type === 'reportWorld') {
+    const worldId = raw.worldId;
+    if (worldId !== null && (typeof worldId !== 'number' || !Number.isInteger(worldId) || worldId < 1 || worldId > 999)) {
+      return { error: 'Invalid worldId for reportWorld.' };
+    }
+    return { type: 'reportWorld', worldId: worldId as number | null };
+  }
+
   if (type === 'identify') {
     if (raw.clientType !== 'scout' && raw.clientType !== 'dashboard') {
       return { error: 'Invalid clientType.' };
@@ -289,4 +309,10 @@ export function validateSessionCode(code: unknown): string | null {
   if (typeof code !== 'string') return null;
   if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return null;
   return code;
+}
+
+export function validatePairToken(token: unknown): string | null {
+  if (typeof token !== 'string') return null;
+  if (!/^[A-HJ-NP-Z2-9]{4}$/.test(token)) return null;
+  return token;
 }

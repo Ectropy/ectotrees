@@ -11,12 +11,20 @@ export type ClientMessage =
   | { type: 'contributeWorlds'; worlds: WorldStates; msgId?: number }
   | { type: 'initializeState'; worlds: WorldStates }
   | { type: 'identify'; clientType: 'scout' | 'dashboard' }
+  | { type: 'requestPairToken' }
+  | { type: 'resumePair'; pairId: string }
+  | { type: 'reportWorld'; worldId: number | null }
+  | { type: 'unpair' }
   | { type: 'ping' };
 
 export type ServerMessage =
   | { type: 'snapshot';       worlds: WorldStates }
-  | { type: 'worldUpdate';    worldId: number; state: WorldState | null }
+  | { type: 'worldUpdate';    worldId: number; state: WorldState | null; source?: string }
   | { type: 'clientCount';    count: number; scouts: number; dashboards: number }
+  | { type: 'pairToken';      token: string; expiresIn: number }
+  | { type: 'paired';         pairId: string; sessionCode: string }
+  | { type: 'unpaired';       reason: string }
+  | { type: 'peerWorld';      worldId: number | null }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }
   | { type: 'error';          message: string }

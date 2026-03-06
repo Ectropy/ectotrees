@@ -102,7 +102,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, requestPairToken, unpair } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -593,6 +593,8 @@ export default function App() {
           onDismissLightning={() => dismissLightningEvent(world.id)}
           effectsLightning={settings.effectsLightning}
           effectsSparks={settings.effectsSparks}
+          isPairedScoutWorld={session.pairedScoutWorld === world.id}
+          isRecentOwnSubmission={session.recentOwnWorldId === world.id}
         />
       ))}
     </div>
@@ -637,6 +639,8 @@ export default function App() {
           onRejoinSession={rejoinSession}
           onLeaveSession={handleLeaveSession}
           onDismissError={dismissError}
+          onRequestPairToken={requestPairToken}
+          onUnpair={unpair}
         />
 
         <SortFilterBar

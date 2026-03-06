@@ -13,6 +13,8 @@ interface SessionBarProps {
   onRejoinSession: (code: string) => void;
   onLeaveSession: () => void;
   onDismissError: () => void;
+  onRequestPairToken: () => void;
+  onUnpair: () => void;
 }
 
 const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
@@ -39,14 +41,17 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession, onDismissError }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession, onDismissError, onRequestPairToken, onUnpair }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [tokenCountdown, setTokenCountdown] = useState<number | null>(null);
   const [badPaste, setBadPaste] = useState(false);
 
+  // Reconnect countdown
   useEffect(() => {
     if (!session.reconnectAt) {
       setCountdown(null);
@@ -61,6 +66,21 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     return () => clearInterval(id);
   }, [session.reconnectAt]);
 
+  // Pair token countdown
+  useEffect(() => {
+    if (!session.pairTokenExpiresAt) {
+      setTokenCountdown(null);
+      return;
+    }
+    const tick = () => {
+      const secs = Math.ceil((session.pairTokenExpiresAt! - Date.now()) / 1000);
+      setTokenCountdown(secs > 0 ? secs : null);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [session.pairTokenExpiresAt]);
+
   async function handleCreate() {
     setLoading(true);
     await onCreateSession();
@@ -74,12 +94,12 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
       setJoinCode('');
       setShowJoinInput(false);
       setLoading(true);
-      await onRequestSessionJoin(code); // waits for WS preview snapshot
+      await onRequestSessionJoin(code);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const ok = onJoinSession(code); // synchronous
+    const ok = onJoinSession(code);
     setLoading(false);
     if (ok) {
       setJoinCode('');
@@ -91,31 +111,22 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     if (!session.code) return;
 
     const sessionUrl = buildSessionUrl(session.code);
-
-    // Check if we're in a secure context (HTTPS or localhost)
     const secure = window.isSecureContext;
     if (!secure) {
-      console.warn('[clipboard] Not a secure context — navigator.clipboard API is unavailable.',
-        'Browsers require HTTPS or localhost for clipboard access.',
-        'Current origin:', window.location.origin);
+      console.warn('[clipboard] Not a secure context — navigator.clipboard API is unavailable.');
     }
 
-    // Try the modern Clipboard API first
     if (navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(sessionUrl);
-        console.log('[clipboard] Copied session URL via Clipboard API');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
         return;
       } catch (err) {
         console.error('[clipboard] Clipboard API writeText failed:', err);
       }
-    } else {
-      console.warn('[clipboard] navigator.clipboard.writeText is not available');
     }
 
-    // Fallback: use the legacy execCommand('copy') approach
     try {
       const textarea = document.createElement('textarea');
       textarea.value = sessionUrl;
@@ -126,14 +137,22 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
       const ok = document.execCommand('copy');
       document.body.removeChild(textarea);
       if (ok) {
-        console.log('[clipboard] Copied session URL via execCommand fallback');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } else {
-        console.error('[clipboard] execCommand("copy") returned false');
       }
     } catch (err) {
       console.error('[clipboard] execCommand fallback failed:', err);
+    }
+  }
+
+  async function handleCopyToken() {
+    if (!session.pairToken) return;
+    try {
+      await navigator.clipboard.writeText(session.pairToken);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {
+      // fallback: select and copy
     }
   }
 
@@ -145,15 +164,14 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     return `Connection lost. Attempting to reconnect… · ${suffix}`;
   }
 
-  // Give-up state: disconnected but still has a code (can rejoin)
   const canRejoin = session.status === 'disconnected' && session.code !== null;
 
-  // Connected / connecting / can-rejoin state
   if (session.code) {
     const reconnectText = getReconnectText();
+    const isConnected = session.status === 'connected';
 
     return (
-      <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0">
+      <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0 flex-wrap">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
 
         {reconnectText && (
@@ -183,6 +201,47 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </span>
         )}
 
+        {/* Pairing controls — only when connected */}
+        {isConnected && !canRejoin && (
+          <>
+            {session.isPaired ? (
+              <span className="flex items-center gap-1.5 text-amber-400 text-[10px]">
+                <span>⚡ Paired</span>
+                <button
+                  onClick={onUnpair}
+                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Unpair Scout"
+                >
+                  ×
+                </button>
+              </span>
+            ) : session.pairToken ? (
+              <span className="flex items-center gap-1.5">
+                <span className="text-gray-400 text-[10px]">Pair code:</span>
+                <span className="font-mono font-bold text-amber-300 tracking-widest">{session.pairToken}</span>
+                <button
+                  onClick={handleCopyToken}
+                  className="text-gray-400 hover:text-gray-200 transition-colors text-[10px]"
+                  title="Copy pair token"
+                >
+                  {tokenCopied ? '✓' : 'copy'}
+                </button>
+                {tokenCountdown !== null && (
+                  <span className="text-gray-600 text-[10px]">{tokenCountdown}s</span>
+                )}
+              </span>
+            ) : (
+              <button
+                onClick={onRequestPairToken}
+                className="text-[10px] px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                title="Pair with Scout app"
+              >
+                Pair Scout
+              </button>
+            )}
+          </>
+        )}
+
         {canRejoin && (
           <button
             onClick={() => onRejoinSession(session.code!)}
@@ -195,15 +254,13 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {session.error && (
           <DismissableError message={session.error} onDismiss={onDismissError} />
         )}
-        
-        {(
-          <button
-            onClick={onLeaveSession}
-            className="ml-auto text-red-500 hover:text-red-400 transition-colors"
-          >
-            Leave
-          </button>
-        )}
+
+        <button
+          onClick={onLeaveSession}
+          className="ml-auto text-red-500 hover:text-red-400 transition-colors"
+        >
+          Leave
+        </button>
       </div>
     );
   }

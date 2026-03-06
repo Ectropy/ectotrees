@@ -21,11 +21,17 @@ import {
   removeClient,
   setClientType,
   updateWorldState,
+  lookupPairToken,
+  consumeAndCompletePairing,
+  resumePair,
+  handleUnpair,
+  handleReportWorld,
+  requestPairToken,
   cleanupExpiredSessions,
   getSessionCount,
   getTotalClientCount,
 } from './session.ts';
-import { validateMessage, validateSessionCode } from './validation.ts';
+import { validateMessage, validateSessionCode, validatePairToken } from './validation.ts';
 import { log, warn } from './log.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -197,6 +203,28 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
+  // Pair token connect: Scout joins via ?pairToken= instead of ?code=
+  const rawPairToken = url.searchParams.get('pairToken');
+  if (rawPairToken !== null) {
+    const token = validatePairToken(rawPairToken);
+    if (!token) {
+      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    const resolved = lookupPairToken(token);
+    if (!resolved) {
+      socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req, resolved.session, resolved.session.code, token);
+    });
+    return;
+  }
+
+  // Normal session code connect
   const code = validateSessionCode(url.searchParams.get('code'));
   if (!code) {
     socket.destroy();
@@ -209,7 +237,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string) => {
+wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, pendingPairToken?: string) => {
   if (!session) {
     log(`[connect] Rejected — session ${attemptedCode} not found`);
     const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
@@ -226,6 +254,21 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     ws.send(JSON.stringify(msg));
     ws.close();
     return;
+  }
+
+  // If this connection is arriving via a pair token, mark as scout and complete pairing
+  if (pendingPairToken) {
+    setClientType(activeSession, ws, 'scout');
+    const pairId = consumeAndCompletePairing(activeSession, pendingPairToken, ws);
+    if (!pairId) {
+      // Token expired between upgrade and connection (very unlikely race)
+      const msg: ServerMessage = { type: 'error', message: 'Pair token expired.' };
+      ws.send(JSON.stringify(msg));
+      ws.close();
+      removeClient(activeSession, ws);
+      return;
+    }
+    log(`[pair] Client ${clientId} paired in ${activeSession.code} — pairId ${pairId.slice(0, 8)}…`);
   }
 
   log(`[connect] Client ${clientId} joined ${activeSession.code} — ${activeSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
@@ -330,17 +373,52 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       break;
     }
 
+    case 'requestPairToken': {
+      const clientType = session.clientTypes.get(ws);
+      if (clientType !== 'dashboard') {
+        const err: ServerMessage = { type: 'error', message: 'Only dashboards can request pair tokens.' };
+        ws.send(JSON.stringify(err));
+        break;
+      }
+      requestPairToken(session, ws);
+      log(`[pair] ${session.code} ${c} requested pair token`);
+      break;
+    }
+
+    case 'resumePair': {
+      const ok = resumePair(session, ws, msg.pairId);
+      if (!ok) {
+        const err: ServerMessage = { type: 'unpaired', reason: 'Pair not found or expired.' };
+        ws.send(JSON.stringify(err));
+        log(`[pair] ${session.code} ${c} resumePair failed — pairId not found`);
+      } else {
+        log(`[pair] ${session.code} ${c} resumed pair ${msg.pairId.slice(0, 8)}…`);
+      }
+      break;
+    }
+
+    case 'reportWorld': {
+      handleReportWorld(session, ws, msg.worldId);
+      break;
+    }
+
+    case 'unpair': {
+      handleUnpair(session, ws);
+      log(`[pair] ${session.code} ${c} voluntarily unpaired`);
+      break;
+    }
+
     case 'setSpawnTimer': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
-      updateWorldState(session, msg.worldId, next[msg.worldId]);
+      updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       break;
     }
 
     case 'setTreeInfo': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
       const next = applySetTreeInfo(session.worldStates, msg.worldId, msg.info, now);
-      updateWorldState(session, msg.worldId, next[msg.worldId]);
+      updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       break;
     }
 
@@ -349,7 +427,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       log(`[mutation] ${session.code} ${c} W${msg.worldId} updateTreeFields [${fields}]`);
       const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields, now);
       if (next !== session.worldStates) {
-        updateWorldState(session, msg.worldId, next[msg.worldId]);
+        updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       }
       break;
     }
@@ -358,7 +436,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       log(`[mutation] ${session.code} ${c} W${msg.worldId} updateHealth ${msg.health ?? 'clear'}`);
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
       if (next !== session.worldStates) {
-        updateWorldState(session, msg.worldId, next[msg.worldId]);
+        updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       }
       break;
     }
@@ -367,7 +445,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       log(`[mutation] ${session.code} ${c} W${msg.worldId} reportLightning ${msg.health}%`);
       const next = applyReportLightning(session.worldStates, msg.worldId, msg.health, now);
       if (next !== session.worldStates) {
-        updateWorldState(session, msg.worldId, next[msg.worldId]);
+        updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       }
       break;
     }
@@ -375,13 +453,13 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'markDead': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} markDead`);
       const next = applyMarkDead(session.worldStates, msg.worldId, now);
-      updateWorldState(session, msg.worldId, next[msg.worldId]);
+      updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       break;
     }
 
     case 'clearWorld': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
-      updateWorldState(session, msg.worldId, null);
+      updateWorldState(session, msg.worldId, null, ws);
       break;
     }
 
@@ -412,8 +490,9 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
   }
 
-  // Send ACK if the client included a msgId
-  if (msg.type !== 'ping' && msg.type !== 'initializeState' && msg.msgId !== undefined && ws.readyState === 1) {
+  // Send ACK if the client included a msgId (pairing messages don't use ACK)
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair']);
+  if (!noAckTypes.has(msg.type) && msg.msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId: msg.msgId };
     ws.send(JSON.stringify(ack));
   }

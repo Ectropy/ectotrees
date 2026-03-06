@@ -20,9 +20,11 @@ interface Props {
   onDismissLightning?: () => void;
   effectsLightning?: boolean;
   effectsSparks?: boolean;
+  isPairedScoutWorld?: boolean;
+  isRecentOwnSubmission?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isPairedScoutWorld, isRecentOwnSubmission }: Props) {
   const isP2P = world.type === 'P2P';
   const [sparkReady, setSparkReady] = useState(false);
   useEffect(() => {
@@ -37,10 +39,13 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
   }, [state.treeStatus]);
   const borderColor = isP2P ? P2P_COLOR.border : F2P_COLOR.border;
 
+  // Pairing highlights
+  const pairRing = isPairedScoutWorld ? 'ring-2 ring-amber-400 ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
+
   return (
     <div
       data-testid={`world-card-${world.id}`}
-      className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer`}
+      className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer ${pairRing}`}
       style={{ height: '85px', position: 'relative', isolation: 'isolate' }}
       onClick={onCardClick}
     >

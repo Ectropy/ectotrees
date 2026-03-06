@@ -7,6 +7,8 @@ export interface ScoutSessionState {
   code: string | null;
   clientCount: number;
   error: string | null;
+  isPaired: boolean;
+  pairId: string | null;
 }
 
 export function useScoutSession() {
@@ -21,6 +23,8 @@ export function useScoutSession() {
     code: session.code,
     clientCount: session.clientCount,
     error: session.error,
+    isPaired: session.isPaired,
+    pairId: session.pairId,
   });
 
   useEffect(() => {
@@ -36,6 +40,12 @@ export function useScoutSession() {
       }),
       session.on('error', (error) => {
         setState((prev) => ({ ...prev, error }));
+      }),
+      session.on('paired', (pairId) => {
+        setState((prev) => ({ ...prev, isPaired: true, pairId }));
+      }),
+      session.on('unpaired', () => {
+        setState((prev) => ({ ...prev, isPaired: false }));
       }),
     ];
 
@@ -67,6 +77,14 @@ export function useScoutSession() {
     session.dismissError();
   }, [session]);
 
+  const submitPairToken = useCallback((token: string) => {
+    session.submitPairToken(token);
+  }, [session]);
+
+  const unpair = useCallback(() => {
+    session.unpair();
+  }, [session]);
+
   return {
     ...state,
     session,
@@ -75,5 +93,7 @@ export function useScoutSession() {
     leaveSession,
     sendMutation,
     dismissError,
+    submitPairToken,
+    unpair,
   };
 }
