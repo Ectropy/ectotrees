@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const isDev = mode !== 'production';
@@ -26,11 +27,7 @@ export default defineConfig(({ mode }) => {
       'process.env.API_BASE': JSON.stringify(apiBase),
       'process.env.WS_BASE': JSON.stringify(wsBase),
     },
-    css: {
-      postcss: {
-        plugins: [],
-      },
-    },
+    plugins: [react()],
     server: {
       proxy: {
         '/api': {

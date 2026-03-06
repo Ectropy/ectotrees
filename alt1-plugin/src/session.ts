@@ -115,19 +115,12 @@ export class EctoSession {
     }
   }
 
-  async joinSession(code: string, localStates?: WorldStates): Promise<boolean> {
-    this.setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/session/${code}`);
-      if (!res.ok) {
-        const data = await res.json();
-        this.setError(data.error ?? 'Session not found.');
-        return false;
-      }
-    } catch {
-      this.setError('Network error joining session.');
+  joinSession(code: string, localStates?: WorldStates): boolean {
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+      this.setError('Invalid session code.');
       return false;
     }
+    this.setError(null);
     this.joinMergeStates = localStates ?? null;
     this.code = code;
     this.saveCode(code);
@@ -138,7 +131,7 @@ export class EctoSession {
     return true;
   }
 
-  async rejoinSession(code: string): Promise<boolean> {
+  rejoinSession(code: string): boolean {
     this.reconnectAttempt = 0;
     this.clearPending();
     return this.joinSession(code);
