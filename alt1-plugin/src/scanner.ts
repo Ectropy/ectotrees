@@ -72,7 +72,7 @@ export function scanSpiritTreeDialog(): DialogScanResult | null {
     }
 
     const rawText = lines.join('\n');
-    console.log(`[EctoScout] dialog scan OK: "${rawText.slice(0, 120)}"`);
+    console.log(`[EctoScout] dialog scan OK: "${rawText}"`);
     return { rawText };
   } catch (e) {
     console.error('[EctoScout] dialog scan error:', e);

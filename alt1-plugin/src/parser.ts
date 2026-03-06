@@ -14,6 +14,8 @@
  * preserve the last known value when a scan returns a non-matching page.
  */
 
+import { LOCATION_HINTS } from '@shared/hints';
+
 // ── Spawn timer ─────────────────────────────────────────────────────────────
 
 /**
@@ -74,11 +76,30 @@ export function msToHoursMinutes(ms: number): { hours: number; minutes: number }
  *     → "near a large body of water in the south"
  */
 export function parseHint(text: string): string | null {
-  // Capture everything after "It can be found" up to end of sentence (period or newline)
-  const match = text.match(/It\s+can\s+be\s+found\s+(.+?)(?:[.\n]|$)/i);
+  // Capture everything after "It can be found" up to the sentence-ending period.
+  // [\s\S]+? crosses newlines — scanner.ts joins dialog lines with \n, so a hint
+  // that wraps across two visual lines arrives as "...call\n'Draynor'." and the
+  // old (.+?) regex would stop at the \n, silently dropping the second line.
+  // Fall back to end-of-string if no period is present (genuine OCR truncation).
+  const match = text.match(/It\s+can\s+be\s+found\s+([\s\S]+?)\./) ??
+                text.match(/It\s+can\s+be\s+found\s+([\s\S]+?)$/i);
   if (!match) return null;
-  const hint = match[1].trim();
+  // Normalize any embedded newlines (line-wrap artefacts) to single spaces.
+  const hint = match[1].trim().replace(/\s*\n\s*/g, ' ');
   if (hint.length === 0) return null;
   // Capitalize first letter to match the LOCATION_HINTS canonical format.
-  return hint.charAt(0).toUpperCase() + hint.slice(1);
+  const parsed = hint.charAt(0).toUpperCase() + hint.slice(1);
+
+  // Alt1 OCR sometimes misses the second line of a chat message, leaving the
+  // hint truncated (e.g. "In the lands inhabited by" instead of "In the lands
+  // inhabited by elves"). Try to recover by prefix-matching against canonical
+  // hints — if exactly one canonical hint starts with the parsed text, return
+  // the full canonical string. Require at least 8 chars to avoid false positives.
+  const lower = parsed.toLowerCase();
+  if (lower.length >= 8) {
+    const matches = LOCATION_HINTS.filter(h => h.hint.toLowerCase().startsWith(lower));
+    if (matches.length === 1) return matches[0].hint;
+  }
+
+  return parsed;
 }
