@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull, Settings } from 'lucide-react';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from './constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -605,7 +605,7 @@ export default function App() {
     <div className="flex flex-col h-screen">
       <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
         <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
-          <h1 className="text-base font-bold text-amber-400 tracking-wide">
+          <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
             Ecto Trees
             <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>

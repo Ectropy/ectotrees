@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link2 } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -205,8 +206,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {isConnected && !canRejoin && (
           <>
             {session.isPaired ? (
-              <span className="flex items-center gap-1.5 text-amber-400 text-xs">
-                <span>⚡ Paired</span>
+              <span className={`flex items-center gap-1.5 ${CONNECTION_COLOR.connectedText} text-xs`}>
+                <Link2 className="w-3 h-3" /><span>Paired</span>
                 <button
                   onClick={onUnpair}
                   className="text-gray-500 hover:text-gray-300 transition-colors"
