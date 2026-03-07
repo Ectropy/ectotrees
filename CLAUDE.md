@@ -6,7 +6,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 19** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere)
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
 - **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
@@ -82,7 +82,9 @@ src/
     TreeInfoView.tsx     # Full-screen/sidebar: record tree type, hint, exact location, health
     TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)
     WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
-    SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator
+    SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator; opens SessionView panel
+    SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites)
+    MemberPanel.tsx      # Member list with role badges, admin controls (role change, ban), and invite creation form
     SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
@@ -123,9 +125,10 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number }
   | { kind: 'settings' }
+  | { kind: 'session' }
   | { kind: 'session-join'; code: string };
 ```
-Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, and invites. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data.
 
 **Sidebar mode** (opt-in, available on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
 
@@ -251,6 +254,12 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `resumePair` | `pairId: string` — re-associates a reconnected client with an existing pair group (no `msgId`) |
 | `reportWorld` | `worldId: number \| null` — scout reports which world it is currently scouting (no `msgId`) |
 | `unpair` | (no payload, no `msgId`) — voluntarily dissolves the current pair |
+| `enableManaged` | (no payload, no `msgId`) — upgrades session to invite-only managed mode; only the session creator can send this |
+| `createInvite` | `name: string; role?: 'scout' \| 'viewer'` — creates a 12-char invite token for a named member |
+| `banMember` | `inviteToken: string` — disconnects and permanently revokes a member's invite token |
+| `renameMember` | `inviteToken: string; name: string` — renames a member (admin only) |
+| `setMemberRole` | `inviteToken: string; role: 'moderator' \| 'scout' \| 'viewer'` — changes a member's role (admin only) |
+| `transferOwnership` | `inviteToken: string` — transfers owner role to another member |
 | `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):
@@ -263,6 +272,13 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `paired` | `pairId: string; sessionCode: string` — sent to both sides when pairing completes |
 | `unpaired` | `reason: string` — sent when a pair is dissolved (peer disconnect, re-pair, or voluntary unpair) |
 | `peerWorld` | `worldId: number \| null` — sent to dashboard when its paired scout changes worlds |
+| `identity` | `name: string; role: MemberRole` — sent to a connecting member after joining a managed session |
+| `managedEnabled` | `ownerToken: string` — sent to the session creator when managed mode is activated; owner token persisted to localStorage for reconnect |
+| `inviteCreated` | `inviteToken: string; name: string; link: string` — sent to the admin who created the invite |
+| `memberJoined` | `name: string` — broadcast when a member connects |
+| `memberLeft` | `name: string` — broadcast when a member disconnects |
+| `memberList` | `members: MemberInfo[]` — full member list broadcast; admin recipients receive `inviteToken` on each entry, regular members do not |
+| `banned` | `reason: string` — sent to a client whose invite token has been revoked |
 | `ack` | `msgId: number` — confirms a mutation was applied |
 | `pong` | (no payload) — response to `ping` |
 | `error` | `message: string` |
@@ -270,11 +286,12 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 
 ### Session Management (`session.ts`)
 - Session codes are 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no `0/O/1/I` to avoid ambiguity)
-- Max 1000 concurrent sessions, max 1000 clients per session
+- Max 1000 concurrent sessions, max 1000 clients per session (500 in managed mode)
 - Server runs auto-transitions every 10 seconds per session, broadcasting only changed worlds
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
 - Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
 - **Pairing**: each session maintains `pairTokens` (4-char tokens, 60s TTL), `pairs` (pairId → `{ dashboard, scout, currentWorld }`), and `wsToPairId` maps. A dashboard requests a token via `requestPairToken`; a Scout connects with that token via `?pairToken=`; the server calls `consumeAndCompletePairing` and sends `paired` to both sides. `resumePair` lets reconnecting clients re-join an existing pair group. Pair token sweep runs on the 10s transition interval.
+- **Managed sessions**: one-way upgrade from anonymous via `enableManaged`. Generates a 12-char owner token (sent via `managedEnabled`, stored in client localStorage for reconnect). Members join via `?invite=TOKEN` on the WS upgrade URL. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations. Admins (owner/moderator) receive `inviteToken` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous pairId string).
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`
@@ -334,12 +351,19 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - `cancelPreview()` — closes the preview WS without joining; clears `previewWorlds`
 - `leaveSession()` — close WebSocket cleanly
 - `dismissError()` — clear the current error state
+- `enableManaged()` — sends `enableManaged` to upgrade session to invite-only mode
+- `createInvite(name, role?)` — creates a named invite token; result arrives via `inviteCreated` → `session.lastInvite`
+- `banMember(inviteToken)` — revokes a member's token and disconnects them
+- `renameMember(inviteToken, name)` — renames a member
+- `setMemberRole(inviteToken, role)` — changes a member's role
+- `transferOwnership(inviteToken)` — transfers owner role to another member
 - **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload
 - **`?join=CODE` URL parameter**: on page load, if a `?join=` query param is present with a valid 6-character code, the session is joined automatically and the param is removed from the URL history
 - **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
+- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect.
 
 ## Adding/Removing Worlds
 Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`

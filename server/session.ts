@@ -1,12 +1,13 @@
 import crypto from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
-import type { ServerMessage } from '../shared/protocol.ts';
+import type { ServerMessage, MemberRole, MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { log, warn } from './log.ts';
 
 const MAX_SESSIONS = 1000;
 const MAX_CLIENTS_PER_SESSION = 1000;
+const MAX_MEMBERS_PER_SESSION = 500;
 const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
@@ -25,6 +26,16 @@ interface PairGroup {
   currentWorld: number | null;
 }
 
+export interface Member {
+  name: string;
+  inviteToken: string;
+  role: MemberRole;
+  banned: boolean;
+  connections: Set<WebSocket>;
+  currentWorld: number | null;
+  lastSeen: number;
+}
+
 export interface Session {
   code: string;
   createdAt: number;
@@ -39,12 +50,20 @@ export interface Session {
   pairTokens: Map<string, PairTokenEntry>;
   pairs: Map<string, PairGroup>;
   wsToPairId: Map<WebSocket, string>;
+  // Managed session fields (undefined when anonymous)
+  managed?: boolean;
+  ownerToken?: string;
+  members?: Map<string, Member>;       // inviteToken -> Member
+  wsToInviteToken?: Map<WebSocket, string>;
 }
 
 const sessions = new Map<string, Session>();
 
 // Global index: pair token → session code for O(1) lookup during WS upgrade
 const pairTokenIndex = new Map<string, string>();
+
+// Global index: invite token → session code for O(1) lookup during WS upgrade
+const inviteTokenIndex = new Map<string, string>();
 
 function generateCode(): string {
   const bytes = crypto.randomBytes(6);
@@ -66,6 +85,20 @@ function generatePairToken(): string {
     }
     attempts++;
   } while (pairTokenIndex.has(token) && attempts < 20);
+  return token;
+}
+
+function generateInviteToken(): string {
+  let token: string;
+  let attempts = 0;
+  do {
+    const bytes = crypto.randomBytes(12);
+    token = '';
+    for (let i = 0; i < 12; i++) {
+      token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
+    }
+    attempts++;
+  } while (inviteTokenIndex.has(token) && attempts < 20);
   return token;
 }
 
@@ -217,6 +250,22 @@ export function removeClient(session: Session, ws: WebSocket) {
   session.clientIds.delete(ws);
   session.clientTypes.delete(ws);
 
+  // Managed session: remove from member connections
+  if (session.managed && session.wsToInviteToken && session.members) {
+    const token = session.wsToInviteToken.get(ws);
+    if (token) {
+      session.wsToInviteToken.delete(ws);
+      const member = session.members.get(token);
+      if (member) {
+        member.connections.delete(ws);
+        member.lastSeen = Date.now();
+        if (member.connections.size === 0) {
+          broadcast(session, { type: 'memberLeft', name: member.name });
+        }
+      }
+    }
+  }
+
   // Pair cleanup: null out the disconnected slot, notify peer
   const pairId = session.wsToPairId.get(ws);
   if (pairId) {
@@ -245,7 +294,12 @@ export function removeClient(session: Session, ws: WebSocket) {
   if (session.clients.size === 0) {
     session.emptySince = Date.now();
   }
-  broadcastClientCount(session);
+  if (session.managed) {
+    broadcastManagedClientCount(session);
+    broadcastMemberList(session);
+  } else {
+    broadcastClientCount(session);
+  }
   return true;
 }
 
@@ -262,7 +316,20 @@ export function updateWorldState(
     session.worldStates[worldId] = state;
   }
 
-  // If the originating WS is paired, send the paired dashboard a copy with source attribution
+  // Managed session: public attribution (name + role visible to all)
+  if (session.managed && originWs && session.wsToInviteToken && session.members) {
+    const token = session.wsToInviteToken.get(originWs);
+    if (token) {
+      const member = session.members.get(token);
+      if (member) {
+        const source = { name: member.name, role: member.role };
+        broadcast(session, { type: 'worldUpdate', worldId, state, source });
+        return;
+      }
+    }
+  }
+
+  // Anonymous mode: If the originating WS is paired, send the paired dashboard a copy with source attribution
   if (originWs) {
     const pairId = session.wsToPairId.get(originWs);
     if (pairId) {
@@ -422,6 +489,351 @@ export function handleReportWorld(session: Session, ws: WebSocket, worldId: numb
   }
 }
 
+// ── Managed session (invite link system) ────────────────────────────────────
+
+function buildMemberList(session: Session): MemberInfo[] {
+  if (!session.members) return [];
+  const list: MemberInfo[] = [];
+  for (const member of session.members.values()) {
+    if (member.banned) continue;
+    list.push({
+      name: member.name,
+      role: member.role,
+      online: member.connections.size > 0,
+      currentWorld: member.currentWorld,
+    });
+  }
+  return list;
+}
+
+function broadcastMemberList(session: Session) {
+  if (!session.managed || !session.members) return;
+  const baseMembers = buildMemberList(session);
+
+  // Build admin version with invite tokens
+  const adminMembers: MemberInfo[] = [];
+  for (const member of session.members.values()) {
+    if (member.banned) continue;
+    adminMembers.push({
+      name: member.name,
+      role: member.role,
+      online: member.connections.size > 0,
+      currentWorld: member.currentWorld,
+      inviteToken: member.inviteToken,
+    });
+  }
+
+  const adminData = JSON.stringify({ type: 'memberList', members: adminMembers } satisfies ServerMessage);
+  const normalData = JSON.stringify({ type: 'memberList', members: baseMembers } satisfies ServerMessage);
+
+  for (const ws of session.clients) {
+    if (ws.readyState !== 1) continue;
+    const role = getMemberRole(session, ws);
+    ws.send((role === 'owner' || role === 'moderator') ? adminData : normalData);
+  }
+}
+
+function broadcastManagedClientCount(session: Session) {
+  if (!session.managed || !session.members) {
+    broadcastClientCount(session);
+    return;
+  }
+  // In managed mode, count = online members (not connections)
+  let onlineMembers = 0;
+  let scouts = 0, dashboards = 0;
+  for (const member of session.members.values()) {
+    if (member.banned || member.connections.size === 0) continue;
+    onlineMembers++;
+    for (const ws of member.connections) {
+      const t = session.clientTypes.get(ws) ?? 'unknown';
+      if (t === 'scout') scouts++;
+      else if (t === 'dashboard') dashboards++;
+    }
+  }
+  // Also count anonymous viewers (connections without an invite token)
+  for (const ws of session.clients) {
+    if (!session.wsToInviteToken?.has(ws)) {
+      onlineMembers++;
+      const t = session.clientTypes.get(ws) ?? 'unknown';
+      if (t === 'scout') scouts++;
+      else if (t === 'dashboard') dashboards++;
+    }
+  }
+  broadcast(session, { type: 'clientCount', count: onlineMembers, scouts, dashboards });
+}
+
+/** Enable managed mode on an existing anonymous session. Returns the owner token. */
+export function enableManaged(session: Session, creatorWs: WebSocket): string | { error: string } {
+  if (session.managed) return { error: 'Session is already managed.' };
+
+  const ownerToken = generateInviteToken();
+  session.managed = true;
+  session.ownerToken = ownerToken;
+  session.members = new Map();
+  session.wsToInviteToken = new Map();
+
+  // Create owner member entry
+  const ownerMember: Member = {
+    name: 'Owner',
+    inviteToken: ownerToken,
+    role: 'owner',
+    banned: false,
+    connections: new Set([creatorWs]),
+    currentWorld: null,
+    lastSeen: Date.now(),
+  };
+  session.members.set(ownerToken, ownerMember);
+  session.wsToInviteToken.set(creatorWs, ownerToken);
+  inviteTokenIndex.set(ownerToken, session.code);
+
+  // Send owner their identity + token
+  const identityMsg: ServerMessage = { type: 'identity', name: 'Owner', role: 'owner' };
+  creatorWs.send(JSON.stringify(identityMsg));
+  const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken };
+  creatorWs.send(JSON.stringify(enabledMsg));
+
+  broadcastMemberList(session);
+  broadcastManagedClientCount(session);
+  return ownerToken;
+}
+
+/** Look up an invite token to its session + member (for WS upgrade). */
+export function lookupInviteToken(token: string): { session: Session; member: Member } | null {
+  const code = inviteTokenIndex.get(token);
+  if (!code) return null;
+  const session = sessions.get(code);
+  if (!session || !session.members) return null;
+  const member = session.members.get(token);
+  if (!member) return null;
+  return { session, member };
+}
+
+/** Add a WS connection to a managed session member. */
+export function addMemberConnection(session: Session, ws: WebSocket, member: Member): number | false {
+  if (session.clients.size >= MAX_CLIENTS_PER_SESSION) return false;
+
+  const clientId = session.nextClientId++;
+  session.clients.add(ws);
+  session.clientIds.set(ws, clientId);
+  session.clientTypes.set(ws, 'unknown');
+  session.wsToInviteToken!.set(ws, member.inviteToken);
+  member.connections.add(ws);
+  member.lastSeen = Date.now();
+  session.emptySince = null;
+
+  // Send snapshot
+  const activeWorlds: WorldStates = {};
+  for (const [key, state] of Object.entries(session.worldStates)) {
+    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+      activeWorlds[Number(key)] = state;
+    }
+  }
+  ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
+
+  // Send identity
+  const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role };
+  ws.send(JSON.stringify(identityMsg));
+
+  broadcastManagedClientCount(session);
+  broadcastMemberList(session);
+  broadcast(session, { type: 'memberJoined', name: member.name });
+
+  return clientId;
+}
+
+/** Get the member role for a WS connection in a managed session, or null if not a member. */
+export function getMemberRole(session: Session, ws: WebSocket): MemberRole | null {
+  if (!session.managed || !session.wsToInviteToken || !session.members) return null;
+  const token = session.wsToInviteToken.get(ws);
+  if (!token) return null;
+  const member = session.members.get(token);
+  return member?.role ?? null;
+}
+
+/** Check if a WS has write permission (owner, moderator, or scout role). */
+export function canWrite(session: Session, ws: WebSocket): boolean {
+  if (!session.managed) return true; // anonymous sessions allow all writes
+  const role = getMemberRole(session, ws);
+  if (role === null) return false; // anonymous viewer in managed session
+  return role !== 'viewer';
+}
+
+/** Check if a WS has admin permission (owner or moderator). */
+export function isAdmin(session: Session, ws: WebSocket): boolean {
+  const role = getMemberRole(session, ws);
+  return role === 'owner' || role === 'moderator';
+}
+
+/** Check if a WS is the owner. */
+export function isOwner(session: Session, ws: WebSocket): boolean {
+  return getMemberRole(session, ws) === 'owner';
+}
+
+export function createInvite(session: Session, ws: WebSocket, name: string, role?: 'scout' | 'viewer'): ServerMessage {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+  if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { type: 'error', message: 'Maximum members reached.' };
+
+  // Enforce name uniqueness
+  for (const m of session.members.values()) {
+    if (m.name === name) return { type: 'error', message: 'Name already taken.' };
+  }
+
+  const inviteToken = generateInviteToken();
+  const member: Member = {
+    name,
+    inviteToken,
+    role: role ?? 'scout',
+    banned: false,
+    connections: new Set(),
+    currentWorld: null,
+    lastSeen: Date.now(),
+  };
+  session.members.set(inviteToken, member);
+  inviteTokenIndex.set(inviteToken, session.code);
+
+  const link = `https://ectotrees.app/?invite=${inviteToken}`;
+  broadcastMemberList(session);
+  return { type: 'inviteCreated', inviteToken, name, link };
+}
+
+export function banMember(session: Session, ws: WebSocket, inviteToken: string): ServerMessage | null {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+
+  const member = session.members.get(inviteToken);
+  if (!member) return { type: 'error', message: 'Member not found.' };
+
+  // Cannot ban the owner
+  if (member.role === 'owner') return { type: 'error', message: 'Cannot ban the owner.' };
+
+  // Moderators cannot ban other moderators
+  const callerRole = getMemberRole(session, ws);
+  if (callerRole === 'moderator' && member.role === 'moderator') {
+    return { type: 'error', message: 'Moderators cannot ban other moderators.' };
+  }
+
+  member.banned = true;
+
+  // Disconnect all their connections
+  for (const memberWs of member.connections) {
+    const bannedMsg: ServerMessage = { type: 'banned', reason: 'You have been banned from this session.' };
+    if (memberWs.readyState === 1) {
+      memberWs.send(JSON.stringify(bannedMsg));
+      memberWs.close(1008, 'Banned');
+    }
+    session.wsToInviteToken!.delete(memberWs);
+    removeClient(session, memberWs);
+  }
+  member.connections.clear();
+
+  // Revoke the token globally
+  inviteTokenIndex.delete(inviteToken);
+
+  broadcastMemberList(session);
+  broadcastManagedClientCount(session);
+  return null; // success, no error
+}
+
+export function renameMember(session: Session, ws: WebSocket, inviteToken: string, name: string): ServerMessage | null {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+
+  const member = session.members.get(inviteToken);
+  if (!member) return { type: 'error', message: 'Member not found.' };
+
+  // Moderators cannot rename owner or other moderators
+  const callerRole = getMemberRole(session, ws);
+  if (callerRole === 'moderator' && (member.role === 'owner' || member.role === 'moderator')) {
+    return { type: 'error', message: 'Permission denied.' };
+  }
+
+  // Enforce uniqueness
+  for (const m of session.members.values()) {
+    if (m !== member && m.name === name) return { type: 'error', message: 'Name already taken.' };
+  }
+
+  member.name = name;
+
+  // Notify the renamed member of their new identity
+  for (const memberWs of member.connections) {
+    if (memberWs.readyState === 1) {
+      memberWs.send(JSON.stringify({ type: 'identity', name, role: member.role } satisfies ServerMessage));
+    }
+  }
+
+  broadcastMemberList(session);
+  return null;
+}
+
+export function setMemberRole(session: Session, ws: WebSocket, inviteToken: string, role: 'moderator' | 'scout' | 'viewer'): ServerMessage | null {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+
+  const callerRole = getMemberRole(session, ws);
+  const member = session.members.get(inviteToken);
+  if (!member) return { type: 'error', message: 'Member not found.' };
+
+  // Cannot change owner's role (use transferOwnership instead)
+  if (member.role === 'owner') return { type: 'error', message: 'Cannot change the owner role. Use transfer ownership.' };
+
+  if (callerRole === 'owner') {
+    // Owner can set any role
+  } else if (callerRole === 'moderator') {
+    // Moderators cannot modify other moderators
+    if (member.role === 'moderator') return { type: 'error', message: 'Moderators cannot modify other moderators.' };
+    // Moderators can promote to moderator or demote to scout/viewer
+  } else {
+    return { type: 'error', message: 'Permission denied.' };
+  }
+
+  member.role = role;
+
+  // Notify the member of their new role
+  for (const memberWs of member.connections) {
+    if (memberWs.readyState === 1) {
+      memberWs.send(JSON.stringify({ type: 'identity', name: member.name, role } satisfies ServerMessage));
+    }
+  }
+
+  broadcastMemberList(session);
+  return null;
+}
+
+export function transferOwnership(session: Session, ws: WebSocket, inviteToken: string): ServerMessage | null {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+  if (!isOwner(session, ws)) return { type: 'error', message: 'Only the owner can transfer ownership.' };
+
+  const newOwner = session.members.get(inviteToken);
+  if (!newOwner) return { type: 'error', message: 'Member not found.' };
+  if (newOwner.role === 'owner') return { type: 'error', message: 'Already the owner.' };
+
+  // Find current owner and demote to moderator
+  const callerToken = session.wsToInviteToken!.get(ws);
+  if (callerToken) {
+    const currentOwner = session.members.get(callerToken);
+    if (currentOwner) {
+      currentOwner.role = 'moderator';
+      for (const ownerWs of currentOwner.connections) {
+        if (ownerWs.readyState === 1) {
+          ownerWs.send(JSON.stringify({ type: 'identity', name: currentOwner.name, role: 'moderator' } satisfies ServerMessage));
+        }
+      }
+    }
+  }
+
+  // Promote new owner
+  newOwner.role = 'owner';
+  session.ownerToken = inviteToken;
+  for (const newOwnerWs of newOwner.connections) {
+    if (newOwnerWs.readyState === 1) {
+      newOwnerWs.send(JSON.stringify({ type: 'identity', name: newOwner.name, role: 'owner' } satisfies ServerMessage));
+    }
+  }
+
+  broadcastMemberList(session);
+  return null;
+}
+
 // ── Session lifecycle ───────────────────────────────────────────────────────
 
 function destroySession(session: Session, closeReason: string) {
@@ -430,6 +842,13 @@ function destroySession(session: Session, closeReason: string) {
   // Clean up global pair token index for this session's tokens
   for (const token of session.pairTokens.keys()) {
     pairTokenIndex.delete(token);
+  }
+
+  // Clean up global invite token index for this session's tokens
+  if (session.members) {
+    for (const token of session.members.keys()) {
+      inviteTokenIndex.delete(token);
+    }
   }
 
   for (const ws of session.clients) {

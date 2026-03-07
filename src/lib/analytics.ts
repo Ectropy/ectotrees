@@ -5,7 +5,7 @@ export type UiEventName =
   | 'ui_world_action'
   | 'ui_nav_action';
 
-export type UiPanel = 'grid' | 'settings' | 'session-join' | 'detail' | 'spawn' | 'tree' | 'dead';
+export type UiPanel = 'grid' | 'settings' | 'session' | 'session-join' | 'detail' | 'spawn' | 'tree' | 'dead';
 export type UiTool = 'spawn' | 'tree' | 'dead';
 export type UiSurface = 'sidebar' | 'fullscreen';
 export type UiSidebarSide = 'left' | 'right' | 'none';

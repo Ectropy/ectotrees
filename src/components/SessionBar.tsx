@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link2 } from 'lucide-react';
+import { Link2, Shield, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -16,6 +16,8 @@ interface SessionBarProps {
   onDismissError: () => void;
   onRequestPairToken: () => void;
   onUnpair: () => void;
+  onEnableManaged: () => void;
+  onOpenSession: () => void;
 }
 
 const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
@@ -42,7 +44,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession, onDismissError, onRequestPairToken, onUnpair }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession, onDismissError, onRequestPairToken, onUnpair, onEnableManaged, onOpenSession }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -243,6 +245,30 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </>
         )}
 
+        {/* Managed session indicator */}
+        {isConnected && !canRejoin && session.managed && (
+          <button
+            onClick={onOpenSession}
+            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+            title="Open session management"
+          >
+            <Shield className="w-3 h-3" />
+            <span>{session.members.length}</span>
+          </button>
+        )}
+
+        {/* Enable managed mode button (only before managed is enabled) */}
+        {isConnected && !canRejoin && !session.managed && !session.isPaired && (
+          <button
+            onClick={onEnableManaged}
+            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Enable invite-only managed mode"
+          >
+            <Shield className="w-3 h-3 inline-block mr-0.5" />
+            Manage
+          </button>
+        )}
+
         {canRejoin && (
           <button
             onClick={() => onRejoinSession(session.code!)}
@@ -257,8 +283,16 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         )}
 
         <button
+          onClick={onOpenSession}
+          className="text-gray-500 hover:text-gray-300 transition-colors"
+          title="Open session management"
+        >
+          <ExternalLink className="w-3 h-3" />
+        </button>
+
+        <button
           onClick={onLeaveSession}
-          className="ml-auto text-red-500 hover:text-red-400 transition-colors"
+          className="text-red-500 hover:text-red-400 transition-colors"
         >
           Leave
         </button>

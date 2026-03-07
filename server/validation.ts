@@ -151,6 +151,48 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'identify', clientType: raw.clientType as 'scout' | 'dashboard' };
   }
 
+  if (type === 'enableManaged') return { type: 'enableManaged' };
+
+  if (type === 'createInvite') {
+    const name = sanitizeString(raw.name);
+    if (!name) return { error: 'Name is required.' };
+    const role = raw.role;
+    if (role !== undefined && role !== 'scout' && role !== 'viewer') {
+      return { error: 'Invalid role.' };
+    }
+    return { type: 'createInvite', name, role: role as 'scout' | 'viewer' | undefined };
+  }
+
+  if (type === 'banMember') {
+    const token = validateInviteToken(raw.inviteToken);
+    if (!token) return { error: 'Invalid inviteToken.' };
+    return { type: 'banMember', inviteToken: token };
+  }
+
+  if (type === 'renameMember') {
+    const token = validateInviteToken(raw.inviteToken);
+    if (!token) return { error: 'Invalid inviteToken.' };
+    const name = sanitizeString(raw.name);
+    if (!name) return { error: 'Name is required.' };
+    return { type: 'renameMember', inviteToken: token, name };
+  }
+
+  if (type === 'setMemberRole') {
+    const token = validateInviteToken(raw.inviteToken);
+    if (!token) return { error: 'Invalid inviteToken.' };
+    const role = raw.role;
+    if (role !== 'moderator' && role !== 'scout' && role !== 'viewer') {
+      return { error: 'Invalid role.' };
+    }
+    return { type: 'setMemberRole', inviteToken: token, role };
+  }
+
+  if (type === 'transferOwnership') {
+    const token = validateInviteToken(raw.inviteToken);
+    if (!token) return { error: 'Invalid inviteToken.' };
+    return { type: 'transferOwnership', inviteToken: token };
+  }
+
   if (type === 'initializeState') {
     const result = validateInitializeState(raw);
     if ('error' in result) return result;
@@ -314,5 +356,11 @@ export function validateSessionCode(code: unknown): string | null {
 export function validatePairToken(token: unknown): string | null {
   if (typeof token !== 'string') return null;
   if (!/^[A-HJ-NP-Z2-9]{4}$/.test(token)) return null;
+  return token;
+}
+
+export function validateInviteToken(token: unknown): string | null {
+  if (typeof token !== 'string') return null;
+  if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null;
   return token;
 }

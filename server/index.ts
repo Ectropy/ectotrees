@@ -30,8 +30,17 @@ import {
   cleanupExpiredSessions,
   getSessionCount,
   getTotalClientCount,
+  enableManaged,
+  lookupInviteToken,
+  addMemberConnection,
+  canWrite,
+  createInvite,
+  banMember,
+  renameMember,
+  setMemberRole,
+  transferOwnership,
 } from './session.ts';
-import { validateMessage, validateSessionCode, validatePairToken } from './validation.ts';
+import { validateMessage, validateSessionCode, validatePairToken, validateInviteToken } from './validation.ts';
 import { log, warn } from './log.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -224,6 +233,32 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
+  // Invite token connect: managed session member joins via ?invite=
+  const rawInviteToken = url.searchParams.get('invite');
+  if (rawInviteToken !== null) {
+    const inviteToken = validateInviteToken(rawInviteToken);
+    if (!inviteToken) {
+      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    const resolved = lookupInviteToken(inviteToken);
+    if (!resolved) {
+      socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    if (resolved.member.banned) {
+      socket.write('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req, resolved.session, resolved.session.code, undefined, resolved.member);
+    });
+    return;
+  }
+
   // Normal session code connect
   const code = validateSessionCode(url.searchParams.get('code'));
   if (!code) {
@@ -237,7 +272,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, pendingPairToken?: string) => {
+wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, pendingPairToken?: string, inviteMember?: import('./session.ts').Member) => {
   if (!session) {
     log(`[connect] Rejected — session ${attemptedCode} not found`);
     const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
@@ -247,28 +282,42 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   }
   const activeSession = session;
 
-  const clientId = addClient(activeSession, ws);
-  if (clientId === false) {
-    log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
-    const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
-    ws.send(JSON.stringify(msg));
-    ws.close();
-    return;
-  }
-
-  // If this connection is arriving via a pair token, mark as scout and complete pairing
-  if (pendingPairToken) {
-    setClientType(activeSession, ws, 'scout');
-    const pairId = consumeAndCompletePairing(activeSession, pendingPairToken, ws);
-    if (!pairId) {
-      // Token expired between upgrade and connection (very unlikely race)
-      const msg: ServerMessage = { type: 'error', message: 'Pair token expired.' };
+  // Invite token connect: add as managed session member
+  let clientId: number | false;
+  if (inviteMember) {
+    clientId = addMemberConnection(activeSession, ws, inviteMember);
+    if (clientId === false) {
+      log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
+      const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
       ws.send(JSON.stringify(msg));
       ws.close();
-      removeClient(activeSession, ws);
       return;
     }
-    log(`[pair] Client ${clientId} paired in ${activeSession.code} — pairId ${pairId.slice(0, 8)}…`);
+    log(`[connect] Member "${inviteMember.name}" (${inviteMember.role}) joined ${activeSession.code} via invite`);
+  } else {
+    clientId = addClient(activeSession, ws);
+    if (clientId === false) {
+      log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
+      const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
+      ws.send(JSON.stringify(msg));
+      ws.close();
+      return;
+    }
+
+    // If this connection is arriving via a pair token, mark as scout and complete pairing
+    if (pendingPairToken) {
+      setClientType(activeSession, ws, 'scout');
+      const pairId = consumeAndCompletePairing(activeSession, pendingPairToken, ws);
+      if (!pairId) {
+        // Token expired between upgrade and connection (very unlikely race)
+        const msg: ServerMessage = { type: 'error', message: 'Pair token expired.' };
+        ws.send(JSON.stringify(msg));
+        ws.close();
+        removeClient(activeSession, ws);
+        return;
+      }
+      log(`[pair] Client ${clientId} paired in ${activeSession.code} — pairId ${pairId.slice(0, 8)}…`);
+    }
   }
 
   log(`[connect] Client ${clientId} joined ${activeSession.code} — ${activeSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
@@ -357,9 +406,18 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
   });
 });
 
+const MUTATION_TYPES = new Set(['setSpawnTimer', 'setTreeInfo', 'updateTreeFields', 'updateHealth', 'reportLightning', 'markDead', 'clearWorld', 'contributeWorlds', 'initializeState']);
+
 function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg: ClientMessage, ws: WebSocket, clientId: number) {
   const now = Date.now();
   const c = `Client ${clientId}`;
+
+  // Write permission check for managed sessions
+  if (MUTATION_TYPES.has(msg.type) && !canWrite(session, ws)) {
+    const err: ServerMessage = { type: 'error', message: 'Permission denied. Viewers cannot modify session data.' };
+    ws.send(JSON.stringify(err));
+    return;
+  }
 
   switch (msg.type) {
     case 'ping': {
@@ -405,6 +463,67 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'unpair': {
       handleUnpair(session, ws);
       log(`[pair] ${session.code} ${c} voluntarily unpaired`);
+      break;
+    }
+
+    case 'enableManaged': {
+      const result = enableManaged(session, ws);
+      if (typeof result === 'object' && 'error' in result) {
+        ws.send(JSON.stringify({ type: 'error', message: result.error } satisfies ServerMessage));
+      } else {
+        log(`[managed] ${session.code} ${c} enabled managed mode — ownerToken ${result.slice(0, 4)}…`);
+      }
+      break;
+    }
+
+    case 'createInvite': {
+      const result = createInvite(session, ws, msg.name, msg.role);
+      if (result.type === 'error') {
+        ws.send(JSON.stringify(result));
+      } else {
+        ws.send(JSON.stringify(result));
+        log(`[managed] ${session.code} ${c} created invite for "${msg.name}" (${msg.role ?? 'scout'})`);
+      }
+      break;
+    }
+
+    case 'banMember': {
+      const err = banMember(session, ws, msg.inviteToken);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} banned member ${msg.inviteToken.slice(0, 4)}…`);
+      }
+      break;
+    }
+
+    case 'renameMember': {
+      const err = renameMember(session, ws, msg.inviteToken, msg.name);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} renamed member ${msg.inviteToken.slice(0, 4)}… to "${msg.name}"`);
+      }
+      break;
+    }
+
+    case 'setMemberRole': {
+      const err = setMemberRole(session, ws, msg.inviteToken, msg.role);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} set role ${msg.role} for ${msg.inviteToken.slice(0, 4)}…`);
+      }
+      break;
+    }
+
+    case 'transferOwnership': {
+      const err = transferOwnership(session, ws, msg.inviteToken);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} transferred ownership to ${msg.inviteToken.slice(0, 4)}…`);
+      }
       break;
     }
 
@@ -490,10 +609,11 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
   }
 
-  // Send ACK if the client included a msgId (pairing messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair']);
-  if (!noAckTypes.has(msg.type) && msg.msgId !== undefined && ws.readyState === 1) {
-    const ack: ServerMessage = { type: 'ack', msgId: msg.msgId };
+  // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair', 'enableManaged', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
+  const msgId = (msg as { msgId?: number }).msgId;
+  if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
+    const ack: ServerMessage = { type: 'ack', msgId };
     ws.send(JSON.stringify(ack));
   }
 }

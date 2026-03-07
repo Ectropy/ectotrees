@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
-import type { ClientMessage, ServerMessage } from '../../shared/protocol.ts';
+import type { ClientMessage, ServerMessage, MemberInfo, MemberRole } from '../../shared/protocol.ts';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -28,6 +28,13 @@ export interface SessionState {
   isPaired: boolean;
   pairedScoutWorld: number | null;
   recentOwnWorldId: number | null;
+  // Managed session
+  managed: boolean;
+  ownerToken: string | null;
+  memberName: string | null;
+  memberRole: MemberRole | null;
+  members: MemberInfo[];
+  lastInvite: { inviteToken: string; name: string; link: string } | null;
 }
 
 const API_BASE = resolveApiBase();
@@ -41,6 +48,17 @@ const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 const PAIR_ID_STORAGE_KEY = 'evilTree_pairId';
 
 const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
+
+function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
+  return {
+    status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0,
+    error: null, reconnectAttempt: 0, reconnectAt: null,
+    pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false,
+    pairedScoutWorld: null, recentOwnWorldId: null,
+    managed: false, ownerToken: null, memberName: null, memberRole: null, members: [], lastInvite: null,
+    ...overrides,
+  };
+}
 
 interface PendingMutation {
   msg: ClientMessage;
@@ -142,6 +160,12 @@ export function useSession(onSessionLost?: () => void) {
     isPaired: false,
     pairedScoutWorld: null,
     recentOwnWorldId: null,
+    managed: false,
+    ownerToken: null,
+    memberName: null,
+    memberRole: null,
+    members: [],
+    lastInvite: null,
   });
   const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
 
@@ -372,6 +396,32 @@ export function useSession(onSessionLost?: () => void) {
         case 'peerWorld':
           setSession(prev => ({ ...prev, pairedScoutWorld: msg.worldId }));
           break;
+        case 'identity':
+          setSession(prev => ({ ...prev, memberName: msg.name, memberRole: msg.role }));
+          break;
+        case 'managedEnabled':
+          setSession(prev => ({ ...prev, managed: true, ownerToken: msg.ownerToken }));
+          break;
+        case 'inviteCreated':
+          setSession(prev => ({ ...prev, lastInvite: { inviteToken: msg.inviteToken, name: msg.name, link: msg.link } }));
+          break;
+        case 'memberList':
+          setSession(prev => ({ ...prev, members: msg.members }));
+          break;
+        case 'memberJoined':
+        case 'memberLeft':
+          // These are informational — memberList broadcast follows and updates state
+          break;
+        case 'banned':
+          intentionalCloseRef.current = true;
+          cleanup();
+          codeRef.current = null;
+          pairIdRef.current = null;
+          persistPairId(null);
+          persistSessionCode(null);
+          clearPending();
+          setSession(defaultSessionState({ error: msg.reason }));
+          break;
         case 'clientCount':
           setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards }));
           break;
@@ -401,7 +451,7 @@ export function useSession(onSessionLost?: () => void) {
           pairIdRef.current = null;
           persistPairId(null);
           clearPending();
-          setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: msg.reason, reconnectAttempt: 0, reconnectAt: null, pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false, pairedScoutWorld: null, recentOwnWorldId: null });
+          setSession(defaultSessionState({ error: msg.reason }));
           break;
       }
     };
@@ -537,7 +587,7 @@ export function useSession(onSessionLost?: () => void) {
     persistPairId(null);
     reconnectAttemptRef.current = 0;
     clearPending();
-    setSession({ status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, error: null, reconnectAttempt: 0, reconnectAt: null, pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false, pairedScoutWorld: null, recentOwnWorldId: null });
+    setSession(defaultSessionState());
   }, []);
 
   const rejoinSession = useCallback((code: string): void => {
@@ -698,6 +748,48 @@ export function useSession(onSessionLost?: () => void) {
     }));
   }, []);
 
+  const enableManaged = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'enableManaged' }));
+    }
+  }, []);
+
+  const createInviteAction = useCallback((name: string, role?: 'scout' | 'viewer') => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'createInvite', name, role }));
+    }
+  }, []);
+
+  const banMemberAction = useCallback((inviteToken: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'banMember', inviteToken }));
+    }
+  }, []);
+
+  const renameMemberAction = useCallback((inviteToken: string, name: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'renameMember', inviteToken, name }));
+    }
+  }, []);
+
+  const setMemberRoleAction = useCallback((inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'setMemberRole', inviteToken, role }));
+    }
+  }, []);
+
+  const transferOwnershipAction = useCallback((inviteToken: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'transferOwnership', inviteToken }));
+    }
+  }, []);
+
   // Clear pair token from display when it expires
   useEffect(() => {
     if (!session.pairTokenExpiresAt) return;
@@ -751,5 +843,11 @@ export function useSession(onSessionLost?: () => void) {
     dismissError,
     requestPairToken,
     unpair,
+    enableManaged,
+    createInvite: createInviteAction,
+    banMember: banMemberAction,
+    renameMember: renameMemberAction,
+    setMemberRole: setMemberRoleAction,
+    transferOwnership: transferOwnershipAction,
   };
 }

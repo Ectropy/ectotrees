@@ -14,6 +14,7 @@ import { WorldDetailView } from './components/WorldDetailView';
 import { SettingsView } from './components/SettingsView';
 import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
+import { SessionView } from './components/SessionView';
 import { TipTicker } from './components/TipTicker';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
@@ -28,6 +29,7 @@ const worlds = worldsConfig.worlds as WorldConfig[];
 type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
+  | { kind: 'session' }
   | { kind: 'session-join'; code: string }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
@@ -102,7 +104,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, requestPairToken, unpair } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, requestPairToken, unpair, enableManaged, createInvite, banMember, renameMember, setMemberRole, transferOwnership } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -362,7 +364,7 @@ export default function App() {
       const { surface, sidebarSide } = getAnalyticsContext();
       trackUiEvent('ui_nav_action', {
         panel: activeView.kind,
-        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session-join') ? activeView.worldId : undefined,
+        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined,
         surface,
         sidebar_side: sidebarSide,
         action: 'close_view',
@@ -408,7 +410,7 @@ export default function App() {
     if (activeView.kind === 'grid') return;
 
     const panel = activeView.kind as UiPanel;
-    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session-join') ? activeView.worldId : undefined;
+    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined;
     const surface: UiSurface = useSidebar ? 'sidebar' : 'fullscreen';
     const sidebarSide: UiSidebarSide = useSidebar ? settings.sidebarSide : 'none';
     const key = `${panel}:${worldId ?? 'none'}:${surface}:${sidebarSide}`;
@@ -425,7 +427,7 @@ export default function App() {
     });
   }, [activeView, useSidebar, settings.sidebarSide]);
 
-  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session-join'
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join'
     ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
@@ -433,6 +435,27 @@ export default function App() {
   function renderViewContent() {
     if (activeView.kind === 'settings')
       return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
+    if (activeView.kind === 'session')
+      return <SessionView
+        session={session}
+        activeLocalCount={activeLocalCount}
+        onCreateSession={handleCreateSession}
+        onJoinSession={handleJoinSession}
+        onRequestSessionJoin={handleRequestSessionJoin}
+        onRejoinSession={rejoinSession}
+        onLeaveSession={handleLeaveSession}
+        onDismissError={dismissError}
+        onRequestPairToken={requestPairToken}
+        onUnpair={unpair}
+        onEnableManaged={enableManaged}
+        onCreateInvite={createInvite}
+        onBanMember={banMember}
+        onRenameMember={renameMember}
+        onSetMemberRole={setMemberRole}
+        onTransferOwnership={transferOwnership}
+        onBack={handleBack}
+      />;
 
     if (activeView.kind === 'session-join')
       return <SessionJoinView
@@ -641,6 +664,8 @@ export default function App() {
           onDismissError={dismissError}
           onRequestPairToken={requestPairToken}
           onUnpair={unpair}
+          onEnableManaged={enableManaged}
+          onOpenSession={() => setActiveView({ kind: 'session' })}
         />
 
         <SortFilterBar
