@@ -606,7 +606,7 @@ export default function App() {
       <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
         <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
           <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
-            Ecto Trees
+            Ectotrees
             <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
           <div className="flex items-center gap-2">

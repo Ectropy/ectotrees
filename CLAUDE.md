@@ -222,6 +222,8 @@ Security response headers applied to all HTTP responses:
 |---|---|---|
 | `PORT` | `3001` | TCP port the server listens on |
 | `LOG_TZ` | `America/New_York` | IANA timezone for server log timestamps (e.g. `UTC`, `Europe/London`) |
+| `NODE_ENV` | — | Set to `production` to enable origin allowlisting (`ALLOWED_ORIGINS`) |
+| `EXTRA_ORIGINS` | — | Comma-separated extra allowed origins appended to the production allowlist |
 
 ### REST Endpoints
 | Method | Path | Description |
@@ -230,7 +232,7 @@ Security response headers applied to all HTTP responses:
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients }` |
 
 ### WebSocket Protocol
-Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session code on upgrade.
+Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/ws?pairToken=XXXX` (4-char token obtained from the dashboard's `requestPairToken` flow). The server validates the code or pair token on upgrade. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
 
 **Client → Server messages** (`ClientMessage`):
 | Type | Payload |
@@ -244,14 +246,23 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 | `contributeWorlds` | `worlds: WorldStates`, optional `msgId` — merges joiner's local state into session; only worlds not already present are inserted |
 | `initializeState` | `worlds: WorldStates` — seeds a fresh session with the creator's local state (no `msgId`) |
 | `reportLightning` | `worldId`, `health: 50 \| 25`, optional `msgId` — reports a client-observed lightning strike; server applies `applyReportLightning` and broadcasts |
+| `identify` | `clientType: 'scout' \| 'dashboard'` — declares this connection's role (no `msgId`) |
+| `requestPairToken` | (no payload, no `msgId`) — dashboard requests a short-lived 4-char pair token |
+| `resumePair` | `pairId: string` — re-associates a reconnected client with an existing pair group (no `msgId`) |
+| `reportWorld` | `worldId: number \| null` — scout reports which world it is currently scouting (no `msgId`) |
+| `unpair` | (no payload, no `msgId`) — voluntarily dissolves the current pair |
 | `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):
 | Type | Payload |
 |---|---|
 | `snapshot` | `worlds: WorldStates` — full state on connect |
-| `worldUpdate` | `worldId`, `state: WorldState \| null` (`null` = cleared) |
-| `clientCount` | `count: number` — broadcast on join/leave |
+| `worldUpdate` | `worldId`, `state: WorldState \| null` (`null` = cleared), optional `source?: string` (pairId attribution for scout-sourced updates) |
+| `clientCount` | `count: number; scouts: number; dashboards: number` — broadcast on join/leave/type-change |
+| `pairToken` | `token: string; expiresIn: number` — response to `requestPairToken` |
+| `paired` | `pairId: string; sessionCode: string` — sent to both sides when pairing completes |
+| `unpaired` | `reason: string` — sent when a pair is dissolved (peer disconnect, re-pair, or voluntary unpair) |
+| `peerWorld` | `worldId: number \| null` — sent to dashboard when its paired scout changes worlds |
 | `ack` | `msgId: number` — confirms a mutation was applied |
 | `pong` | (no payload) — response to `ping` |
 | `error` | `message: string` |
@@ -263,6 +274,7 @@ Clients connect to `ws://host/ws?code=XXXXXX`. The server validates the session 
 - Server runs auto-transitions every 10 seconds per session, broadcasting only changed worlds
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
 - Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
+- **Pairing**: each session maintains `pairTokens` (4-char tokens, 60s TTL), `pairs` (pairId → `{ dashboard, scout, currentWorld }`), and `wsToPairId` maps. A dashboard requests a token via `requestPairToken`; a Scout connects with that token via `?pairToken=`; the server calls `consumeAndCompletePairing` and sends `paired` to both sides. `resumePair` lets reconnecting clients re-join an existing pair group. Pair token sweep runs on the 10s transition interval.
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`

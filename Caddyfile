@@ -1,4 +1,4 @@
-# Change to the domain you'll host Ecto Trees at
+# Change to the domain you'll host Ectotrees at
 ectotrees.example.com {
     reverse_proxy /api/* app:3001
     reverse_proxy /ws    app:3001
