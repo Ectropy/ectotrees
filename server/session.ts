@@ -10,7 +10,7 @@ const MAX_CLIENTS_PER_SESSION = 1000;
 const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
-const PAIR_TOKEN_TTL_MS = 120_000;                 // 120 seconds
+const PAIR_TOKEN_TTL_MS = 60_000;                  // 60 seconds
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 

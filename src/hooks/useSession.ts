@@ -698,6 +698,20 @@ export function useSession(onSessionLost?: () => void) {
     }));
   }, []);
 
+  // Clear pair token from display when it expires
+  useEffect(() => {
+    if (!session.pairTokenExpiresAt) return;
+    const delay = session.pairTokenExpiresAt - Date.now();
+    if (delay <= 0) {
+      setSession(prev => ({ ...prev, pairToken: null, pairTokenExpiresAt: null }));
+      return;
+    }
+    const id = setTimeout(() => {
+      setSession(prev => ({ ...prev, pairToken: null, pairTokenExpiresAt: null }));
+    }, delay);
+    return () => clearTimeout(id);
+  }, [session.pairTokenExpiresAt]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

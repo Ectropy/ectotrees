@@ -33,7 +33,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   return (
     <button
       onClick={onDismiss}
-      className="text-red-400 text-[10px] hover:text-red-300 transition-colors"
+      className="text-red-400 text-xs hover:text-red-300 transition-colors"
       title={`${message} (click to dismiss)`}
     >
       {message}
@@ -175,11 +175,11 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
 
         {reconnectText && (
-          <span className={`${STATUS_TEXT_COLORS[session.status]} text-[10px] flex-shrink-0`}>{reconnectText}</span>
+          <span className={`${STATUS_TEXT_COLORS[session.status]} text-xs flex-shrink-0`}>{reconnectText}</span>
         )}
 
         {canRejoin && (
-          <span className={`${STATUS_TEXT_COLORS[session.status]} text-[10px] flex-shrink-0`}>
+          <span className={`${STATUS_TEXT_COLORS[session.status]} text-xs flex-shrink-0`}>
             Disconnected.
           </span>
         )}
@@ -192,7 +192,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         >
           {session.code}
         </button>
-        {copied && <span className="text-green-400 text-[10px]">Link copied!</span>}
+        {copied && <span className="text-green-400 text-xs">Link copied!</span>}
 
         {!canRejoin && (
           <span className="text-gray-500">
@@ -205,7 +205,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {isConnected && !canRejoin && (
           <>
             {session.isPaired ? (
-              <span className="flex items-center gap-1.5 text-amber-400 text-[10px]">
+              <span className="flex items-center gap-1.5 text-amber-400 text-xs">
                 <span>⚡ Paired</span>
                 <button
                   onClick={onUnpair}
@@ -217,26 +217,26 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
               </span>
             ) : session.pairToken ? (
               <span className="flex items-center gap-1.5">
-                <span className="text-gray-400 text-[10px]">Pair code:</span>
-                <span className="font-mono font-bold text-amber-300 tracking-widest">{session.pairToken}</span>
+                <span className="text-gray-400 text-xs">Alt1 pair code:</span>
                 <button
                   onClick={handleCopyToken}
-                  className="text-gray-400 hover:text-gray-200 transition-colors text-[10px]"
+                  className="font-mono font-bold text-amber-300 tracking-widest transition-colors hover:text-amber-200"
                   title="Copy pair token"
                 >
-                  {tokenCopied ? '✓' : 'copy'}
+                  {session.pairToken}
                 </button>
+                {tokenCopied && <span className="text-green-400 text-xs">Copied!</span>}
                 {tokenCountdown !== null && (
-                  <span className="text-gray-600 text-[10px]">{tokenCountdown}s</span>
+                  <span className="text-gray-600 text-xs">{tokenCountdown}s</span>
                 )}
               </span>
             ) : (
               <button
                 onClick={onRequestPairToken}
-                className="text-[10px] px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                title="Pair with Scout app"
+                className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                title="Pair with Ectotrees Scout Alt1 plugin"
               >
-                Pair Scout
+                Pair with Alt1
               </button>
             )}
           </>
