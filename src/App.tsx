@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull, Settings } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull, Settings, Copy, Check } from 'lucide-react';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
@@ -20,7 +20,7 @@ import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState, WorldStates } from './types';
-import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
+import { ALIVE_DEAD_MS, DEAD_CLEAR_MS, TREE_TYPE_SHORT } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 
@@ -100,6 +100,65 @@ const APP_VERSION = __APP_VERSION__;
 const SIDEBAR_PANEL_ID = 'sidebar';
 const GRID_PANEL_ID = 'grid';
 
+function formatCountdown(ms: number): string {
+  const clamped = Math.max(0, ms);
+  const totalSeconds = Math.floor(clamped / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldStates, now: number): string {
+  const lines: string[] = [];
+
+  for (const world of filteredWorlds) {
+    const state = worldStates[world.id] ?? { treeStatus: 'none' as const };
+
+    // Determine relevant timestamp and label
+    let ts: number | undefined;
+    let label: string | undefined;
+
+    if (state.treeStatus === 'none' && state.nextSpawnTarget !== undefined) {
+      ts = state.nextSpawnTarget;
+      label = 'spawning';
+    } else if (state.treeStatus === 'sapling' && state.matureAt !== undefined) {
+      ts = state.matureAt;
+      label = 'matures';
+    } else if ((state.treeStatus === 'mature' || state.treeStatus === 'alive') && state.matureAt !== undefined) {
+      ts = state.matureAt + ALIVE_DEAD_MS;
+      label = 'dies';
+    } else if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
+      ts = state.deadAt + DEAD_CLEAR_MS;
+      label = 'clears';
+    }
+
+    if (!label) continue; // no meaningful intel to share
+
+    const parts: string[] = [`World \`${world.id}\``];
+
+    if (state.treeType) {
+      parts.push(TREE_TYPE_SHORT[state.treeType]);
+    }
+
+    if ((state.treeStatus === 'mature' || state.treeStatus === 'alive') && state.treeHealth !== undefined) {
+      parts.push(`${state.treeHealth}%`);
+    }
+
+    const discordTs = `<t:${Math.floor(ts / 1000)}:R>`;
+    const countdown = `(\`${formatCountdown(ts - now)}\`)`;
+    parts.push(`— ${label} ${discordTs} ${countdown}`);
+
+    const location = state.treeExactLocation || state.treeHint;
+    if (location) {
+      parts.push(location);
+    }
+
+    lines.push(parts.join(' '));
+  }
+
+  return lines.join('\n');
+}
+
 export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
@@ -170,6 +229,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
+  const [copied, setCopied] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
@@ -634,6 +694,30 @@ export default function App() {
           </h1>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            {(() => {
+              const intelWorlds = sortedFilteredWorlds.filter(w => {
+                const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
+                return s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined;
+              });
+              const hasIntel = intelWorlds.length > 0;
+              return (
+                <button
+                  disabled={!hasIntel}
+                  onClick={() => {
+                    const msg = buildDiscordMessage(intelWorlds, worldStates, Date.now());
+                    navigator.clipboard.writeText(msg).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    });
+                  }}
+                  className={`transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}
+                  title="Copy intel to clipboard in Discord-friendly format"
+                  aria-label="Copy intel to clipboard"
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </button>
+              );
+            })()}
             <button
               onClick={() => {
                 const { surface, sidebarSide } = getAnalyticsContext();
