@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link2, Shield, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
+import { copyToClipboard } from '../lib/utils';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 import { CONNECTION_COLOR } from '../constants/toolColors';
 
@@ -112,51 +113,14 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleCopyCode() {
     if (!session.code) return;
-
-    const sessionUrl = buildSessionUrl(session.code);
-    const secure = window.isSecureContext;
-    if (!secure) {
-      console.warn('[clipboard] Not a secure context — navigator.clipboard API is unavailable.');
-    }
-
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(sessionUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        return;
-      } catch (err) {
-        console.error('[clipboard] Clipboard API writeText failed:', err);
-      }
-    }
-
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = sessionUrl;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch (err) {
-      console.error('[clipboard] execCommand fallback failed:', err);
-    }
+    const ok = await copyToClipboard(buildSessionUrl(session.code));
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
   }
 
   async function handleCopyToken() {
     if (!session.pairToken) return;
-    try {
-      await navigator.clipboard.writeText(session.pairToken);
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
-    } catch {
-      // fallback: select and copy
-    }
+    const ok = await copyToClipboard(session.pairToken);
+    if (ok) { setTokenCopied(true); setTimeout(() => setTokenCopied(false), 2000); }
   }
 
   function getReconnectText(): string | null {

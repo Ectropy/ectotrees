@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link2, Shield, Users, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
+import { copyToClipboard } from '../lib/utils';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 import { CONNECTION_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
@@ -100,32 +101,14 @@ export function SessionView({
 
   async function handleCopyCode() {
     if (!session.code) return;
-    const sessionUrl = buildSessionUrl(session.code);
-    try {
-      await navigator.clipboard.writeText(sessionUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
-      const textarea = document.createElement('textarea');
-      textarea.value = sessionUrl;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
-    }
+    const ok = await copyToClipboard(buildSessionUrl(session.code));
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
   }
 
   async function handleCopyToken() {
     if (!session.pairToken) return;
-    try {
-      await navigator.clipboard.writeText(session.pairToken);
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
-    } catch { /* ignore */ }
+    const ok = await copyToClipboard(session.pairToken);
+    if (ok) { setTokenCopied(true); setTimeout(() => setTokenCopied(false), 2000); }
   }
 
   function getReconnectText(): string | null {

@@ -23,6 +23,7 @@ import type { WorldConfig, WorldState, WorldStates } from './types';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS, TREE_TYPE_SHORT } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
+import { copyToClipboard } from './lib/utils';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -705,9 +706,8 @@ export default function App() {
                   disabled={!hasIntel}
                   onClick={() => {
                     const msg = buildDiscordMessage(intelWorlds, worldStates, Date.now());
-                    navigator.clipboard.writeText(msg).then(() => {
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 1500);
+                    copyToClipboard(msg).then(ok => {
+                      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
                     });
                   }}
                   className={`transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}

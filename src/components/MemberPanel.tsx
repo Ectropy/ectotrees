@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
 
 interface MemberPanelProps {
@@ -40,11 +41,8 @@ export function MemberPanel({ members, myRole, lastInvite, onCreateInvite, onBan
 
   async function handleCopyLink() {
     if (!lastInvite) return;
-    try {
-      await navigator.clipboard.writeText(lastInvite.link);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch { /* ignore */ }
+    const ok = await copyToClipboard(lastInvite.link);
+    if (ok) { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }
   }
 
   function canModify(target: MemberInfo): boolean {
