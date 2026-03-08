@@ -178,6 +178,8 @@ export function App() {
       submittingRef.current = false;
       setScanStatus('Submitted!');
       setScanStatusKind('ok');
+      setWorld('');
+      setAutoDetected(false);
       setHours('');
       setMinutes('');
       setHint('');

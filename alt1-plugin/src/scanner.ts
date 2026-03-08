@@ -55,7 +55,7 @@ export function scanSpiritTreeDialog(): DialogScanResult | null {
 
     let lines: string[] | null = null;
 
-    if (content && content !== false && content.text && content.text.length > 0) {
+    if (content && content.text && content.text.length > 0) {
       lines = content.text;
     } else {
       // Fallback: readDialog(null, true) skips the continue-button check entirely

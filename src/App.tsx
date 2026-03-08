@@ -101,15 +101,7 @@ const APP_VERSION = __APP_VERSION__;
 const SIDEBAR_PANEL_ID = 'sidebar';
 const GRID_PANEL_ID = 'grid';
 
-function formatCountdown(ms: number): string {
-  const clamped = Math.max(0, ms);
-  const totalSeconds = Math.floor(clamped / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldStates, now: number): string {
+function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldStates): string {
   const lines: string[] = [];
 
   for (const world of filteredWorlds) {
@@ -706,7 +698,7 @@ export default function App() {
                 <button
                   disabled={!hasIntel}
                   onClick={() => {
-                    const msg = buildDiscordMessage(intelWorlds, worldStates, Date.now());
+                    const msg = buildDiscordMessage(intelWorlds, worldStates);
                     copyToClipboard(msg).then(ok => {
                       if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
                     });
