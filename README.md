@@ -24,7 +24,9 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 - **Sidebar panel** (opt-in, available on screens ≥ 640px) — tool views and the detail view can open in a resizable panel beside the grid instead of replacing it, so you never lose sight of all 137 worlds. Dock left or right; drag the handle to resize; width is remembered across sessions and preserved when swapping sides. Enable in Settings (⚙). A toolbar above every view shows four quick-jump buttons (View · Timer · Tree · Dead) to switch tools without returning to the grid, plus dock controls: when in fullscreen use the panel-left/right icons to enter sidebar mode directly; when in sidebar use the expand icon to pop back to fullscreen or Close to return to the grid
 - **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, and sidebar mode
 - **Scrolling tip ticker** in the footer with gameplay tips and UI hints
-- **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket
+- **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket. Session management lives in a dedicated **Session panel** (fullscreen or docked in the sidebar) opened from the session bar in the header
+- **Managed sessions** — upgrade any session to invite-only mode: generate named invite links with roles (Owner / Moderator / Scout / Viewer), see a live member list, change roles, and ban members. Admins see invite tokens; world updates show who submitted them
+- **Discord intel copy** — a copy button in the header formats all currently visible worlds with active intel into a Discord message using `<t:UNIX:R>` relative timestamps, respecting your active sort order and filters. Disabled when no intel is visible
 - State persists in `localStorage` between sessions; when in a sync session, the server is the source of truth
 - **Installable as a PWA** — add to home screen on mobile for a standalone app experience (HTTPS required; see deployment section)
 
@@ -36,9 +38,21 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
+The **Session panel** (open via the session bar) shows full session controls, pairing, and — when in managed mode — the member list.
+
 Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session limits: max 1000 concurrent sessions, max 1000 clients per session. Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
 
 > **Tip:** If you already have local tracking data when you join a session, you'll be prompted to contribute it to the session — only worlds not already tracked in the session will be added.
+
+### Managed sessions
+
+Any session creator can upgrade their session to **managed (invite-only) mode** from the Session panel. Once enabled, new clients can only join via a named invite link.
+
+- **Create invites** — give each member a name and a role: Scout (can submit updates) or Viewer (read-only)
+- **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites and ban members
+- **Member list** — see who is connected, their role, and (for admins) their invite token
+- **Admin controls** — change a member's role, rename them, ban them (disconnects + revokes token), or transfer ownership
+- World updates in managed sessions show the submitter's name and role
 
 ## Customising worlds
 
