@@ -18,8 +18,8 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 ```bash
 npm run dev          # start Vite dev server (http://localhost:5173)
-npm run host         # same as dev but exposed to the network (vite --host)
-npm run build        # tsc -b && vite build
+npm run host         # dev server + alt1-plugin watch, exposed to network (concurrently)
+npm run build        # tsc -b && vite build + alt1-plugin build (concurrently)
 npm run lint         # eslint
 npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
@@ -58,13 +58,16 @@ e2e/
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
-  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types
+  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types; also exports TREE_TYPE_LABELS (full display names), TREE_TYPE_SHORT (abbreviated labels), and formatMs(ms) duration formatter
   constants/toolColors.ts # Canonical UI color tokens (SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR)
   types/index.ts         # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
   lib/
-    utils.ts            # cn() helper (clsx + tailwind-merge)
+    utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
-    sessionUrl.ts       # ?join=CODE URL param parsing and cleanup
+    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code) — ?join=CODE URL param parsing, cleanup, and generation
+    __tests__/
+      analytics.test.ts # Vitest unit tests for analytics helpers
+      sessionUrl.test.ts # Vitest unit tests for extractSessionCode
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
@@ -357,13 +360,13 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - `renameMember(inviteToken, name)` — renames a member
 - `setMemberRole(inviteToken, role)` — changes a member's role
 - `transferOwnership(inviteToken)` — transfers owner role to another member
-- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload
+- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload; active pair ID is stored in `localStorage` (`evilTree_pairId`) and auto-resumed via `resumePair` on reconnect
 - **`?join=CODE` URL parameter**: on page load, if a `?join=` query param is present with a valid 6-character code, the session is joined automatically and the param is removed from the URL history
 - **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
-- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect.
+- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`, `recentOwnWorldId`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
 
 ## Adding/Removing Worlds
 Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
