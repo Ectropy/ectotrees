@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && node scripts/copy-appconfig.mjs",
-    "dev": "vite build --mode development && node scripts/copy-appconfig.mjs",
-    "watch": "node scripts/copy-appconfig.mjs && vite build --mode development --watch",
+    "build": "vite build",
+    "dev": "vite build --mode development",
+    "watch": "vite build --mode development --watch",
     "serve": "vite --host --port 5173",
     "preview": "vite preview --host",
     "serve:dist": "npm run build && npm run preview"

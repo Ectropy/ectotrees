@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link2, Shield, Users, Copy, Check } from 'lucide-react';
+import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { copyToClipboard } from '../lib/utils';
@@ -38,6 +38,9 @@ const STATUS_LABELS: Record<SessionState['status'], string> = {
   connecting:   'Connecting…',
   disconnected: 'Disconnected',
 };
+
+// window.location.origin is constant for the page lifetime
+const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfig.json`;
 
 export function SessionView({
   session, activeLocalCount,
@@ -260,7 +263,21 @@ export function SessionView({
         {/* Alt1 Pairing */}
         {isConnected && (
           <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
-            <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Alt1 Scout Pairing</h2>
+            <div className="flex items-center justify-between">
+              <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Alt1 Scout Pairing</h2>
+              <a
+                href={ALT1_INSTALL_LINK}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
+                title="Install Alt1 plugin"
+              >
+                Install <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="bg-gray-700/30 border border-gray-700/50 rounded p-2 text-xs text-gray-300 space-y-1">
+              <p className="font-medium text-amber-300">ℹ Beta Plugin</p>
+              <p>The Alt1 plugin is in beta with known issues and not all features are implemented yet. Please report issues on GitHub.</p>
+            </div>
 
             {session.isPaired ? (
               <div className="flex items-center justify-between">

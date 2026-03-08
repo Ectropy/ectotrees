@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "host": "vite --host",
-    "build": "tsc -b && vite build",
+    "host": "concurrently --names \"dash,alt1\" --prefix-colors \"cyan,yellow\" \"vite --host\" \"npm --prefix alt1-plugin run watch\"",
+    "build": "tsc -b && concurrently \"vite build\" \"npm --prefix alt1-plugin run build\"",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
@@ -47,6 +47,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.5.2",

@@ -21,6 +21,7 @@ export default defineConfig({
         target: 'ws://localhost:3001',
         ws: true,
       },
+      '/alt1': 'http://localhost:3001',
     },
   },
   test: {

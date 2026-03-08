@@ -16,7 +16,6 @@ COPY . .
 # Defaults to the live server URL in vite.config.ts when not set.
 ARG ECTOTREES_API
 RUN npm run build
-RUN cd alt1-plugin && npm run build
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
@@ -26,7 +25,6 @@ COPY package*.json ./
 RUN npm ci --include=dev
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/alt1-plugin/dist ./dist/alt1
 COPY --from=build /app/server ./server
 COPY --from=build /app/shared ./shared
 COPY --from=build /app/src/data ./src/data

@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      outDir: 'dist',
+      outDir: '../dist/alt1',
       emptyOutDir: true,
       sourcemap: isDev ? 'inline' : false,
       rollupOptions: {
