@@ -130,14 +130,14 @@ function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldSt
       label = 'dies';
     } else if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
       ts = state.deadAt + DEAD_CLEAR_MS;
-      label = 'clears';
+      label = 'dead. Reward window ends';
     }
 
     if (!label) continue; // no meaningful intel to share
 
     const parts: string[] = [`World \`${world.id}\``];
 
-    if (state.treeType) {
+    if (state.treeType && state.treeStatus !== 'dead') {
       parts.push(TREE_TYPE_SHORT[state.treeType]);
     }
 
@@ -145,9 +145,10 @@ function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldSt
       parts.push(`${state.treeHealth}%`);
     }
 
-    const discordTs = `<t:${Math.floor(ts / 1000)}:R>`;
-    const countdown = `(\`${formatCountdown(ts - now)}\`)`;
-    parts.push(`— ${label} ${discordTs} ${countdown}`);
+    const discordTs = `<t:${Math.floor(ts! / 1000)}:R>`;
+    const utcTime = new Date(ts!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    const timeLabel = `(\`${utcTime}\`)`;
+    parts.push(`${label} ${discordTs} ${timeLabel}`);
 
     const location = state.treeExactLocation || state.treeHint;
     if (location) {
