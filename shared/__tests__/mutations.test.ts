@@ -162,6 +162,70 @@ describe('applyTransitions', () => {
     expect(result[1].matureAt).toBe(spawnAt + SAPLING_MATURE_MS);
   });
 
+  it('alive stays alive one ms before ALIVE_DEAD_MS', () => {
+    const matureAt = T;
+    // Health is already at the final cap (25) so no health transitions will fire.
+    const states = {
+      1: { treeStatus: 'alive' as const, matureAt, treeHealth: 25 },
+    };
+    const result = applyTransitions(states, matureAt + ALIVE_DEAD_MS - 1);
+    expect(result[1].treeStatus).toBe('alive');
+    expect(result).toBe(states);
+  });
+
+  it('sapling fast-forwarded past maturation deadline transitions to dead in one tick', () => {
+    // A sapling set at T, when now >= T + SAPLING_MATURE_MS + ALIVE_DEAD_MS, the sapling→mature
+    // and mature→dead transitions both fire in the same pass.
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS + ALIVE_DEAD_MS);
+    expect(result[1].treeStatus).toBe('dead');
+    expect(result[1].deadAt).toBe(T + SAPLING_MATURE_MS + ALIVE_DEAD_MS);
+  });
+
+  it('sapling with undefined treeType matures with treeType mature', () => {
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS);
+    expect(result[1].treeStatus).toBe('mature');
+    expect(result[1].treeType).toBe('mature');
+  });
+
+  it('sapling-tree → tree on maturation', () => {
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeType: 'sapling-tree' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS);
+    expect(result[1].treeType).toBe('tree');
+    expect(result[1].treeStatus).toBe('mature');
+  });
+
+  it('sapling-willow → willow on maturation', () => {
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeType: 'sapling-willow' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS);
+    expect(result[1].treeType).toBe('willow');
+  });
+
+  it('sapling-yew → yew on maturation', () => {
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeType: 'sapling-yew' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS);
+    expect(result[1].treeType).toBe('yew');
+  });
+
+  it('sapling-magic → magic on maturation', () => {
+    const states = {
+      1: { treeStatus: 'sapling' as const, treeType: 'sapling-magic' as const, treeSetAt: T },
+    };
+    const result = applyTransitions(states, T + SAPLING_MATURE_MS);
+    expect(result[1].treeType).toBe('magic');
+  });
+
   it('only changes worlds that are due, leaves others untouched', () => {
     const states = {
       1: { treeStatus: 'sapling' as const, treeSetAt: T },        // due
@@ -515,6 +579,13 @@ describe('applyTransitions — lightning health caps', () => {
     const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 20 } };
     const result = applyTransitions(states, matureAt + LIGHTNING_2_MS);
     expect(result).toBe(states);
+  });
+
+  it('exactly at 20-min mark, health = 75 → health becomes 25 (both caps fire in same tick)', () => {
+    // At LIGHTNING_2_MS: LIGHTNING_1 fires first (75 → 50), then LIGHTNING_2 fires (50 → 25).
+    const states = { 1: { treeStatus: 'alive' as const, matureAt, treeHealth: 75 } };
+    const result = applyTransitions(states, matureAt + LIGHTNING_2_MS);
+    expect(result[1].treeHealth).toBe(HEALTH_LIGHTNING_2);
   });
 
   it('at 25 min (both marks passed), health = 80 → health becomes 25', () => {

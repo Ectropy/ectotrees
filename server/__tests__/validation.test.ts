@@ -145,11 +145,11 @@ describe('validateMessage — setSpawnTimer', () => {
   it('strips control characters from treeHint when result is a canonical hint', () => {
     // Control chars are stripped before the allowlist check — a canonical hint with
     // an embedded control char must still pass validation.
-    const dirty = 'Close to a\x00 collection of yew trees (Seers)';
+    const dirty = 'Close to a\x00 collection of yew trees';
     const result = validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000, treeInfo: { treeHint: dirty } });
     expect(result).not.toHaveProperty('error');
     if (!('error' in result) && result.type === 'setSpawnTimer') {
-      expect(result.treeInfo?.treeHint).toBe('Close to a collection of yew trees (Seers)');
+      expect(result.treeInfo?.treeHint).toBe('Close to a collection of yew trees');
     }
   });
 
