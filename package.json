@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "host": "concurrently --names \"dash,alt1\" --prefix-colors \"cyan,yellow\" \"vite --host\" \"npm --prefix alt1-plugin run watch\"",
-    "build": "tsc -b && concurrently \"vite build\" \"npm --prefix alt1-plugin run build\"",
+    "build": "tsc -b && vite build && npm --prefix alt1-plugin run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
