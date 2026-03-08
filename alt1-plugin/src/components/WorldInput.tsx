@@ -1,3 +1,6 @@
+import { ScanLine } from 'lucide-react';
+import { Tooltip } from './ui/tooltip';
+
 interface WorldInputProps {
   world: string;
   autoDetected: boolean;
@@ -14,7 +17,7 @@ export function WorldInput({
   onScan,
 }: WorldInputProps) {
   return (
-    <section className="px-3 py-2.5">
+    <section className="px-3 py-2">
       <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
         World
       </label>
@@ -28,13 +31,16 @@ export function WorldInput({
           onChange={(e) => onChange(e.target.value)}
           className="max-w-[90px] text-center bg-input border border-border rounded px-2 py-1 text-foreground text-[13px] focus:outline-none focus:border-primary placeholder:text-muted-foreground"
         />
-        <button
-          onClick={onScan}
-          disabled={!hasPixel}
-          className="bg-secondary text-foreground text-xs font-semibold px-2.5 py-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-border"
-        >
-          Scan
-        </button>
+        <Tooltip content={hasPixel ? 'Auto-detect world (Alt1)' : 'Pixel permission required'} side="right">
+          <button
+            onClick={onScan}
+            disabled={!hasPixel}
+            aria-label="Auto-detect world"
+            className="flex items-center justify-center w-7 h-7 bg-secondary border border-border rounded disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:bg-border transition-colors"
+          >
+            <ScanLine size={14} />
+          </button>
+        </Tooltip>
         {autoDetected && (
           <span className="text-[11px] text-muted-foreground italic">auto-detected</span>
         )}

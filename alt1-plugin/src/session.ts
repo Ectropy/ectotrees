@@ -8,8 +8,8 @@ import type { ClientMessage, ServerMessage } from '@shared/protocol';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
-const API_BASE: string = process.env.API_BASE ?? '/api';
-const WS_BASE: string = process.env.WS_BASE ?? '';
+const API_BASE: string = import.meta.env.VITE_API_BASE ?? '/api';
+const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? '';
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;

@@ -4,13 +4,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const isDev = mode !== 'production';
-  const hasApiOverride = Boolean(process.env.ECTOTREES_API);
-  const apiBase = process.env.ECTOTREES_API
-    ?? (isDev ? '/api' : 'https://trees.ectropyarts.com');
-  const wsBase = process.env.ECTOTREES_WS
-    ?? (hasApiOverride
-      ? apiBase.replace(/^https?/, isDev ? 'ws' : 'wss')
-      : (isDev ? '' : apiBase.replace(/^https?/, 'wss')));
   const emptyModule = path.resolve(__dirname, 'src/shims/empty-module.ts');
 
   return {
@@ -22,10 +15,6 @@ export default defineConfig(({ mode }) => {
         { find: /^canvas(?:\/.*)?$/, replacement: emptyModule },
         { find: /^electron\/common$/, replacement: emptyModule },
       ],
-    },
-    define: {
-      'process.env.API_BASE': JSON.stringify(apiBase),
-      'process.env.WS_BASE': JSON.stringify(wsBase),
     },
     plugins: [react()],
     server: {

@@ -1,9 +1,12 @@
+import { ScanText } from 'lucide-react';
+import { Tooltip } from './ui/tooltip';
+
 interface ReportFormProps {
   hours: string;
   minutes: string;
   hint: string;
-  scanStatus: string;
-  scanStatusKind: 'ok' | 'warn' | 'error' | '';
+  statusMsg: string;
+  statusKind: 'ok' | 'warn' | 'error' | '';
   hasPixel: boolean;
   canSubmit: boolean;
   onHoursChange: (v: string) => void;
@@ -18,8 +21,8 @@ export function ReportForm({
   hours,
   minutes,
   hint,
-  scanStatus,
-  scanStatusKind,
+  statusMsg,
+  statusKind,
   hasPixel,
   canSubmit,
   onHoursChange,
@@ -29,7 +32,7 @@ export function ReportForm({
   onSubmit,
   onClear,
 }: ReportFormProps) {
-  const scanStatusColors = {
+  const statusColors = {
     ok: 'text-success',
     warn: 'text-warning',
     error: 'text-destructive',
@@ -37,7 +40,7 @@ export function ReportForm({
   };
 
   return (
-    <section className="px-3 py-2.5">
+    <section className="px-3 py-2">
       {/* Spawn timer */}
       <div className="flex flex-col">
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
@@ -67,39 +70,43 @@ export function ReportForm({
         </div>
       </div>
 
-      {/* Hint */}
+      {/* Hint with inline scan icon */}
       <div className="flex flex-col mt-2">
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
           Location hint
         </label>
-        <input
-          type="text"
-          maxLength={200}
-          placeholder="e.g. in the lands inhabited by elves"
-          value={hint}
-          onChange={(e) => onHintChange(e.target.value)}
-          className="bg-input border border-border rounded px-2 py-1 text-foreground text-xs focus:outline-none focus:border-primary placeholder:text-muted-foreground"
-        />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            maxLength={200}
+            placeholder="e.g. in the lands inhabited by elves"
+            value={hint}
+            onChange={(e) => onHintChange(e.target.value)}
+            className="flex-1 bg-input border border-border rounded px-2 py-1 text-foreground text-xs focus:outline-none focus:border-primary placeholder:text-muted-foreground"
+          />
+          <Tooltip
+            content={hasPixel ? 'Scan the Spirit Tree chat dialog' : 'Pixel permission required to scan'}
+            side="left"
+          >
+            <button
+              onClick={onScanDialog}
+              disabled={!hasPixel}
+              aria-label="Scan Spirit Tree dialog"
+              className="flex items-center justify-center w-7 h-7 shrink-0 bg-secondary border border-primary rounded text-primary disabled:border-border disabled:text-muted-foreground disabled:cursor-not-allowed hover:enabled:bg-primary/10 transition-colors"
+            >
+              <ScanText size={14} />
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
-      {/* Scan button */}
-      <button
-        onClick={onScanDialog}
-        disabled={!hasPixel}
-        className="mt-2.5 w-full bg-secondary text-primary border border-primary rounded py-[7px] text-xs font-semibold disabled:border-border disabled:text-muted-foreground disabled:cursor-not-allowed hover:enabled:bg-primary/10"
-      >
-        Scan Spirit Tree Dialog
-      </button>
-
-      {/* Scan status */}
-      {scanStatus && (
-        <div className={`mt-1.5 text-[11px] min-h-[16px] ${scanStatusColors[scanStatusKind]}`}>
-          {scanStatus}
-        </div>
-      )}
+      {/* Status line — always rendered to reserve height and prevent reflow */}
+      <div className={`mt-1.5 text-[11px] min-h-[16px] ${statusColors[statusKind]}`}>
+        {statusMsg}
+      </div>
 
       {/* Divider */}
-      <hr className="border-t border-border my-2.5" />
+      <hr className="border-t border-border my-2" />
 
       {/* Submit / Clear */}
       <div className="flex gap-2">

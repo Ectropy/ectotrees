@@ -1,16 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { useScoutSession } from './hooks/useScoutSession';
 import { useAlt1 } from './hooks/useAlt1';
-import { StatusBanner } from './components/StatusBanner';
 import { SessionPanel } from './components/SessionPanel';
-import { LinkPanel } from './components/LinkPanel';
 import { WorldInput } from './components/WorldInput';
 import { ReportForm } from './components/ReportForm';
+import { TooltipProvider } from './components/ui/tooltip';
+
+type StatusKind = 'ok' | 'warn' | 'error' | '';
+
+const STATUS_DURATIONS: Record<StatusKind, number> = {
+  ok: 3000,
+  warn: 12000,
+  error: 15000,
+  '': 0,
+};
 
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, clientCount, error, isPaired, pairId,
+    status, code, clientCount, error, isPaired,
     session, createSession, joinSession, leaveSession, sendMutation, dismissError,
     submitPairToken, unpair,
   } = useScoutSession();
@@ -21,35 +29,40 @@ export function App() {
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [hint, setHint] = useState('');
-  const [scanStatus, setScanStatus] = useState('');
-  const [scanStatusKind, setScanStatusKind] = useState<'ok' | 'warn' | 'error' | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
-  // Banner state (session errors + transient messages)
-  const [banner, setBanner] = useState<{ message: string; variant: 'error' | 'success' | 'warn' | '' } | null>(null);
-  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Unified status message state
+  const [statusMsg, setStatusMsg] = useState('');
+  const [statusKind, setStatusKind] = useState<StatusKind>('');
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync session error to banner
-  useEffect(() => {
-    if (error) {
-      setBanner({ message: error, variant: 'error' });
-    }
-  }, [error]);
-
-  function showBanner(message: string, variant: 'error' | 'warn' | 'success' | '' = '', durationMs?: number) {
-    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
-    setBanner({ message, variant });
-    if (durationMs) {
-      bannerTimerRef.current = setTimeout(() => setBanner(null), durationMs);
+  function showStatus(message: string, kind: StatusKind = '') {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusMsg(message);
+    setStatusKind(kind);
+    const duration = STATUS_DURATIONS[kind];
+    if (duration > 0) {
+      statusTimerRef.current = setTimeout(() => {
+        setStatusMsg('');
+        setStatusKind('');
+        dismissError();
+      }, duration);
     }
   }
 
-  function clearBanner() {
-    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
-    setBanner(null);
+  function clearStatus() {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusMsg('');
+    setStatusKind('');
     dismissError();
   }
+
+  // Sync session errors into the shared status line
+  useEffect(() => {
+    if (error) showStatus(error, 'error');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   // Not in Alt1 — show install prompt
   if (!isAlt1) {
@@ -102,38 +115,31 @@ export function App() {
   // Handlers
   function handleScanWorld() {
     if (!hasPixel && !hasGameState) {
-      setScanStatus('No pixel/gamestate permission.');
-      setScanStatusKind('error');
+      showStatus('No pixel/gamestate permission.', 'error');
       return;
     }
-    setScanStatus('Scanning...');
-    setScanStatusKind('');
+    showStatus('Scanning...');
     const result = scanWorld();
     if (result) {
       setWorld(String(result.world));
       setAutoDetected(true);
       const via = result.method === 'gamestate' ? 'via Alt1 gamestate' : 'via Friends List OCR';
-      setScanStatus(`World ${result.world} detected (${via}).`);
-      setScanStatusKind('ok');
+      showStatus(`World ${result.world} detected (${via}).`, 'ok');
     } else {
       setAutoDetected(false);
-      setScanStatus('Could not detect world — make sure you are logged in (not in lobby).');
-      setScanStatusKind('warn');
+      showStatus('Could not detect world — make sure you are logged in (not in lobby).', 'warn');
     }
   }
 
   function handleScanDialog() {
     if (!hasPixel) {
-      setScanStatus('Alt1 pixel permission required to scan.');
-      setScanStatusKind('error');
+      showStatus('Alt1 pixel permission required to scan.', 'error');
       return;
     }
-    setScanStatus('Scanning...');
-    setScanStatusKind('');
+    showStatus('Scanning...');
     const result = scanDialog();
     if (!result) {
-      setScanStatus('No dialog found — open the Spirit Tree chat first.');
-      setScanStatusKind('warn');
+      showStatus('No dialog found — open the Spirit Tree chat first.', 'warn');
       return;
     }
 
@@ -150,12 +156,10 @@ export function App() {
     }
 
     if (detected.length > 0) {
-      setScanStatus(`Detected: ${detected.join(' · ')}`);
-      setScanStatusKind('ok');
+      showStatus(`Detected: ${detected.join(' · ')}`, 'ok');
     } else {
       const snippet = result.rawText.slice(0, 80).replace(/\n/g, ' ');
-      setScanStatus(`Found dialog but no timer/hint: "${snippet}"`);
-      setScanStatusKind('warn');
+      showStatus(`Found dialog but no timer/hint: "${snippet}"`, 'warn');
     }
   }
 
@@ -168,25 +172,19 @@ export function App() {
 
     setSubmitting(true);
     submittingRef.current = true;
-    setScanStatus('Submitting...');
-    setScanStatusKind('');
+    showStatus('Submitting...');
 
     const unsubAck = session.on('ack', () => {
       unsubAck();
       unsubStatus();
       setSubmitting(false);
       submittingRef.current = false;
-      setScanStatus('Submitted!');
-      setScanStatusKind('ok');
+      showStatus('Submitted!', 'ok');
       setWorld('');
       setAutoDetected(false);
       setHours('');
       setMinutes('');
       setHint('');
-      setTimeout(() => {
-        setScanStatus('');
-        setScanStatusKind('');
-      }, 3000);
     });
 
     const unsubStatus = session.on('statusChange', (s) => {
@@ -195,8 +193,7 @@ export function App() {
         unsubAck();
         setSubmitting(false);
         submittingRef.current = false;
-        setScanStatus('Disconnected before submit was confirmed.');
-        setScanStatusKind('error');
+        showStatus('Disconnected before submit was confirmed.', 'error');
       }
     });
 
@@ -213,72 +210,57 @@ export function App() {
     setMinutes('');
     setHint('');
     setAutoDetected(false);
-    setScanStatus('');
-    setScanStatusKind('');
+    clearStatus();
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-[#111116] px-3 py-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase border-b border-border select-none">
-        Ectotrees Scout
-      </header>
+    <TooltipProvider>
+      <div className="flex flex-col min-h-screen">
+        <header className="bg-[#111116] px-3 py-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase border-b border-border select-none">
+          Ectotrees Scout
+        </header>
 
-      <StatusBanner
-        message={banner?.message ?? null}
-        variant={banner?.variant ?? ''}
-        onDismiss={clearBanner}
-      />
+        <SessionPanel
+          status={status}
+          code={code}
+          clientCount={clientCount}
+          isPaired={isPaired}
+          onJoin={joinSession}
+          onCreate={createSession}
+          onLeave={leaveSession}
+          onSubmitPairToken={submitPairToken}
+          onUnpair={unpair}
+          onError={(msg) => showStatus(msg, 'error')}
+        />
 
-      <SessionPanel
-        status={status}
-        code={code}
-        clientCount={clientCount}
-        onJoin={joinSession}
-        onCreate={createSession}
-        onLeave={leaveSession}
-        onError={(msg) => showBanner(msg, 'error', 2500)}
-      />
+        <hr className="border-t border-border" />
 
-      {status === 'connected' && (
-        <>
-          <hr className="border-t border-border" />
-          <LinkPanel
-            isPaired={isPaired}
-            pairId={pairId}
-            sessionCode={code}
-            onSubmitToken={submitPairToken}
-            onUnpair={unpair}
-          />
-        </>
-      )}
+        <WorldInput
+          world={world}
+          autoDetected={autoDetected}
+          hasPixel={hasPixel}
+          onChange={(v) => { setWorld(v); setAutoDetected(false); }}
+          onScan={handleScanWorld}
+        />
 
-      <hr className="border-t border-border" />
+        <hr className="border-t border-border" />
 
-      <WorldInput
-        world={world}
-        autoDetected={autoDetected}
-        hasPixel={hasPixel}
-        onChange={(v) => { setWorld(v); setAutoDetected(false); }}
-        onScan={handleScanWorld}
-      />
-
-      <hr className="border-t border-border" />
-
-      <ReportForm
-        hours={hours}
-        minutes={minutes}
-        hint={hint}
-        scanStatus={scanStatus}
-        scanStatusKind={scanStatusKind}
-        hasPixel={hasPixel}
-        canSubmit={canSubmit}
-        onHoursChange={setHours}
-        onMinutesChange={setMinutes}
-        onHintChange={setHint}
-        onScanDialog={handleScanDialog}
-        onSubmit={handleSubmit}
-        onClear={handleClear}
-      />
-    </div>
+        <ReportForm
+          hours={hours}
+          minutes={minutes}
+          hint={hint}
+          statusMsg={statusMsg}
+          statusKind={statusKind}
+          hasPixel={hasPixel}
+          canSubmit={canSubmit}
+          onHoursChange={setHours}
+          onMinutesChange={setMinutes}
+          onHintChange={setHint}
+          onScanDialog={handleScanDialog}
+          onSubmit={handleSubmit}
+          onClear={handleClear}
+        />
+      </div>
+    </TooltipProvider>
   );
 }
