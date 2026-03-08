@@ -1,21 +1,11 @@
 #!/bin/bash
 # scripts/update-docs.sh
 #
-# Updates README.md and CLAUDE.md based on committed changes since the last
-# npm version tag (v*). Run this just before `npm version patch/minor/major`.
-#
-# Usage:
-#   bash scripts/update-docs.sh           # dry-run: show diff, no changes
-#   bash scripts/update-docs.sh --apply   # update and stage both files
+# Pre-release gate: shows commits since the last version tag and asks whether
+# docs are up to date before allowing `npm version` to proceed.
 
 set -euo pipefail
 
-APPLY=false
-if [[ "${1:-}" == "--apply" ]]; then
-  APPLY=true
-fi
-
-# ── Find base commit ─────────────────────────────────────────────────────────
 LAST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
 
 if [[ -n "$LAST_TAG" ]]; then
@@ -26,119 +16,14 @@ else
   BASE_LABEL="initial commit"
 fi
 
-# ── Collect diff ─────────────────────────────────────────────────────────────
-DIFF=$(git diff "$BASE" HEAD -- . \
-  ':(exclude).git' \
-  ':(exclude)*.lock' \
-  ':(exclude)package-lock.json' \
-  ':(exclude)dist/')
-
-if [[ -z "$DIFF" ]]; then
-  echo "No committed changes since $BASE_LABEL."
-  exit 0
-fi
-
-echo "Changes since $BASE_LABEL:"
-git log --oneline "$BASE"..HEAD
 echo ""
-
-if [[ "$APPLY" == false ]]; then
-  read -rp "Update docs now with --apply? [y/N] " apply_now
-  if [[ "$apply_now" == "y" || "$apply_now" == "Y" ]]; then
-    exec bash "$0" --apply
-  fi
-  echo ""
-  read -rp "Docs up to date? Continue with npm version? [y/N] " confirm
-  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    echo "Aborted."
-    exit 1
-  fi
-  exit 0
-fi
-
-# ── Helper: call Claude and strip any markdown fences from output ─────────────
-call_claude() {
-  local prompt="$1"
-  local result
-  result=$(echo "$prompt" | claude --print)
-  # Strip leading/trailing ```...``` fences if Claude wrapped the output
-  result=$(echo "$result" | sed '/^```/d')
-  echo "$result"
-}
-
-# ── Update a single file ──────────────────────────────────────────────────────
-update_file() {
-  local FILE="$1"
-  local INSTRUCTIONS="$2"
-
-  if [[ ! -f "$FILE" ]]; then
-    echo "⚠️  $FILE not found, skipping."
-    return
-  fi
-
-  echo "Updating $FILE..."
-
-  local CURRENT
-  CURRENT=$(cat "$FILE")
-
-  local PROMPT
-  PROMPT="${INSTRUCTIONS}
-
-Current ${FILE}:
-<current>
-${CURRENT}
-</current>
-
-Git diff since ${BASE_LABEL}:
-<diff>
-${DIFF}
-</diff>
-
-Output ONLY the updated file content. No preamble, no explanation, no markdown code fences. If no changes are needed, output the file exactly as-is."
-
-  local UPDATED
-  UPDATED=$(call_claude "$PROMPT")
-
-  if [[ -z "$UPDATED" ]]; then
-    echo "⚠️  No output from Claude for $FILE."
-    echo "   Install the Claude CLI and try again:"
-    echo "   https://code.claude.com/docs/en/quickstart#native-install-recommended"
-    FAILED=true
-    return
-  fi
-
-  echo "$UPDATED" > "$FILE"
-  git add "$FILE"
-  echo "✅ $FILE staged."
-}
-
-# ── Run updates ───────────────────────────────────────────────────────────────
-FAILED=false
-
-# ── README.md ─────────────────────────────────────────────────────────────────
-update_file "README.md" \
-  "You are updating README.md for a RuneScape 3 Evil Trees tracker app.
-Update only the sections directly affected by the git diff below.
-Preserve all existing structure, headings, tone, and content that is unaffected.
-Focus on user-facing changes: new features, changed behaviour, updated commands."
-
-# ── CLAUDE.md ─────────────────────────────────────────────────────────────────
-update_file "CLAUDE.md" \
-  "You are updating CLAUDE.md — a developer guide for AI assistants working on this codebase.
-Update only the sections directly affected by the git diff below.
-Sections to potentially update include: Tech Stack, Commands, Project Structure, Key Architecture Decisions, component descriptions, and any constants or settings that changed.
-Preserve all existing structure, headings, and content that is unaffected.
-Be precise and technical; this file is read by AI coding assistants."
-
-# ── Done ──────────────────────────────────────────────────────────────────────
-if [[ "$FAILED" == true ]]; then
-  echo ""
-  echo "❌ Doc update failed. Fix the issue above and re-run before bumping the version."
+echo "=== Pre-release check ==="
+echo ""
+echo "Commits since $BASE_LABEL:"
+git log "$BASE"..HEAD --oneline
+echo ""
+read -rp "Are your docs (README.md, CLAUDE.md) up to date? Continue with version bump? [y/N] " answer
+if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
+  echo "Aborting. Update your docs first, then re-run npm version."
   exit 1
 fi
-
-echo ""
-echo "Review staged changes:"
-echo "  git diff --cached README.md CLAUDE.md"
-echo ""
-echo "When satisfied, commit and then run: npm version patch|minor|major"
