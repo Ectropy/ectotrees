@@ -18,7 +18,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "preversion": "bash scripts/update-docs.sh",
+    "preversion": "node scripts/update-docs.mjs",
     "postversion": "git push --follow-tags"
   },
   "dependencies": {
