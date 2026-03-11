@@ -8,6 +8,7 @@ export interface MemberInfo {
   online: boolean;
   currentWorld: number | null;
   inviteToken?: string;  // included only for admin recipients
+  link?: string;         // included only for admin recipients — full invite URL
 }
 
 export type ClientMessage =
@@ -25,7 +26,7 @@ export type ClientMessage =
   | { type: 'resumePair'; pairId: string }
   | { type: 'reportWorld'; worldId: number | null }
   | { type: 'unpair' }
-  | { type: 'enableManaged' }
+  | { type: 'enableManaged'; name: string }
   | { type: 'createInvite'; name: string; role?: 'scout' | 'viewer' }
   | { type: 'banMember'; inviteToken: string }
   | { type: 'renameMember'; inviteToken: string; name: string }

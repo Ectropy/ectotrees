@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link2, Shield, ExternalLink } from 'lucide-react';
+import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { copyToClipboard } from '../lib/utils';
@@ -13,11 +13,9 @@ interface SessionBarProps {
   onJoinSession: (code: string) => boolean;
   onRequestSessionJoin: (code: string) => Promise<void>;
   onRejoinSession: (code: string) => void;
-  onLeaveSession: () => void;
   onDismissError: () => void;
   onRequestPairToken: () => void;
   onUnpair: () => void;
-  onEnableManaged: () => void;
   onOpenSession: () => void;
 }
 
@@ -45,7 +43,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession, onDismissError, onRequestPairToken, onUnpair, onEnableManaged, onOpenSession }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onRequestPairToken, onUnpair, onOpenSession }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -152,20 +150,31 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         )}
 
         <span className={`${STATUS_TEXT_COLORS[session.status]} opacity-60`}>Session:</span>
-        <button
-          onClick={handleCopyCode}
-          className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} transition-colors`}
-          title="Copy session link"
-        >
-          {session.code}
-        </button>
-        {copied && <span className="text-green-400 text-xs">Link copied!</span>}
 
-        {!canRejoin && (
-          <span className="text-gray-500">
-            {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-            {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
+        {/* Code — clickable to copy in anon mode, plain in managed mode */}
+        {session.managed ? (
+          <span className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]}`}>
+            {session.code}
           </span>
+        ) : (
+          <button
+            onClick={handleCopyCode}
+            className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
+            title="Copy session link"
+          >
+            {session.code}
+          </button>
+        )}
+
+        {/* Copy icon — anon mode only */}
+        {!session.managed && (
+          <button
+            onClick={handleCopyCode}
+            className="text-gray-500 hover:text-gray-300 transition-colors"
+            title="Copy session link"
+          >
+            {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+          </button>
         )}
 
         {/* Pairing controls — only when connected */}
@@ -209,30 +218,6 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </>
         )}
 
-        {/* Managed session indicator */}
-        {isConnected && !canRejoin && session.managed && (
-          <button
-            onClick={onOpenSession}
-            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
-            title="Open session management"
-          >
-            <Shield className="w-3 h-3" />
-            <span>{session.members.length}</span>
-          </button>
-        )}
-
-        {/* Enable managed mode button (only before managed is enabled) */}
-        {isConnected && !canRejoin && !session.managed && !session.isPaired && (
-          <button
-            onClick={onEnableManaged}
-            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            title="Enable invite-only managed mode"
-          >
-            <Shield className="w-3 h-3 inline-block mr-0.5" />
-            Manage
-          </button>
-        )}
-
         {canRejoin && (
           <button
             onClick={() => onRejoinSession(session.code!)}
@@ -246,20 +231,22 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           <DismissableError message={session.error} onDismiss={onDismissError} />
         )}
 
-        <button
-          onClick={onOpenSession}
-          className="text-gray-500 hover:text-gray-300 transition-colors"
-          title="Open session management"
-        >
-          <ExternalLink className="w-3 h-3" />
-        </button>
+        {/* Right side: member count + manage button */}
+        <span className="ml-auto flex items-center gap-2">
+          {!canRejoin && (
+            <span className="text-gray-500">
+              {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
+              {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
+            </span>
+          )}
+          <button
+            onClick={onOpenSession}
+            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+          >
+            Manage session
+          </button>
+        </span>
 
-        <button
-          onClick={onLeaveSession}
-          className="text-red-500 hover:text-red-400 transition-colors"
-        >
-          Leave
-        </button>
       </div>
     );
   }

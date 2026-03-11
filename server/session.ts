@@ -5,6 +5,8 @@ import type { ServerMessage, MemberRole, MemberInfo } from '../shared/protocol.t
 import { applyTransitions } from '../shared/mutations.ts';
 import { log, warn } from './log.ts';
 
+const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+
 const MAX_SESSIONS = 1000;
 const MAX_CLIENTS_PER_SESSION = 1000;
 const MAX_MEMBERS_PER_SESSION = 500;
@@ -510,7 +512,7 @@ function broadcastMemberList(session: Session) {
   if (!session.managed || !session.members) return;
   const baseMembers = buildMemberList(session);
 
-  // Build admin version with invite tokens
+  // Build admin version with invite tokens and invite links
   const adminMembers: MemberInfo[] = [];
   for (const member of session.members.values()) {
     if (member.banned) continue;
@@ -520,6 +522,7 @@ function broadcastMemberList(session: Session) {
       online: member.connections.size > 0,
       currentWorld: member.currentWorld,
       inviteToken: member.inviteToken,
+      link: `${APP_URL}/?invite=${member.inviteToken}`,
     });
   }
 
@@ -563,7 +566,7 @@ function broadcastManagedClientCount(session: Session) {
 }
 
 /** Enable managed mode on an existing anonymous session. Returns the owner token. */
-export function enableManaged(session: Session, creatorWs: WebSocket): string | { error: string } {
+export function enableManaged(session: Session, creatorWs: WebSocket, name: string): string | { error: string } {
   if (session.managed) return { error: 'Session is already managed.' };
 
   const ownerToken = generateInviteToken();
@@ -574,7 +577,7 @@ export function enableManaged(session: Session, creatorWs: WebSocket): string | 
 
   // Create owner member entry
   const ownerMember: Member = {
-    name: 'Owner',
+    name,
     inviteToken: ownerToken,
     role: 'owner',
     banned: false,
@@ -587,7 +590,7 @@ export function enableManaged(session: Session, creatorWs: WebSocket): string | 
   inviteTokenIndex.set(ownerToken, session.code);
 
   // Send owner their identity + token
-  const identityMsg: ServerMessage = { type: 'identity', name: 'Owner', role: 'owner' };
+  const identityMsg: ServerMessage = { type: 'identity', name, role: 'owner' };
   creatorWs.send(JSON.stringify(identityMsg));
   const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken };
   creatorWs.send(JSON.stringify(enabledMsg));
@@ -692,7 +695,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   session.members.set(inviteToken, member);
   inviteTokenIndex.set(inviteToken, session.code);
 
-  const link = `https://ectotrees.app/?invite=${inviteToken}`;
+  const link = `${APP_URL}/?invite=${inviteToken}`;
   broadcastMemberList(session);
   return { type: 'inviteCreated', inviteToken, name, link };
 }

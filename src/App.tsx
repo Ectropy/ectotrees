@@ -738,11 +738,9 @@ export default function App() {
           onJoinSession={handleJoinSession}
           onRequestSessionJoin={handleRequestSessionJoin}
           onRejoinSession={rejoinSession}
-          onLeaveSession={handleLeaveSession}
           onDismissError={dismissError}
           onRequestPairToken={requestPairToken}
           onUnpair={unpair}
-          onEnableManaged={enableManaged}
           onOpenSession={() => setActiveView({ kind: 'session' })}
         />
 

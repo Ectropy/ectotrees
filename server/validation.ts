@@ -151,7 +151,11 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'identify', clientType: raw.clientType as 'scout' | 'dashboard' };
   }
 
-  if (type === 'enableManaged') return { type: 'enableManaged' };
+  if (type === 'enableManaged') {
+    const name = sanitizeString(raw.name);
+    if (!name) return { error: 'Name is required.' };
+    return { type: 'enableManaged', name };
+  }
 
   if (type === 'createInvite') {
     const name = sanitizeString(raw.name);

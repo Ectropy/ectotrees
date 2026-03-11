@@ -748,10 +748,10 @@ export function useSession(onSessionLost?: () => void) {
     }));
   }, []);
 
-  const enableManaged = useCallback(() => {
+  const enableManaged = useCallback((name: string) => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'enableManaged' }));
+      ws.send(JSON.stringify({ type: 'enableManaged', name }));
     }
   }, []);
 

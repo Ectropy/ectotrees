@@ -18,7 +18,7 @@ interface SessionViewProps {
   onDismissError: () => void;
   onRequestPairToken: () => void;
   onUnpair: () => void;
-  onEnableManaged: () => void;
+  onEnableManaged: (name: string) => void;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
   onBanMember: (inviteToken: string) => void;
   onRenameMember: (inviteToken: string, name: string) => void;
@@ -55,6 +55,8 @@ export function SessionView({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [tokenCountdown, setTokenCountdown] = useState<number | null>(null);
   const [badPaste, setBadPaste] = useState(false);
+  const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
+  const [managedName, setManagedName] = useState('');
 
   // Reconnect countdown
   useEffect(() => {
@@ -339,14 +341,60 @@ export function SessionView({
                 onBanMember={onBanMember}
                 onSetMemberRole={onSetMemberRole}
               />
+            ) : managedSetupStep === 'naming' ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const name = managedName.trim();
+                  if (!name) return;
+                  onEnableManaged(name);
+                  setManagedSetupStep('idle');
+                  setManagedName('');
+                }}
+                className="space-y-2"
+              >
+                <label className="block text-xs text-gray-300">
+                  Your username <span className="text-gray-500">(visible to all members)</span>
+                </label>
+                <input
+                  type="text"
+                  value={managedName}
+                  onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
+                  placeholder="Enter your username"
+                  maxLength={30}
+                  autoFocus
+                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={!managedName.trim()}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                  >
+                    Enable managed mode
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setManagedSetupStep('idle'); setManagedName(''); }}
+                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             ) : (
               <>
-                <p className="text-xs text-gray-400">Enable invite-only mode with named members and role-based permissions.</p>
+                <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                  <li>New members must join via a personal invite link — open joining is disabled</li>
+                  <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
+                  <li>Viewers cannot submit world updates</li>
+                  <li className="text-yellow-600">This cannot be undone for this session</li>
+                </ul>
                 <button
-                  onClick={onEnableManaged}
+                  onClick={() => setManagedSetupStep('naming')}
                   className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
                 >
-                  Enable managed mode
+                  Set up managed mode →
                 </button>
               </>
             )}

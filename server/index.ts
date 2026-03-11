@@ -467,11 +467,11 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     }
 
     case 'enableManaged': {
-      const result = enableManaged(session, ws);
+      const result = enableManaged(session, ws, msg.name);
       if (typeof result === 'object' && 'error' in result) {
         ws.send(JSON.stringify({ type: 'error', message: result.error } satisfies ServerMessage));
       } else {
-        log(`[managed] ${session.code} ${c} enabled managed mode — ownerToken ${result.slice(0, 4)}…`);
+        log(`[managed] ${session.code} ${c} enabled managed mode as "${msg.name}" — ownerToken ${result.slice(0, 4)}…`);
       }
       break;
     }
