@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull, HatGlasses } from 'lucide-react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
@@ -94,7 +95,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <ViewHeader icon={<HatGlasses className="h-5 w-5" />} title="World Status" world={world}>
+          <ViewHeader icon={<PartyHatGlasses className="h-5 w-5" />} title="World Status" world={world}>
             <button
               onClick={() => {
                 trackUiEvent('ui_world_action', {

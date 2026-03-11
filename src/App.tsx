@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X, HatGlasses, Timer, TreeDeciduous, Skull, Settings, Copy, Check } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check } from 'lucide-react';
+import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
@@ -811,7 +812,7 @@ export default function App() {
 }
 
 const NAV_ITEMS = [
-  { kind: 'detail' as const, icon: HatGlasses,    label: 'View',  activeColor: 'text-amber-400'    },
+  { kind: 'detail' as const, icon: PartyHatGlasses, label: 'View',  activeColor: 'text-amber-400'    },
   { kind: 'spawn'  as const, icon: Timer,          label: 'Timer', activeColor: SPAWN_COLOR.text    },
   { kind: 'tree'   as const, icon: TreeDeciduous,  label: 'Tree',  activeColor: TREE_COLOR.text     },
   { kind: 'dead'   as const, icon: Skull,          label: 'Dead',  activeColor: DEAD_COLOR.text     },
