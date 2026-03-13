@@ -22,6 +22,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './componen
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState, WorldStates } from './types';
 import { buildDiscordMessage } from './lib/intelCopy';
+import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 import { copyToClipboard } from './lib/utils';
