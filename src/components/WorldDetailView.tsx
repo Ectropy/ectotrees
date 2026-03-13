@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { Star, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
+import { buildWorldIntel } from '../lib/intelCopy';
+import { copyToClipboard } from '../lib/utils';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
@@ -33,6 +35,7 @@ type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
 export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [editPendingValue, setEditPendingValue] = useState('');
   const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
@@ -95,7 +98,24 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <ViewHeader icon={<PartyHatGlasses className="h-5 w-5" />} title="World Status" world={world}>
+          <ViewHeader icon={<PartyHatGlasses className="h-5 w-5" />} title="World Status" world={world} subtitleAction={(() => {
+                const intel = buildWorldIntel(world, state);
+                return (
+                  intel ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        copyToClipboard(intel).then(ok => {
+                          if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+                        });
+                      }}
+                      className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      Copy intel {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  ) : null
+                );
+              })()}>
             <button
               onClick={() => {
                 trackUiEvent('ui_world_action', {

@@ -21,7 +21,7 @@ import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState, WorldStates } from './types';
-import { ALIVE_DEAD_MS, DEAD_CLEAR_MS, TREE_TYPE_SHORT } from './constants/evilTree';
+import { buildDiscordMessage } from './lib/intelCopy';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 import { copyToClipboard } from './lib/utils';
@@ -102,57 +102,6 @@ const APP_VERSION = __APP_VERSION__;
 const SIDEBAR_PANEL_ID = 'sidebar';
 const GRID_PANEL_ID = 'grid';
 
-function buildDiscordMessage(filteredWorlds: WorldConfig[], worldStates: WorldStates): string {
-  const lines: string[] = [];
-
-  for (const world of filteredWorlds) {
-    const state = worldStates[world.id] ?? { treeStatus: 'none' as const };
-
-    // Determine relevant timestamp and label
-    let ts: number | undefined;
-    let label: string | undefined;
-
-    if (state.treeStatus === 'none' && state.nextSpawnTarget !== undefined) {
-      ts = state.nextSpawnTarget;
-      label = 'spawning';
-    } else if (state.treeStatus === 'sapling' && state.matureAt !== undefined) {
-      ts = state.matureAt;
-      label = 'matures';
-    } else if ((state.treeStatus === 'mature' || state.treeStatus === 'alive') && state.matureAt !== undefined) {
-      ts = state.matureAt + ALIVE_DEAD_MS;
-      label = 'dies';
-    } else if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
-      ts = state.deadAt + DEAD_CLEAR_MS;
-      label = 'dead. Reward window ends';
-    }
-
-    if (!label) continue; // no meaningful intel to share
-
-    const parts: string[] = [`World \`${world.id}\``];
-
-    if (state.treeType && state.treeStatus !== 'dead') {
-      parts.push(TREE_TYPE_SHORT[state.treeType]);
-    }
-
-    if ((state.treeStatus === 'mature' || state.treeStatus === 'alive') && state.treeHealth !== undefined) {
-      parts.push(`${state.treeHealth}%`);
-    }
-
-    const discordTs = `<t:${Math.floor(ts! / 1000)}:R>`;
-    const utcTime = new Date(ts!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-    const timeLabel = `(\`${utcTime}\`)`;
-    parts.push(`${label} ${discordTs} ${timeLabel}`);
-
-    const location = state.treeExactLocation || state.treeHint;
-    if (location) {
-      parts.push(location);
-    }
-
-    lines.push(parts.join(' '));
-  }
-
-  return lines.join('\n');
-}
 
 export default function App() {
   const handleSessionLost = useCallback(() => {
