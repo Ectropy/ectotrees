@@ -123,8 +123,7 @@ export function App() {
     if (result) {
       setWorld(String(result.world));
       setAutoDetected(true);
-      const via = result.method === 'gamestate' ? 'via Alt1 gamestate' : 'via Friends List OCR';
-      showStatus(`World ${result.world} detected (${via}).`, 'ok');
+      showStatus(`World ${result.world} detected (via Alt1 gamestate).`, 'ok');
     } else {
       setAutoDetected(false);
       showStatus('Could not detect world — make sure you are logged in (not in lobby).', 'warn');

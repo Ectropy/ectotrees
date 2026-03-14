@@ -17,7 +17,7 @@ export interface DialogScan {
 
 export interface WorldScan {
   world: number;
-  method: 'gamestate' | 'ocr';
+  method: 'gamestate';
 }
 
 export function useAlt1() {

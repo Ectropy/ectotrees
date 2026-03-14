@@ -3,7 +3,6 @@
  */
 
 import 'alt1/base';
-import * as A1lib from 'alt1/base';
 
 // DialogReader is the pre-built RS3 NPC dialog reader (default export).
 import DialogReader from 'alt1/dialog';
@@ -85,7 +84,7 @@ export function scanSpiritTreeDialog(): DialogScanResult | null {
 export interface WorldScanResult {
   world: number;
   /** Which detection method succeeded. */
-  method: 'gamestate' | 'ocr';
+  method: 'gamestate';
 }
 
 /**
@@ -118,58 +117,10 @@ export function scanWorldFromFriendsList(): WorldScanResult | null {
       console.log(`[EctoScout] world scan SUCCESS (gamestate): w${world}`);
       return { world, method: 'gamestate' };
     }
-    console.log(`[EctoScout] world scan: alt1.currentWorld=${world} — not in a valid world, falling back to OCR`);
+    console.log(`[EctoScout] world scan: alt1.currentWorld=${world} — not in a valid world`);
   } else {
-    console.log('[EctoScout] world scan: no gamestate permission, skipping alt1.currentWorld');
+    console.log('[EctoScout] world scan: no gamestate permission');
   }
 
-  // ── Fallback: OCR "RuneScape N" from the Friends List panel header ─────────
-  if (!alt1.permissionPixel) {
-    console.log('[EctoScout] world scan: no pixel permission for OCR fallback');
-    return null;
-  }
-  if (!alt1.rsLinked) {
-    console.log('[EctoScout] world scan: RS3 not linked');
-    return null;
-  }
-
-  try {
-    // captureHoldFullRs() binds the RS3 window into Alt1's internal buffer.
-    // ImgRefBind.handle is the bind ID for alt1.bindReadString(id, font, x, y).
-    const capture = A1lib.captureHoldFullRs();
-    const bindId = capture.handle;
-    const rsWidth  = alt1.rsWidth;
-    const rsHeight = alt1.rsHeight;
-    console.log(`[EctoScout] world scan OCR: bindId=${bindId} rsSize=${rsWidth}x${rsHeight}`);
-
-    // Scan the right portion of the RS3 window for "RuneScape N".
-    // The Friends List panel header is typically docked on the right side.
-    const xStart = Math.floor(rsWidth * 0.35);
-    const yMax   = Math.floor(rsHeight * 0.85);
-    const yStep  = 14; // ~chat font line height
-    const xStep  = 50;
-
-    for (let y = yStep; y < yMax; y += yStep) {
-      for (let x = xStart; x < rsWidth - 20; x += xStep) {
-        const text = alt1.bindReadString(bindId, 'chat', x, y) ?? '';
-        if (!text) continue;
-
-        console.log(`[EctoScout] OCR x=${x} y=${y}: "${text}"`);
-        const m = text.match(/RuneScape\s+(\d+)/i);
-        if (m) {
-          const w = parseInt(m[1], 10);
-          if (w >= 1 && w <= 137) {
-            console.log(`[EctoScout] world scan SUCCESS (OCR): w${w} at x=${x} y=${y}`);
-            return { world: w, method: 'ocr' };
-          }
-        }
-      }
-    }
-
-    console.log('[EctoScout] world scan: no "RuneScape N" match found');
-    return null;
-  } catch (e) {
-    console.error('[EctoScout] world scan error:', e);
-    return null;
-  }
+  return null;
 }
