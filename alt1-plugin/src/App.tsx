@@ -35,6 +35,8 @@ export function App() {
 
   // Auto-scan state
   const [autoScan, setAutoScan] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const scanningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Unified status message state
   const [statusMsg, setStatusMsg] = useState('');
@@ -82,6 +84,9 @@ export function App() {
       // Detect a click: rsLastActive dropped since last poll
       if (lastActive < prevLastActiveRef.current) {
         pendingClickAtRef.current = now;
+        setIsScanning(true);
+        if (scanningTimerRef.current) clearTimeout(scanningTimerRef.current);
+        scanningTimerRef.current = setTimeout(() => setIsScanning(false), 800);
       }
       prevLastActiveRef.current = lastActive;
 
@@ -93,17 +98,20 @@ export function App() {
       // Window expired — give up
       if (sinceClick > 800) {
         pendingClickAtRef.current = 0;
+        setIsScanning(false);
         return;
       }
 
       const result = scanDialog();
-      if (!result) return;
-
-      // Got a result — stop retrying
-      pendingClickAtRef.current = 0;
-      applyDialogScan(result, 'Auto-detected');
+      if (result) {
+        applyDialogScan(result, 'Auto-detected');
+      }
     }, 300);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      setIsScanning(false);
+      if (scanningTimerRef.current) clearTimeout(scanningTimerRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan, hasPixel]);
 
@@ -198,7 +206,7 @@ export function App() {
     showStatus('Scanning...');
     const result = scanDialog();
     if (!result) {
-      showStatus('No dialog found — open the Spirit Tree chat first.', 'warn');
+      showStatus('No intel found. Open dialog first.', 'warn');
       return;
     }
 
@@ -303,6 +311,7 @@ export function App() {
           onMinutesChange={setMinutes}
           onHintChange={setHint}
           autoScan={autoScan}
+          isScanning={isScanning}
           onScanDialog={handleScanDialog}
           onAutoScanToggle={() => {
             setAutoScan(s => {

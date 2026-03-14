@@ -1,4 +1,4 @@
-import { ScanText } from 'lucide-react';
+import { ScanText, ScanEye, EyeClosed, Eye } from 'lucide-react';
 import { Tooltip } from './ui/tooltip';
 
 interface ReportFormProps {
@@ -10,6 +10,7 @@ interface ReportFormProps {
   hasPixel: boolean;
   canSubmit: boolean;
   autoScan: boolean;
+  isScanning: boolean;
   onHoursChange: (v: string) => void;
   onMinutesChange: (v: string) => void;
   onHintChange: (v: string) => void;
@@ -28,6 +29,7 @@ export function ReportForm({
   hasPixel,
   canSubmit,
   autoScan,
+  isScanning,
   onHoursChange,
   onMinutesChange,
   onHintChange,
@@ -109,13 +111,13 @@ export function ReportForm({
               onClick={onAutoScanToggle}
               disabled={!hasPixel}
               aria-label="Toggle auto-scan"
-              className={`flex items-center justify-center h-7 shrink-0 px-2 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${
+              className={`flex items-center justify-center w-7 h-7 shrink-0 rounded transition-colors ${
                 autoScan
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary border border-border text-muted-foreground hover:enabled:bg-primary/10 hover:enabled:text-primary'
+                  : 'bg-secondary border border-primary text-primary hover:enabled:bg-primary/10'
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
-              Auto
+              {!autoScan ? <ScanEye size={14} /> : isScanning ? <Eye size={14} /> : <EyeClosed size={14} />}
             </button>
           </Tooltip>
         </div>
