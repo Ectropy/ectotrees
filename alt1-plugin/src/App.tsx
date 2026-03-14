@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import worldsData from '../../src/data/worlds.json';
+
+const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 import { useScoutSession } from './hooks/useScoutSession';
 import { useAlt1 } from './hooks/useAlt1';
 import { SessionPanel } from './components/SessionPanel';
@@ -32,6 +35,14 @@ export function App() {
   const [hint, setHint] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+
+  // Auto-submit state
+  const [autoSubmit, setAutoSubmit] = useState(false);
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
+  const [cloudCheck, setCloudCheck] = useState(false);
+  const [blinkFrame, setBlinkFrame] = useState(false);
+  const cloudCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSubmitRef = useRef<() => void>(() => {});
 
   // Auto-world state
   const [autoWorld, setAutoWorld] = useState(false);
@@ -89,7 +100,7 @@ export function App() {
       if (hopTs !== lastWorldHopRef.current) {
         lastWorldHopRef.current = hopTs;
         const w = alt1.currentWorld;
-        if (w >= 1 && w <= 137) {
+        if (VALID_WORLD_IDS.has(w)) {
           setWorld(String(w));
           setAutoDetected(true);
           setIsWorldScanning(true);
@@ -152,6 +163,56 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan, hasPixel]);
 
+  // Derived before early returns so effects can reference it
+  const canSubmit = (() => {
+    const wv = parseInt(world.trim(), 10);
+    const h = parseInt(hours || '0', 10) || 0;
+    const m = parseInt(minutes || '0', 10) || 0;
+    return VALID_WORLD_IDS.has(wv) && (h * 60 + m) * 60_000 > 0 && status === 'connected' && !submitting;
+  })();
+
+  // Auto-submit requires a hint in addition to the base canSubmit conditions
+  const canAutoSubmit = canSubmit && hint.trim().length > 0;
+
+  const isCountingDown = autoCountdown !== null;
+
+  // Start auto-submit countdown when all conditions are met
+  useEffect(() => {
+    if (autoSubmit && canAutoSubmit && autoCountdown === null && !submitting && !cloudCheck) {
+      setAutoCountdown(10);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSubmit, canAutoSubmit, submitting, cloudCheck]);
+
+  // Cancel countdown if fields become invalid for auto-submit
+  useEffect(() => {
+    if (!canAutoSubmit && autoCountdown !== null) {
+      setAutoCountdown(null);
+    }
+  }, [canAutoSubmit, autoCountdown]);
+
+  // Countdown tick → fire submit at 0
+  useEffect(() => {
+    if (autoCountdown === null) return;
+    if (autoCountdown === 0) {
+      setAutoCountdown(null);
+      handleSubmitRef.current();
+      return;
+    }
+    const id = setTimeout(() => setAutoCountdown(c => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(id);
+  }, [autoCountdown]);
+
+  // Blink icon during countdown
+  useEffect(() => {
+    if (!isCountingDown) {
+      setBlinkFrame(false);
+      return;
+    }
+    const id = setInterval(() => setBlinkFrame(f => !f), 500);
+    return () => clearInterval(id);
+  }, [isCountingDown]);
+
   // Not in Alt1 — show install prompt
   if (!isAlt1) {
     const configUrl = new URL('./appconfig.json', window.location.href).href;
@@ -189,7 +250,7 @@ export function App() {
   // Helpers
   function getWorldId(): number | null {
     const v = parseInt(world.trim(), 10);
-    return Number.isFinite(v) && v >= 1 && v <= 137 ? v : null;
+    return VALID_WORLD_IDS.has(v) ? v : null;
   }
 
   function getTotalMs(): number {
@@ -197,8 +258,6 @@ export function App() {
     const m = parseInt(minutes || '0', 10) || 0;
     return (h * 60 + m) * 60_000;
   }
-
-  const canSubmit = getWorldId() !== null && getTotalMs() > 0 && status === 'connected' && !submitting;
 
   // Handlers
   function handleScanWorld() {
@@ -259,6 +318,7 @@ export function App() {
     const msFromNow = getTotalMs();
     if (!worldId || msFromNow <= 0 || status === 'disconnected') return;
 
+    setAutoCountdown(null);
     const hintText = hint.trim().slice(0, 200);
 
     setSubmitting(true);
@@ -276,6 +336,9 @@ export function App() {
       setHours('');
       setMinutes('');
       setHint('');
+      if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
+      setCloudCheck(true);
+      cloudCheckTimerRef.current = setTimeout(() => setCloudCheck(false), 1500);
     });
 
     const unsubStatus = session.on('statusChange', (s) => {
@@ -297,6 +360,7 @@ export function App() {
   }
 
   function handleClear() {
+    setAutoCountdown(null);
     setWorld('');
     setHours('');
     setMinutes('');
@@ -304,6 +368,17 @@ export function App() {
     setAutoDetected(false);
     clearStatus();
   }
+
+  function handleAutoSubmitToggle() {
+    if (cloudCheck) return;
+    if (autoCountdown !== null) {
+      setAutoCountdown(null);
+      return;
+    }
+    setAutoSubmit(v => !v);
+  }
+
+  handleSubmitRef.current = handleSubmit;
 
   return (
     <TooltipProvider>
@@ -379,6 +454,11 @@ export function App() {
               return !s;
             });
           }}
+          autoSubmit={autoSubmit}
+          autoCountdown={autoCountdown}
+          cloudCheck={cloudCheck}
+          blinkFrame={blinkFrame}
+          onAutoSubmitToggle={handleAutoSubmitToggle}
           onSubmit={handleSubmit}
           onClear={handleClear}
         />

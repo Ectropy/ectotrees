@@ -3,6 +3,9 @@
  */
 
 import 'alt1/base';
+import worldsData from '../../src/data/worlds.json';
+
+const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 
 // DialogReader is the pre-built RS3 NPC dialog reader (default export).
 import DialogReader from 'alt1/dialog';
@@ -113,7 +116,7 @@ export function scanWorldFromFriendsList(): WorldScanResult | null {
   // ── Primary: native Alt1 world detection via gamestate ────────────────────
   if (alt1.permissionGameState) {
     const world = alt1.currentWorld;
-    if (world >= 1 && world <= 137) {
+    if (VALID_WORLD_IDS.has(world)) {
       console.log(`[EctoScout] world scan SUCCESS (gamestate): w${world}`);
       return { world, method: 'gamestate' };
     }

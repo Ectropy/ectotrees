@@ -33,7 +33,6 @@ export function WorldInput({
         <input
           type="number"
           min={1}
-          max={137}
           placeholder="e.g. 4"
           value={world}
           onChange={(e) => onChange(e.target.value)}

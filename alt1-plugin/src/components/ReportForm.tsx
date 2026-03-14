@@ -1,4 +1,4 @@
-import { ScanText, ScanEye, EyeClosed, Eye } from 'lucide-react';
+import { ScanText, ScanEye, EyeClosed, Eye, Cloud, CloudOff, CloudUpload, CloudCheck } from 'lucide-react';
 import { Tooltip } from './ui/tooltip';
 
 interface ReportFormProps {
@@ -11,11 +11,16 @@ interface ReportFormProps {
   canSubmit: boolean;
   autoScan: boolean;
   isScanning: boolean;
+  autoSubmit: boolean;
+  autoCountdown: number | null;
+  cloudCheck: boolean;
+  blinkFrame: boolean;
   onHoursChange: (v: string) => void;
   onMinutesChange: (v: string) => void;
   onHintChange: (v: string) => void;
   onScanDialog: () => void;
   onAutoScanToggle: () => void;
+  onAutoSubmitToggle: () => void;
   onSubmit: () => void;
   onClear: () => void;
 }
@@ -30,11 +35,16 @@ export function ReportForm({
   canSubmit,
   autoScan,
   isScanning,
+  autoSubmit,
+  autoCountdown,
+  cloudCheck,
+  blinkFrame,
   onHoursChange,
   onMinutesChange,
   onHintChange,
   onScanDialog,
   onAutoScanToggle,
+  onAutoSubmitToggle,
   onSubmit,
   onClear,
 }: ReportFormProps) {
@@ -133,13 +143,44 @@ export function ReportForm({
 
       {/* Submit / Clear */}
       <div className="flex gap-2">
-        <button
-          onClick={onSubmit}
-          disabled={!canSubmit}
-          className="flex-1 bg-success text-white py-2 rounded text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:opacity-90"
-        >
-          Submit
-        </button>
+        <div className="flex flex-1 rounded overflow-hidden">
+          <button
+            onClick={onSubmit}
+            disabled={!canSubmit}
+            className="flex-1 bg-success text-white py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:opacity-90 transition-opacity"
+          >
+            {autoCountdown !== null ? `Submit (${autoCountdown}s)` : 'Submit'}
+          </button>
+          <div className="w-px bg-white/20 self-stretch" />
+          <Tooltip
+            content={
+              cloudCheck
+                ? 'Submitted!'
+                : autoCountdown !== null
+                ? `Submitting in ${autoCountdown}s — click to cancel`
+                : autoSubmit
+                ? 'Click to disable auto-submit.'
+                : 'Click to enable auto-submit. Submits 10s after all fields are filled.'
+            }
+            side="top"
+          >
+            <button
+              onClick={onAutoSubmitToggle}
+              aria-label="Toggle auto-submit"
+              className={`flex items-center justify-center px-2.5 text-white hover:opacity-90 transition-opacity ${autoSubmit || cloudCheck ? 'bg-success' : 'bg-success/40'}`}
+            >
+              {cloudCheck ? (
+                <CloudCheck size={14} />
+              ) : autoCountdown !== null ? (
+                blinkFrame ? <CloudUpload size={14} /> : <Cloud size={14} />
+              ) : autoSubmit ? (
+                <Cloud size={14} />
+              ) : (
+                <CloudOff size={14} />
+              )}
+            </button>
+          </Tooltip>
+        </div>
         <button
           onClick={onClear}
           className="bg-transparent text-muted-foreground text-xs font-semibold px-2.5 py-1 rounded border border-border hover:bg-secondary hover:text-foreground"
