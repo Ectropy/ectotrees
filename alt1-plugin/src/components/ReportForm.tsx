@@ -9,10 +9,12 @@ interface ReportFormProps {
   statusKind: 'ok' | 'warn' | 'error' | '';
   hasPixel: boolean;
   canSubmit: boolean;
+  autoScan: boolean;
   onHoursChange: (v: string) => void;
   onMinutesChange: (v: string) => void;
   onHintChange: (v: string) => void;
   onScanDialog: () => void;
+  onAutoScanToggle: () => void;
   onSubmit: () => void;
   onClear: () => void;
 }
@@ -25,10 +27,12 @@ export function ReportForm({
   statusKind,
   hasPixel,
   canSubmit,
+  autoScan,
   onHoursChange,
   onMinutesChange,
   onHintChange,
   onScanDialog,
+  onAutoScanToggle,
   onSubmit,
   onClear,
 }: ReportFormProps) {
@@ -85,7 +89,7 @@ export function ReportForm({
             className="flex-1 bg-input border border-border rounded px-2 py-1 text-foreground text-xs focus:outline-none focus:border-primary placeholder:text-muted-foreground"
           />
           <Tooltip
-            content={hasPixel ? 'Scan the Spirit Tree chat dialog' : 'Pixel permission required to scan'}
+            content={hasPixel ? 'Scan dialogs for intel' : 'Pixel permission required to scan'}
             side="left"
           >
             <button
@@ -95,6 +99,23 @@ export function ReportForm({
               className="flex items-center justify-center w-7 h-7 shrink-0 bg-secondary border border-primary rounded text-primary disabled:border-border disabled:text-muted-foreground disabled:cursor-not-allowed hover:enabled:bg-primary/10 transition-colors"
             >
               <ScanText size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={autoScan ? 'Disable intel auto-detect.' : 'Enable intel auto-detect. Scans only on clicks, not keyboard interactions.'}
+            side="left"
+          >
+            <button
+              onClick={onAutoScanToggle}
+              disabled={!hasPixel}
+              aria-label="Toggle auto-scan"
+              className={`flex items-center justify-center h-7 shrink-0 px-2 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                autoScan
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary border border-border text-muted-foreground hover:enabled:bg-primary/10 hover:enabled:text-primary'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              Auto
             </button>
           </Tooltip>
         </div>

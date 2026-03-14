@@ -33,6 +33,9 @@ export function App() {
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
+  // Auto-scan state
+  const [autoScan, setAutoScan] = useState(false);
+
   // Unified status message state
   const [statusMsg, setStatusMsg] = useState('');
   const [statusKind, setStatusKind] = useState<StatusKind>('');
@@ -64,6 +67,45 @@ export function App() {
     if (error) showStatus(error, 'error');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
+
+  // Auto-scan: on each RS click, retry scanning every 300ms between 150ms–800ms
+  // after the click to catch the dialog as soon as it renders.
+  const pendingClickAtRef = useRef(0);
+  const prevLastActiveRef = useRef(0);
+  useEffect(() => {
+    if (!autoScan || !hasPixel) return;
+    const id = setInterval(() => {
+      if (typeof alt1 === 'undefined') return;
+      const now = Date.now();
+      const lastActive = alt1.rsLastActive;
+
+      // Detect a click: rsLastActive dropped since last poll
+      if (lastActive < prevLastActiveRef.current) {
+        pendingClickAtRef.current = now;
+      }
+      prevLastActiveRef.current = lastActive;
+
+      if (pendingClickAtRef.current === 0) return;
+
+      const sinceClick = now - pendingClickAtRef.current;
+      // Too soon — dialog may not have rendered yet
+      if (sinceClick < 150) return;
+      // Window expired — give up
+      if (sinceClick > 800) {
+        pendingClickAtRef.current = 0;
+        return;
+      }
+
+      const result = scanDialog();
+      if (!result) return;
+
+      // Got a result — stop retrying
+      pendingClickAtRef.current = 0;
+      applyDialogScan(result, 'Auto-detected');
+    }, 300);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScan, hasPixel]);
 
   // Not in Alt1 — show install prompt
   if (!isAlt1) {
@@ -131,6 +173,23 @@ export function App() {
     }
   }
 
+  function applyDialogScan(result: NonNullable<ReturnType<typeof scanDialog>>, prefix: string) {
+    const detected: string[] = [];
+    if (result.hours > 0 || result.minutes > 0) {
+      setHours(String(result.hours));
+      setMinutes(String(result.minutes));
+      detected.push(`${result.hours}h ${result.minutes}m`);
+    }
+    if (result.hint) {
+      setHint(result.hint);
+      const truncated = result.hint.length > 40 ? result.hint.slice(0, 40) + '...' : result.hint;
+      detected.push(`"${truncated}"`);
+    }
+    if (detected.length > 0) {
+      showStatus(`${prefix}: ${detected.join(' · ')}`, 'ok');
+    }
+  }
+
   function handleScanDialog() {
     if (!hasPixel) {
       showStatus('Alt1 pixel permission required to scan.', 'error');
@@ -143,21 +202,8 @@ export function App() {
       return;
     }
 
-    const detected: string[] = [];
-    if (result.hours > 0 || result.minutes > 0) {
-      setHours(String(result.hours));
-      setMinutes(String(result.minutes));
-      detected.push(`${result.hours}h ${result.minutes}m`);
-    }
-    if (result.hint) {
-      setHint(result.hint);
-      const truncated = result.hint.length > 40 ? result.hint.slice(0, 40) + '...' : result.hint;
-      detected.push(`"${truncated}"`);
-    }
-
-    if (detected.length > 0) {
-      showStatus(`Detected: ${detected.join(' · ')}`, 'ok');
-    } else {
+    applyDialogScan(result, 'Detected');
+    if (result.hours === 0 && result.minutes === 0 && !result.hint) {
       const snippet = result.rawText.slice(0, 80).replace(/\n/g, ' ');
       showStatus(`Found dialog but no timer/hint: "${snippet}"`, 'warn');
     }
@@ -256,7 +302,15 @@ export function App() {
           onHoursChange={setHours}
           onMinutesChange={setMinutes}
           onHintChange={setHint}
+          autoScan={autoScan}
           onScanDialog={handleScanDialog}
+          onAutoScanToggle={() => {
+            setAutoScan(s => {
+              if (!s) showStatus('Auto-detect on. Clicks will trigger a scan. Keyboard interactions do not.');
+              else clearStatus();
+              return !s;
+            });
+          }}
           onSubmit={handleSubmit}
           onClear={handleClear}
         />
