@@ -33,6 +33,12 @@ export function App() {
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
+  // Auto-world state
+  const [autoWorld, setAutoWorld] = useState(false);
+  const [isWorldScanning, setIsWorldScanning] = useState(false);
+  const worldScanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastWorldHopRef = useRef(0);
+
   // Auto-scan state
   const [autoScan, setAutoScan] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -69,6 +75,37 @@ export function App() {
     if (error) showStatus(error, 'error');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
+
+  // Auto-world: poll every 5s, detect world hops via lastWorldHop timestamp
+  useEffect(() => {
+    if (!autoWorld || !hasGameState) return;
+    // Seed with current value so we don't trigger on first poll
+    if (typeof alt1 !== 'undefined') {
+      lastWorldHopRef.current = alt1.lastWorldHop;
+    }
+    const id = setInterval(() => {
+      if (typeof alt1 === 'undefined') return;
+      const hopTs = alt1.lastWorldHop;
+      if (hopTs !== lastWorldHopRef.current) {
+        lastWorldHopRef.current = hopTs;
+        const w = alt1.currentWorld;
+        if (w >= 1 && w <= 137) {
+          setWorld(String(w));
+          setAutoDetected(true);
+          setIsWorldScanning(true);
+          if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
+          worldScanTimerRef.current = setTimeout(() => setIsWorldScanning(false), 1500);
+          showStatus(`World hop detected → W${w}`, 'ok');
+        }
+      }
+    }, 5000);
+    return () => {
+      clearInterval(id);
+      setIsWorldScanning(false);
+      if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoWorld, hasGameState]);
 
   // Auto-scan: on each RS click, retry scanning every 300ms between 150ms–800ms
   // after the click to catch the dialog as soon as it renders.
@@ -177,7 +214,7 @@ export function App() {
       showStatus(`World ${result.world} detected (via Alt1 gamestate).`, 'ok');
     } else {
       setAutoDetected(false);
-      showStatus('Could not detect world — make sure you are logged in (not in lobby).', 'warn');
+      showStatus('Could not detect world. Right click on "Alt1 Toolkit," then enable "Show current world."', 'warn');
     }
   }
 
@@ -260,6 +297,7 @@ export function App() {
   }
 
   function handleClear() {
+    setWorld('');
     setHours('');
     setMinutes('');
     setHint('');
@@ -293,8 +331,29 @@ export function App() {
           world={world}
           autoDetected={autoDetected}
           hasPixel={hasPixel}
+          hasGameState={hasGameState}
+          autoWorld={autoWorld}
+          isWorldScanning={isWorldScanning}
           onChange={(v) => { setWorld(v); setAutoDetected(false); }}
           onScan={handleScanWorld}
+          onAutoWorldToggle={() => {
+            setAutoWorld(s => {
+              if (!s) {
+                // Test gamestate access before enabling
+                const result = scanWorld();
+                if (!result) {
+                  showStatus('Could not detect world. Right click on "Alt1 Toolkit," then enable "Show current world."', 'warn');
+                  return false;
+                }
+                setWorld(String(result.world));
+                setAutoDetected(true);
+                showStatus(`World ${result.world} detected. Auto-detect on.`, 'ok');
+              } else {
+                clearStatus();
+              }
+              return !s;
+            });
+          }}
         />
 
         <hr className="border-t border-border" />

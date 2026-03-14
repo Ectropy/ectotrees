@@ -104,7 +104,7 @@ export function ReportForm({
             </button>
           </Tooltip>
           <Tooltip
-            content={autoScan ? 'Disable intel auto-detect.' : 'Enable intel auto-detect. Scans only on clicks, not keyboard interactions.'}
+            content={autoScan ? 'Disable intel auto-detect' : 'Enable intel auto-detect'}
             side="left"
           >
             <button

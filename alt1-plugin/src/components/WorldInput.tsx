@@ -1,20 +1,28 @@
-import { ScanLine } from 'lucide-react';
+import { ScanLine, ScanEye, EyeClosed, Eye } from 'lucide-react';
 import { Tooltip } from './ui/tooltip';
 
 interface WorldInputProps {
   world: string;
   autoDetected: boolean;
   hasPixel: boolean;
+  hasGameState: boolean;
+  autoWorld: boolean;
+  isWorldScanning: boolean;
   onChange: (value: string) => void;
   onScan: () => void;
+  onAutoWorldToggle: () => void;
 }
 
 export function WorldInput({
   world,
   autoDetected,
   hasPixel,
+  hasGameState,
+  autoWorld,
+  isWorldScanning,
   onChange,
   onScan,
+  onAutoWorldToggle,
 }: WorldInputProps) {
   return (
     <section className="px-3 py-2">
@@ -31,19 +39,33 @@ export function WorldInput({
           onChange={(e) => onChange(e.target.value)}
           className="max-w-[90px] text-center bg-input border border-border rounded px-2 py-1 text-foreground text-[13px] focus:outline-none focus:border-primary placeholder:text-muted-foreground"
         />
-        <Tooltip content={hasPixel ? 'Auto-detect world (Alt1)' : 'Pixel permission required'} side="right">
+        <Tooltip content={hasPixel || hasGameState ? 'Scan for current world' : 'Pixel/gamestate permission required'} side="right">
           <button
             onClick={onScan}
-            disabled={!hasPixel}
+            disabled={!hasPixel && !hasGameState}
             aria-label="Auto-detect world"
-            className="flex items-center justify-center w-7 h-7 bg-secondary border border-border rounded disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:bg-border transition-colors"
+            className="flex items-center justify-center w-7 h-7 bg-secondary border border-primary rounded text-primary disabled:border-border disabled:text-muted-foreground disabled:cursor-not-allowed hover:enabled:bg-primary/10 transition-colors"
           >
             <ScanLine size={14} />
           </button>
         </Tooltip>
-        {autoDetected && (
-          <span className="text-[11px] text-muted-foreground italic">auto-detected</span>
-        )}
+        <Tooltip
+          content={autoWorld ? 'Disable current world auto-detect' : 'Enable current world auto-detect'}
+          side="right"
+        >
+          <button
+            onClick={onAutoWorldToggle}
+            disabled={!hasGameState}
+            aria-label="Toggle auto world detection"
+            className={`flex items-center justify-center w-7 h-7 shrink-0 rounded transition-colors ${
+              autoWorld
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary border border-primary text-primary hover:enabled:bg-primary/10'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {!autoWorld ? <ScanEye size={14} /> : isWorldScanning ? <Eye size={14} /> : <EyeClosed size={14} />}
+          </button>
+        </Tooltip>
       </div>
     </section>
   );
