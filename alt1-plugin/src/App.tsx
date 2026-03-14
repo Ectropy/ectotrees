@@ -5,6 +5,7 @@ import { SessionPanel } from './components/SessionPanel';
 import { WorldInput } from './components/WorldInput';
 import { ReportForm } from './components/ReportForm';
 import { TooltipProvider } from './components/ui/tooltip';
+import { DebugPanel } from './components/DebugPanel';
 
 type StatusKind = 'ok' | 'warn' | 'error' | '';
 
@@ -259,6 +260,8 @@ export function App() {
           onSubmit={handleSubmit}
           onClear={handleClear}
         />
+
+        {import.meta.env.MODE === 'development' && <DebugPanel />}
       </div>
     </TooltipProvider>
   );
