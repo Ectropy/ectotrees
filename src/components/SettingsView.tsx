@@ -73,6 +73,18 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
         >
           Close
         </button>
+
+        <div className="mt-6 space-y-1">
+          <p className={`text-xs ${TEXT_COLOR.ghost} uppercase tracking-wide`}>Credits</p>
+          <p className={`text-xs ${TEXT_COLOR.faint}`}>
+            <a href="https://codepen.io/jiayihu/pen/QwvjMZ" target="_blank" rel="noopener noreferrer" className={`hover:${TEXT_COLOR.muted} underline underline-offset-2 transition-colors`}>Fire Sparks</a>
+            {' '}by Jiayi Hu
+          </p>
+          <p className={`text-xs ${TEXT_COLOR.faint}`}>
+            <a href="https://codepen.io/jackrugile/pen/kQwPRO" target="_blank" rel="noopener noreferrer" className={`hover:${TEXT_COLOR.muted} underline underline-offset-2 transition-colors`}>Canvas Lightning WIP</a>
+            {' '}by Jack Rugile
+          </p>
+        </div>
       </div>
     </div>
   );
