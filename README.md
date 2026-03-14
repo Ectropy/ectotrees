@@ -1,12 +1,12 @@
 # Ectotrees — Evil Tree Tracker for turning Evil Trees into dead trees.
 
-A RuneScape 3 dashboard for coordinating the **Evil Trees** Distraction & Diversion across all 137 worlds in real time.
+A RuneScape 3 dashboard for coordinating the **Evil Trees** Distraction & Diversion across all worlds in real time.
 
 ## What it does
 
 Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of players) track the state of every world's tree on one screen:
 
-- **137 world cards** displayed in a compact grid — all visible at once on a 1080p monitor
+- **World cards** displayed in a compact grid — all visible at once on a 1080p monitor (world list is configurable in `src/data/worlds.json`)
 - Per-world **status tracking**: no tree → sapling → mature → alive → dead → (cycle repeats)
 - **Automatic state transitions** based on known game timings (sapling matures at 5 min, tree dies at 30 min, fallen tree despawns at 10 min after death)
 - **Automatic health caps** reflecting lightning strikes mid-fight: health is capped to 50% at 10 minutes and 25% at 20 minutes, with animated lightning bolt effects on the affected card
@@ -53,6 +53,19 @@ Any session creator can upgrade their session to **managed (invite-only) mode** 
 - **Member list** — see who is connected, their role, and (for admins) their invite token
 - **Admin controls** — change a member's role, rename them, ban them (disconnects + revokes token), or transfer ownership
 - World updates in managed sessions show the submitter's name and role
+
+## Alt1 Scout Plugin *(beta)*
+
+An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
+
+- Connects to a session via a 6-character code or a pairing token generated from the main dashboard
+- Detects your current world automatically via Alt1 gamestate (including world hops)
+- Scans the in-game Spirit Tree dialog to read the spawn timer and location hint automatically
+- **Auto-submit** — when enabled, submits 10 seconds after world, time, and hint are all filled in, with a countdown and a cancel button; manual submit is always available without a hint
+
+> **Beta:** The plugin covers the core scouting workflow. Additional features (tree info reporting, mark-dead, etc.) are planned but not yet included.
+
+The plugin is built separately from the main app (`alt1-plugin/`) and is served at `/alt1` in both dev and production. To add it to Alt1 Toolkit, open `http://localhost:5173/alt1` inside Alt1 and click **Add to Alt1**, or use the `alt1://addapp/` install link shown on that page.
 
 ## Customising worlds
 

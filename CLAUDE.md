@@ -65,6 +65,7 @@ src/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
     sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code) — ?join=CODE URL param parsing, cleanup, and generation
+    intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
       sessionUrl.test.ts # Vitest unit tests for extractSessionCode
