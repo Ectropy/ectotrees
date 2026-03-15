@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Star, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
 import { buildWorldIntel } from '../lib/intelCopy';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS } from '../constants/evilTree';
 import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
