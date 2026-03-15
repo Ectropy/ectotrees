@@ -6,6 +6,7 @@ export interface AppSettings {
   showTipTicker: boolean;
   sidebarEnabled: boolean;
   sidebarSide: 'left' | 'right';
+  followScout: boolean;
 }
 
 const STORAGE_KEY = 'evilTree_settings';
@@ -15,6 +16,7 @@ const DEFAULTS: AppSettings = {
   showTipTicker: true,
   sidebarEnabled: false,
   sidebarSide: 'right',
+  followScout: false,
 };
 
 function loadSettings(): AppSettings {
@@ -31,6 +33,7 @@ function loadSettings(): AppSettings {
       showTipTicker: typeof p?.showTipTicker === 'boolean' ? p.showTipTicker : true,
       sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : false,
       sidebarSide: p?.sidebarSide === 'left' ? 'left' : 'right',
+      followScout: typeof p?.followScout === 'boolean' ? p.followScout : false,
     };
   } catch { return DEFAULTS; }
 }

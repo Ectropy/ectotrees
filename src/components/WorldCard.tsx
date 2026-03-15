@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
@@ -26,6 +26,7 @@ interface Props {
 
 export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isPairedScoutWorld, isRecentOwnSubmission }: Props) {
   const isP2P = world.type === 'P2P';
+  const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
   useEffect(() => {
     if (state.treeStatus !== 'dead') { setSparkReady(false); return; }
@@ -39,11 +40,19 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
   }, [state.treeStatus]);
   const borderColor = isP2P ? P2P_COLOR.border : F2P_COLOR.border;
 
+  // Scroll paired scout's world into view when it changes
+  useEffect(() => {
+    if (isPairedScoutWorld) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isPairedScoutWorld]);
+
   // Pairing highlights
-  const pairRing = isPairedScoutWorld ? 'ring-2 ring-amber-400 ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
+  const pairRing = isPairedScoutWorld ? 'ring-2 ring-white ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
 
   return (
     <div
+      ref={cardRef}
       data-testid={`world-card-${world.id}`}
       className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer ${pairRing}`}
       style={{ height: '85px', position: 'relative', isolation: 'isolate' }}

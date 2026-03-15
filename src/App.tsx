@@ -197,6 +197,18 @@ export default function App() {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
 
+  // Follow scout: when the paired scout changes worlds and followScout is enabled,
+  // open the detail panel for that world.
+  const prevScoutWorldRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!settings.followScout) return;
+    if (session.pairedScoutWorld == null) return;
+    if (session.pairedScoutWorld === prevScoutWorldRef.current) return;
+    prevScoutWorldRef.current = session.pairedScoutWorld;
+    setActiveView({ kind: 'detail', worldId: session.pairedScoutWorld });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.pairedScoutWorld, settings.followScout]);
+
   const sortedFilteredWorlds = useMemo(() => {
     // Filter
     let result = worlds.filter(w => {
@@ -461,6 +473,8 @@ export default function App() {
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onBack={handleBack}
+        followScout={settings.followScout}
+        onFollowScoutChange={v => updateSettings({ followScout: v })}
       />;
 
     if (activeView.kind === 'session-join')

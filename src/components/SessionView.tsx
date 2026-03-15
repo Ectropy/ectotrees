@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
+import type { AppSettings } from '../hooks/useSettings';
+import { Switch } from '@/components/ui/switch';
 import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
@@ -26,6 +28,8 @@ interface SessionViewProps {
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (inviteToken: string) => void;
   onBack: () => void;
+  followScout: boolean;
+  onFollowScoutChange: (value: boolean) => void;
 }
 
 const STATUS_LABELS: Record<SessionState['status'], string> = {
@@ -42,6 +46,7 @@ export function SessionView({
   onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
   onDismissError, onRequestPairToken, onUnpair, onEnableManaged,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
+  followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -251,16 +256,26 @@ export function SessionView({
             </div>
 
             {session.isPaired ? (
-              <div className="flex items-center justify-between">
-                <span className={`flex items-center gap-1.5 ${CONNECTION_COLOR.connectedText} text-sm`}>
-                  <Link2 className="w-4 h-4" /> Paired
-                </span>
-                <button
-                  onClick={onUnpair}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  Unpair
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className={`flex items-center gap-1.5 ${CONNECTION_COLOR.connectedText} text-sm`}>
+                    <Link2 className="w-4 h-4" /> Paired
+                  </span>
+                  <button
+                    onClick={onUnpair}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Unpair
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Follow scout's world</span>
+                  <Switch
+                    checked={followScout}
+                    onCheckedChange={onFollowScoutChange}
+                    className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
               </div>
             ) : session.pairToken ? (
               <div className="space-y-1">

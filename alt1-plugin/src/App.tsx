@@ -107,6 +107,9 @@ export function App() {
           if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
           worldScanTimerRef.current = setTimeout(() => setIsWorldScanning(false), 1500);
           showStatus(`World hop detected → W${w}`, 'ok');
+          if (session.isPaired) session.reportWorld(w);
+        } else if (session.isPaired) {
+          session.reportWorld(null);
         }
       }
     }, 5000);
