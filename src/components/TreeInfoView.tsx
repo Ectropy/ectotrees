@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
@@ -31,13 +32,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
   const [confirmOverride, setConfirmOverride] = useState(false);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onBack();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack]);
+  useEscapeKey(onBack);
 
   const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
   const availableLocations = selectedHint?.locations ?? [];
@@ -91,7 +86,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           {/* Tree type */}
           <div>
-            <label className="text-xs text-gray-400 block mb-2 font-semibold">Tree Type</label>
+            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>Tree Type</label>
             <SelectCombobox
               items={TREE_TYPE_GROUPS}
               itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
@@ -113,7 +108,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 Strange saplings can be inspected to determine their type. Select the type it will grow into, or leave as unknown.
               </p>
               <div>
-                <label className="text-xs text-gray-400 block mb-2 font-semibold">
+                <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
                   Expected type <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <SelectCombobox
@@ -131,7 +126,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           {/* Location hint */}
           <div>
-            <label className="text-xs text-gray-400 block mb-2 font-semibold">
+            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
               Location hint <span className="text-red-400">*</span>
             </label>
             <SelectCombobox
@@ -149,7 +144,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Exact location */}
           {availableLocations.length > 0 && (
             <div>
-              <label className="text-xs text-gray-400 block mb-2 font-semibold">
+              <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
                 Exact location <span className="text-gray-500 font-normal">(optional)</span>
               </label>
               <SelectCombobox
@@ -169,7 +164,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Health remaining */}
           {!isStrangeSapling && (
             <div>
-              <label className="text-xs text-gray-400 block mb-2 font-semibold">
+              <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
                 Health remaining <span className="text-gray-500 font-normal">(optional)</span>
               </label>
               <HealthButtonGrid
@@ -206,7 +201,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             confirmOverride ? (
               <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
                 <p className={`text-sm ${TEXT_COLOR.prominent}`}>Replace all data and restart timers?</p>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs ${TEXT_COLOR.muted}`}>
                   This will discard the current timer and treat this as a brand-new tree sighting. Use this if the previous data was wrong
                 </p>
                 <div className="flex gap-3">

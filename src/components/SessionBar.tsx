@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
-import { copyToClipboard } from '../lib/utils';
+import { useCountdown } from '../hooks/useCountdown';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 import { CONNECTION_COLOR } from '../constants/toolColors';
 
@@ -47,41 +48,11 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [tokenCountdown, setTokenCountdown] = useState<number | null>(null);
+  const { copied, copy: copyCode } = useCopyFeedback();
+  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
+  const countdown = useCountdown(session.reconnectAt ?? null);
+  const tokenCountdown = useCountdown(session.pairTokenExpiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
-
-  // Reconnect countdown
-  useEffect(() => {
-    if (!session.reconnectAt) {
-      setCountdown(null);
-      return;
-    }
-    const tick = () => {
-      const secs = Math.ceil((session.reconnectAt! - Date.now()) / 1000);
-      setCountdown(secs > 0 ? secs : null);
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [session.reconnectAt]);
-
-  // Pair token countdown
-  useEffect(() => {
-    if (!session.pairTokenExpiresAt) {
-      setTokenCountdown(null);
-      return;
-    }
-    const tick = () => {
-      const secs = Math.ceil((session.pairTokenExpiresAt! - Date.now()) / 1000);
-      setTokenCountdown(secs > 0 ? secs : null);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [session.pairTokenExpiresAt]);
 
   async function handleCreate() {
     setLoading(true);
@@ -111,14 +82,12 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleCopyCode() {
     if (!session.code) return;
-    const ok = await copyToClipboard(buildSessionUrl(session.code));
-    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    await copyCode(buildSessionUrl(session.code));
   }
 
   async function handleCopyToken() {
     if (!session.pairToken) return;
-    const ok = await copyToClipboard(session.pairToken);
-    if (ok) { setTokenCopied(true); setTimeout(() => setTokenCopied(false), 2000); }
+    await copyToken(session.pairToken);
   }
 
   function getReconnectText(): string | null {

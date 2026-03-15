@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Star, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
 import { buildWorldIntel } from '../lib/intelCopy';
-import { copyToClipboard } from '../lib/utils';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -35,7 +36,7 @@ type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
 export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyIntel } = useCopyFeedback(1500);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [editPendingValue, setEditPendingValue] = useState('');
   const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
@@ -67,13 +68,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
     setEditingField(field);
   }
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && editingField === null) onBack();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [editingField, onBack]);
+  useEscapeKey(() => { if (editingField === null) onBack(); });
 
   function saveEdit() {
     if (editingField === 'treeType') {
@@ -105,11 +100,9 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                     <button
                       type="button"
                       onClick={() => {
-                        copyToClipboard(intel).then(ok => {
-                          if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
-                        });
+                        copyIntel(intel);
                       }}
-                      className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                      className={`flex items-center gap-1 text-sm ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                     >
                       Copy intel {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
@@ -317,7 +310,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           {/* Health update (alive trees only) */}
           {(state.treeStatus === 'alive' || state.treeStatus === 'mature') && (
             <div className="bg-gray-800 border border-gray-700 rounded p-4">
-              <p className="text-xs text-gray-400 font-semibold mb-2">Update health</p>
+              <p className={`text-xs ${TEXT_COLOR.muted} font-semibold mb-2`}>Update health</p>
               <HealthButtonGrid
                 value={state.treeHealth}
                 onChange={v => { setPendingLightning(null); onUpdateHealth(v); }}
@@ -401,7 +394,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
             return (
               <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
                 <p className={`text-sm ${TEXT_COLOR.prominent}`}>Reset World {world.id} to blank?</p>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs ${TEXT_COLOR.muted}`}>
                   Use this to correct a mistake — wrong world, accidental entry, or test data. All recorded data will be wiped immediately.
                 </p>
                 {items.length > 0 && (
@@ -462,7 +455,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-2">
-      <dt className="text-sm text-gray-400 w-28 flex-shrink-0">{label}</dt>
+      <dt className={`text-sm ${TEXT_COLOR.muted} w-28 flex-shrink-0`}>{label}</dt>
       <dd className="text-sm min-w-0">{children}</dd>
     </div>
   );
@@ -471,7 +464,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs text-gray-400 font-semibold block">{label}</label>
+      <label className={`text-xs ${TEXT_COLOR.muted} font-semibold block`}>{label}</label>
       {children}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
 import { Skull, Check } from 'lucide-react';
@@ -12,13 +12,7 @@ interface Props {
 }
 
 export function TreeDeadView({ world, onConfirm, onBack }: Props) {
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onBack();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack]);
+  useEscapeKey(onBack);
   const deadMinutes = DEAD_CLEAR_MS / 60_000;
 
   return (
@@ -34,7 +28,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
           {/* Main message */}
           <div className={`bg-gray-800 border ${DEAD_COLOR.alertBorder} rounded p-6 text-center`}>
             <p className={`text-lg ${TEXT_COLOR.prominent} mb-2`}>Confirm: Tree is dead?</p>
-            <p className="text-sm text-gray-400">
+            <p className={`text-sm ${TEXT_COLOR.muted}`}>
               This will start the {deadMinutes}-minute reward window timer.
             </p>
           </div>

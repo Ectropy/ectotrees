@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS } from '../constants/evilTree';
 import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
@@ -92,13 +93,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
     setMinutesText(String(clamped));
   }
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onBack();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack]);
+  useEscapeKey(onBack);
 
   function doSubmit(finalMinutes: number) {
     const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
@@ -141,7 +136,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             {/* Text entry row */}
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <label className="text-xs text-gray-400 block mb-1">Hours</label>
+                <label className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Hours</label>
                 <input
                   autoFocus
                   type="text"
@@ -165,9 +160,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
                   className={inputClass}
                 />
               </div>
-              <span className="text-2xl text-gray-400 font-bold pt-4 select-none">:</span>
+              <span className={`text-2xl ${TEXT_COLOR.muted} font-bold pt-4 select-none`}>:</span>
               <div className="flex-1">
-                <label className="text-xs text-gray-400 block mb-1">Minutes</label>
+                <label className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Minutes</label>
                 <input
                   ref={minutesInputRef}
                   type="text"
@@ -239,7 +234,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Location hint</label>
+                <label className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Location hint</label>
                 <SelectCombobox
                   items={LOCATION_HINTS.map(lh => lh.hint)}
                   value={hint || null}

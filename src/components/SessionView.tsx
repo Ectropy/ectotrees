@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
-import { copyToClipboard } from '../lib/utils';
+import { useCountdown } from '../hooks/useCountdown';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 import { CONNECTION_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
@@ -50,37 +51,13 @@ export function SessionView({
 }: SessionViewProps) {
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [tokenCountdown, setTokenCountdown] = useState<number | null>(null);
+  const { copied, copy: copyCode } = useCopyFeedback();
+  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
+  const countdown = useCountdown(session.reconnectAt ?? null);
+  const tokenCountdown = useCountdown(session.pairTokenExpiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
   const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
   const [managedName, setManagedName] = useState('');
-
-  // Reconnect countdown
-  useEffect(() => {
-    if (!session.reconnectAt) { setCountdown(null); return; }
-    const tick = () => {
-      const secs = Math.ceil((session.reconnectAt! - Date.now()) / 1000);
-      setCountdown(secs > 0 ? secs : null);
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [session.reconnectAt]);
-
-  // Pair token countdown
-  useEffect(() => {
-    if (!session.pairTokenExpiresAt) { setTokenCountdown(null); return; }
-    const tick = () => {
-      const secs = Math.ceil((session.pairTokenExpiresAt! - Date.now()) / 1000);
-      setTokenCountdown(secs > 0 ? secs : null);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [session.pairTokenExpiresAt]);
 
   async function handleCreate() {
     setLoading(true);
@@ -106,14 +83,12 @@ export function SessionView({
 
   async function handleCopyCode() {
     if (!session.code) return;
-    const ok = await copyToClipboard(buildSessionUrl(session.code));
-    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    await copyCode(buildSessionUrl(session.code));
   }
 
   async function handleCopyToken() {
     if (!session.pairToken) return;
-    const ok = await copyToClipboard(session.pairToken);
-    if (ok) { setTokenCopied(true); setTimeout(() => setTokenCopied(false), 2000); }
+    await copyToken(session.pairToken);
   }
 
   function getReconnectText(): string | null {
@@ -136,7 +111,7 @@ export function SessionView({
             <h1 className={`text-2xl font-bold ${TEXT_COLOR.prominent} flex items-center gap-2`}>
               <Users className="h-5 w-5" /> Session
             </h1>
-            <p className="text-sm text-gray-400 mt-1">Create or join a sync session to share world data in real time.</p>
+            <p className={`text-sm ${TEXT_COLOR.muted} mt-1`}>Create or join a sync session to share world data in real time.</p>
           </div>
 
           <div className="space-y-3">
@@ -250,11 +225,11 @@ export function SessionView({
 
           {/* Session code + copy */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Code:</span>
+            <span className={`text-xs ${TEXT_COLOR.muted}`}>Code:</span>
             <span className="font-mono font-bold text-base text-white tracking-wider">{session.code}</span>
             <button
               onClick={handleCopyCode}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
               title="Copy session link"
             >
               {copied ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></> : <><Copy className="w-3 h-3" /><span>Copy link</span></>}
@@ -296,11 +271,11 @@ export function SessionView({
             ) : session.pairToken ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Pair code:</span>
+                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Pair code:</span>
                   <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.pairToken}</span>
                   <button
                     onClick={handleCopyToken}
-                    className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                   >
                     {tokenCopied ? 'Copied!' : 'Copy'}
                   </button>
@@ -384,7 +359,7 @@ export function SessionView({
               </form>
             ) : (
               <>
-                <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                <ul className={`text-xs ${TEXT_COLOR.muted} space-y-1 list-disc list-inside`}>
                   <li>New members must join via a personal invite link — open joining is disabled</li>
                   <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
                   <li>Viewers cannot submit world updates</li>

@@ -47,10 +47,10 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
             <div className="flex items-center justify-between px-4 py-3 gap-4">
               <div>
                 <p className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Dock side</p>
-                <p className="text-xs text-gray-400 mt-0.5">Which side the panel docks to</p>
+                <p className={`text-xs ${TEXT_COLOR.muted} mt-0.5`}>Which side the panel docks to</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs text-gray-400">
+                <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted}`}>
                   {settings.sidebarSide === 'left' ? (
                     <><PanelLeft className="h-3.5 w-3.5" /> Left</>
                   ) : (
@@ -105,10 +105,10 @@ function SettingRow({
     <div className="flex items-center justify-between px-4 py-3 gap-4">
       <div>
         <p className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>{label}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+        <p className={`text-xs ${TEXT_COLOR.muted} mt-0.5`}>{description}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-xs w-6 text-right text-gray-400" aria-hidden="true">
+        <span className={`text-xs w-6 text-right ${TEXT_COLOR.muted}`} aria-hidden="true">
           {value ? 'On' : 'Off'}
         </span>
         <Switch
