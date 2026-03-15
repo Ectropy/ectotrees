@@ -8,7 +8,7 @@ import type { TreeType } from '../constants/evilTree';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
-import { TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, LOCATION_HINTS, locationsForHint, resolveExactLocation, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { HealthButtonGrid } from './HealthButtonGrid';
 import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
@@ -48,13 +48,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
   const hasActiveTree = state.treeStatus === 'sapling' || state.treeStatus === 'mature' || state.treeStatus === 'alive';
   const isDeadTree = state.treeStatus === 'dead';
   const hasSpawnTimer = state.nextSpawnTarget !== undefined;
-  const availableLocations = LOCATION_HINTS.find(lh => lh.hint === state.treeHint)?.locations ?? [];
-
-
-  function resolveExactLocationFromHint(newHint: string): string | undefined {
-    const match = LOCATION_HINTS.find(lh => lh.hint === newHint);
-    return match?.locations.length === 1 ? match.locations[0] : undefined;
-  }
+  const availableLocations = locationsForHint(state.treeHint ?? '');
 
   function commitField(fields: TreeFieldsPayload) {
     onUpdateFields(fields);
@@ -76,7 +70,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
     } else if (editingField === 'treeHint') {
       commitField({
         treeHint: editPendingValue || undefined,
-        treeExactLocation: editPendingValue ? resolveExactLocationFromHint(editPendingValue) : undefined,
+        treeExactLocation: editPendingValue ? (resolveExactLocation(editPendingValue) || undefined) : undefined,
       });
     } else if (editingField === 'treeExactLocation') {
       commitField({ treeExactLocation: editPendingValue || undefined });

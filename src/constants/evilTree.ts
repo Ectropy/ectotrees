@@ -1,4 +1,5 @@
 import type { TreeType } from '../../shared/types.ts';
+import { LOCATION_HINTS } from '../../shared/hints.ts';
 
 export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../../shared/types.ts';
 export type { TreeType } from '../../shared/types.ts';
@@ -55,6 +56,15 @@ export const FILTERABLE_TREE_TYPES = [
   { key: 'elder',   label: 'Elder' },
 ] as const;
 
+
+export function locationsForHint(hint: string): string[] {
+  return LOCATION_HINTS.find(lh => lh.hint === hint)?.locations ?? [];
+}
+
+export function resolveExactLocation(hint: string): string {
+  const match = LOCATION_HINTS.find(lh => lh.hint === hint);
+  return match?.locations.length === 1 ? match.locations[0] : '';
+}
 
 export function formatMs(ms: number): string {
   if (ms <= 0) return '0m';

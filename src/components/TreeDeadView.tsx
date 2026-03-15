@@ -3,7 +3,7 @@ import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
 import { Skull, Check } from 'lucide-react';
 import { DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
-import { ViewHeader } from './ViewHeader';
+import { ToolView } from './ToolView';
 
 interface Props {
   world: WorldConfig;
@@ -16,15 +16,9 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
   const deadMinutes = DEAD_CLEAR_MS / 60_000;
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-      <div className="max-w-lg mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <ViewHeader icon={<Skull className="h-5 w-5" />} title="Mark Tree as Dead" world={world} />
-        </div>
-
-        {/* Confirmation card */}
-        <div className="space-y-6">
+    <ToolView icon={<Skull className="h-5 w-5" />} title="Mark Tree as Dead" world={world}>
+      {/* Confirmation card */}
+      <div className="space-y-6">
           {/* Main message */}
           <div className={`bg-gray-800 border ${DEAD_COLOR.alertBorder} rounded p-6 text-center`}>
             <p className={`text-lg ${TEXT_COLOR.prominent} mb-2`}>Confirm: Tree is dead?</p>
@@ -59,8 +53,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
               Cancel
             </button>
           </div>
-        </div>
       </div>
-    </div>
+    </ToolView>
   );
 }

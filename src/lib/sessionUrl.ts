@@ -1,3 +1,10 @@
+const SESSION_CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+
+/** Returns true if the string is a valid 6-character session code. */
+export function validateSessionCode(code: string): boolean {
+  return SESSION_CODE_RE.test(code);
+}
+
 /**
  * Extracts a session code from either a raw code string or a full join URL.
  *
@@ -6,7 +13,7 @@
  *   - Join URL:    "https://…?join=ABC123" → "ABC123"
  *
  * Always returns the value uppercased. Does not validate the code format —
- * callers are responsible for checking against /^[A-HJ-NP-Z2-9]{6}$/.
+ * use validateSessionCode() to check the result.
  */
 export function extractSessionCode(raw: string): string {
   try {

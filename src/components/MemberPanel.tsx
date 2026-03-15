@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
-import { TEXT_COLOR } from '../constants/toolColors';
+import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS } from '../constants/toolColors';
 
 interface MemberPanelProps {
   members: MemberInfo[];
@@ -13,19 +13,6 @@ interface MemberPanelProps {
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
 }
 
-const ROLE_COLORS: Record<MemberRole, string> = {
-  owner: 'text-amber-400',
-  moderator: 'text-blue-400',
-  scout: 'text-green-400',
-  viewer: 'text-gray-400',
-};
-
-const ROLE_LABELS: Record<MemberRole, string> = {
-  owner: 'Owner',
-  moderator: 'Mod',
-  scout: 'Scout',
-  viewer: 'Viewer',
-};
 
 export function MemberPanel({ members, myRole, lastInvite, onCreateInvite, onBanMember, onSetMemberRole }: MemberPanelProps) {
   const [inviteName, setInviteName] = useState('');

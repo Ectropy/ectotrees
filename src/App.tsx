@@ -22,6 +22,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './componen
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldState, WorldStates } from './types';
 import { buildDiscordMessage } from './lib/intelCopy';
+import { validateSessionCode } from './lib/sessionUrl';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
@@ -165,7 +166,7 @@ export default function App() {
     const raw = params.get('join');
     if (!raw) return;
     const code = raw.trim().toUpperCase();
-    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
+    if (!validateSessionCode(code)) return;
     // Remove the param from the URL without a page reload
     const url = new URL(window.location.href);
     url.searchParams.delete('join');
@@ -766,6 +767,33 @@ const NAV_ITEMS = [
   { kind: 'dead'   as const, icon: Skull,          label: 'Dead',  activeColor: DEAD_COLOR.text     },
 ];
 
+function NavButton({ item, isActive, onClick, variant }: {
+  item: typeof NAV_ITEMS[number];
+  isActive: boolean;
+  onClick: () => void;
+  variant: 'sidebar' | 'fullscreen';
+}) {
+  const { icon: Icon, label, activeColor } = item;
+  const activeClass = `${activeColor} bg-gray-700/60`;
+  const inactiveClass = 'text-gray-400 hover:text-gray-200 hover:bg-gray-700';
+  const sizeClass = variant === 'sidebar'
+    ? 'px-1.5 py-1'
+    : 'px-2 py-2 sm:px-1.5 sm:py-1';
+  const iconClass = variant === 'sidebar'
+    ? 'h-3.5 w-3.5 flex-shrink-0'
+    : 'h-5 w-5 sm:h-3.5 sm:w-3.5 flex-shrink-0';
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className={`${sizeClass} rounded flex items-center gap-1 transition-colors ${isActive ? activeClass : inactiveClass}`}
+    >
+      <Icon className={iconClass} />
+      <span className="hidden sm:inline text-[11px]">{label}</span>
+    </button>
+  );
+}
+
 function SidebarWrapper({
   side,
   onChangeSide,
@@ -814,20 +842,14 @@ function SidebarWrapper({
         </div>
         {/* Center: world nav buttons */}
         <div className="flex items-center justify-center gap-0.5">
-          {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label, activeColor }) => (
-            <button
-              key={kind}
-              onClick={() => worldNav.onNavigate(kind)}
-              title={label}
-              className={`px-1.5 py-1 rounded flex items-center gap-1 transition-colors ${
-                worldNav.activeKind === kind
-                  ? `${activeColor} bg-gray-700/60`
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline text-[11px]">{label}</span>
-            </button>
+          {worldNav && NAV_ITEMS.map(item => (
+            <NavButton
+              key={item.kind}
+              item={item}
+              isActive={worldNav.activeKind === item.kind}
+              onClick={() => worldNav.onNavigate(item.kind)}
+              variant="sidebar"
+            />
           ))}
         </div>
         {/* Right: close */}
@@ -891,20 +913,14 @@ function FullscreenWrapper({
           )}
           {/* Nav buttons: left-aligned on mobile, absolutely centered on desktop */}
           <div className="flex items-center gap-0.5 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
-            {worldNav && NAV_ITEMS.map(({ kind, icon: Icon, label, activeColor }) => (
-              <button
-                key={kind}
-                onClick={() => worldNav.onNavigate(kind)}
-                title={label}
-                className={`px-2 py-2 sm:px-1.5 sm:py-1 rounded flex items-center gap-1 transition-colors ${
-                  worldNav.activeKind === kind
-                    ? `${activeColor} bg-gray-700/60`
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-                }`}
-              >
-                <Icon className="h-5 w-5 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                <span className="hidden sm:inline text-[11px]">{label}</span>
-              </button>
+            {worldNav && NAV_ITEMS.map(item => (
+              <NavButton
+                key={item.kind}
+                item={item}
+                isActive={worldNav.activeKind === item.kind}
+                onClick={() => worldNav.onNavigate(item.kind)}
+                variant="fullscreen"
+              />
             ))}
           </div>
           {/* Close: always pushed to the right */}

@@ -100,6 +100,21 @@ export const STATUS_TEXT_COLORS: Record<SessionStatus, string> = {
   disconnected: CONNECTION_COLOR.disconnectedText,
 };
 
+/** Member role display colors and labels (MemberPanel + SessionView) */
+export const ROLE_COLORS = {
+  owner:     'text-amber-400',
+  moderator: 'text-blue-400',
+  scout:     'text-green-400',
+  viewer:    'text-gray-400',
+} as const;
+
+export const ROLE_LABELS = {
+  owner:     'Owner',
+  moderator: 'Mod',
+  scout:     'Scout',
+  viewer:    'Viewer',
+} as const;
+
 /** Base classes for secondary (gray) action buttons.
  *  Add sizing (py-2 / py-2.5) and layout (flex-1, w-full, mt-6) per usage. */
 export const BUTTON_SECONDARY = 'bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors';

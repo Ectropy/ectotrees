@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
+import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -51,7 +51,7 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
   async function handleJoin() {
     const code = joinCode.trim().toUpperCase();
-    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
+    if (!validateSessionCode(code)) return;
     if (activeLocalCount > 0) {
       setJoinCode('');
       setShowJoinInput(false);

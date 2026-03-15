@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { TreeDeciduous } from 'lucide-react';
-import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { ViewHeader } from './ViewHeader';
+import { ToolView } from './ToolView';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -34,19 +34,13 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   useEscapeKey(onBack);
 
-  const selectedHint = LOCATION_HINTS.find(h => h.hint === hint);
-  const availableLocations = selectedHint?.locations ?? [];
+  const availableLocations = locationsForHint(hint);
   const isStrangeSapling = treeType != null && (treeType === 'sapling' || treeType.startsWith('sapling-'));
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'];
 
-  function resolveExactLocationFromHint(newHint: string): string {
-    const match = LOCATION_HINTS.find(h => h.hint === newHint);
-    return match?.locations.length === 1 ? match.locations[0] : '';
-  }
-
   function handleHintChange(newHint: string) {
     setHint(newHint);
-    setExactLocation(resolveExactLocationFromHint(newHint));
+    setExactLocation(resolveExactLocation(newHint));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -66,15 +60,9 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-      <div className="max-w-lg mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <ViewHeader icon={<TreeDeciduous className="h-5 w-5" />} title="Tree Info" world={world} />
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <ToolView icon={<TreeDeciduous className="h-5 w-5" />} title="Tree Info" world={world}>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
           {/* Help text */}
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <p className="text-sm text-gray-300">
@@ -243,8 +231,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               </div>
             )
           )}
-        </form>
-      </div>
-    </div>
+      </form>
+    </ToolView>
   );
 }

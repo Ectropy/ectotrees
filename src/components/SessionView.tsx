@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
+import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -61,7 +61,7 @@ export function SessionView({
 
   async function handleJoin() {
     const code = joinCode.trim().toUpperCase();
-    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
+    if (!validateSessionCode(code)) return;
     if (activeLocalCount > 0) {
       setJoinCode('');
       setLoading(true);
@@ -145,7 +145,7 @@ export function SessionView({
               />
               <button
                 type="submit"
-                disabled={loading || !/^[A-HJ-NP-Z2-9]{6}$/.test(joinCode.trim())}
+                disabled={loading || !validateSessionCode(joinCode.trim())}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded transition-colors"
               >
                 {loading ? '…' : 'Join'}

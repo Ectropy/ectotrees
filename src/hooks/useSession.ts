@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
 import type { ClientMessage, ServerMessage, MemberInfo, MemberRole } from '../../shared/protocol.ts';
+import { validateSessionCode } from '../lib/sessionUrl';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -107,7 +108,7 @@ function loadPersistedSessionCode(): string | null {
     const raw = localStorage.getItem(SESSION_CODE_STORAGE_KEY);
     if (!raw) return null;
     const code = raw.trim().toUpperCase();
-    return /^[A-HJ-NP-Z2-9]{6}$/.test(code) ? code : null;
+    return validateSessionCode(code) ? code : null;
   } catch {
     return null;
   }
@@ -196,6 +197,13 @@ export function useSession(onSessionLost?: () => void) {
   useEffect(() => {
     onSessionLostRef.current = onSessionLost;
   }, [onSessionLost]);
+
+  function sendWsMessage(msg: ClientMessage) {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }
 
   function clearPendingTimers() {
     for (const entry of pendingMutationsRef.current.values()) {
@@ -560,7 +568,7 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const joinSession = useCallback((code: string, localStates?: WorldStates): boolean => {
-    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+    if (!validateSessionCode(code)) {
       setSession(prev => ({ ...prev, error: 'Invalid session code.' }));
       return false;
     }
@@ -725,17 +733,11 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const requestPairToken = useCallback(() => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'requestPairToken' }));
-    }
+    sendWsMessage({ type: 'requestPairToken' });
   }, []);
 
   const unpair = useCallback(() => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'unpair' }));
-    }
+    sendWsMessage({ type: 'unpair' });
     pairIdRef.current = null;
     persistPairId(null);
     setSession(prev => ({
@@ -749,45 +751,27 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const enableManaged = useCallback((name: string) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'enableManaged', name }));
-    }
+    sendWsMessage({ type: 'enableManaged', name });
   }, []);
 
   const createInviteAction = useCallback((name: string, role?: 'scout' | 'viewer') => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'createInvite', name, role }));
-    }
+    sendWsMessage({ type: 'createInvite', name, role });
   }, []);
 
   const banMemberAction = useCallback((inviteToken: string) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'banMember', inviteToken }));
-    }
+    sendWsMessage({ type: 'banMember', inviteToken });
   }, []);
 
   const renameMemberAction = useCallback((inviteToken: string, name: string) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'renameMember', inviteToken, name }));
-    }
+    sendWsMessage({ type: 'renameMember', inviteToken, name });
   }, []);
 
   const setMemberRoleAction = useCallback((inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'setMemberRole', inviteToken, role }));
-    }
+    sendWsMessage({ type: 'setMemberRole', inviteToken, role });
   }, []);
 
   const transferOwnershipAction = useCallback((inviteToken: string) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'transferOwnership', inviteToken }));
-    }
+    sendWsMessage({ type: 'transferOwnership', inviteToken });
   }, []);
 
   // Clear pair token from display when it expires

@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
-import { LOCATION_HINTS } from '../constants/evilTree';
+import { LOCATION_HINTS, resolveExactLocation } from '../constants/evilTree';
 import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { ViewHeader } from './ViewHeader';
+import { ToolView } from './ToolView';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig, SpawnTreeInfo } from '../types';
 import { SelectCombobox } from './ui/select-combobox';
@@ -94,9 +94,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   function doSubmit(finalMinutes: number) {
     const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
     if (totalMs <= 0) return;
-    const match = hint ? LOCATION_HINTS.find(lh => lh.hint === hint) : undefined;
+    const resolved = hint ? resolveExactLocation(hint) : '';
     const treeInfo: SpawnTreeInfo | undefined = hint
-      ? { treeHint: hint, treeExactLocation: match?.locations.length === 1 ? match.locations[0] : undefined }
+      ? { treeHint: hint, treeExactLocation: resolved || undefined }
       : undefined;
     onSubmit(totalMs, treeInfo);
   }
@@ -109,15 +109,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   const inputClass = 'bg-gray-600 text-white text-center text-lg font-semibold rounded px-2 py-1.5 border border-gray-500 focus:border-blue-400 focus:outline-none w-full';
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-      <div className="max-w-lg mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <ViewHeader icon={<Timer className="h-5 w-5" />} title="Set Spawn Timer" world={world} />
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <ToolView icon={<Timer className="h-5 w-5" />} title="Set Spawn Timer" world={world}>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
           {/* Help text */}
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             <p className="text-sm text-gray-300">
@@ -266,8 +260,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
               Cancel
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ToolView>
   );
 }
