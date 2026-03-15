@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import type { AppSettings } from '../hooks/useSettings';
 import { Switch } from '@/components/ui/switch';
 import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
