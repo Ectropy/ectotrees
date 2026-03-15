@@ -1,6 +1,6 @@
 import type { WorldState } from '../types';
 import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
-import { TREE_STATE_COLOR } from '../constants/toolColors';
+import { TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
 
 interface Props {
   state: WorldState;
@@ -29,7 +29,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.dead} text-[11px] font-bold leading-tight`}>R.I.P.</div>
         {locationLabel && (
-          <div className="text-gray-400 text-[9px] leading-tight truncate">
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
             {locationLabel}
           </div>
         )}
@@ -48,7 +48,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.sapling} text-[10px] font-bold leading-tight`}>{label}</div>
         {locationLabel && (
-          <div className="text-gray-400 text-[9px] leading-tight truncate">
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
             {locationLabel}
           </div>
         )}
@@ -68,10 +68,10 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.matureAlive} text-[10px] font-bold leading-tight`}>
-          {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
+          {label}{state.treeHealth !== undefined && <span className={`${TEXT_COLOR.muted} font-normal`}> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
-          <div className="text-gray-400 text-[9px] leading-tight truncate">
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
             {locationLabel}
           </div>
         )}
@@ -89,10 +89,10 @@ export function StatusSection({ state }: Props) {
     return (
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.matureAlive} text-[10px] font-bold leading-tight`}>
-          {label}{state.treeHealth !== undefined && <span className="text-gray-400 font-normal"> · {state.treeHealth}%</span>}
+          {label}{state.treeHealth !== undefined && <span className={`${TEXT_COLOR.muted} font-normal`}> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
-          <div className="text-gray-400 text-[9px] leading-tight truncate">
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
             {locationLabel}
           </div>
         )}
@@ -110,7 +110,7 @@ export function StatusSection({ state }: Props) {
         <div className={`flex ${locationLabel ? 'flex-col justify-center' : 'items-center'} h-full`}>
           <div className={`${TREE_STATE_COLOR.spawnTimer} text-[10px] font-bold leading-tight`}>Next: {formatMs(remaining)}</div>
           {locationLabel && (
-            <div className="text-gray-400 text-[9px] leading-tight truncate">
+            <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
               {locationLabel}
             </div>
           )}
@@ -121,14 +121,14 @@ export function StatusSection({ state }: Props) {
 
   return locationLabel ? (
     <div className="flex flex-col justify-center h-full">
-      <div className="text-gray-600 text-[9px] leading-tight">—</div>
-      <div className="text-gray-400 text-[9px] leading-tight truncate">
+      <div className={`${TEXT_COLOR.ghost} text-[9px] leading-tight`}>—</div>
+      <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
         {locationLabel}
       </div>
     </div>
   ) : (
     <div className="flex items-center h-full">
-      <span className="text-gray-600 text-[9px]">—</span>
+      <span className={`${TEXT_COLOR.ghost} text-[9px]`}>—</span>
     </div>
   );
 }

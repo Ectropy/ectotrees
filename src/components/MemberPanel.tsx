@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
+import { TEXT_COLOR } from '../constants/toolColors';
 
 interface MemberPanelProps {
   members: MemberInfo[];
@@ -156,7 +157,7 @@ export function MemberPanel({ members, myRole, lastInvite, onCreateInvite, onBan
 
       {/* Last invite feedback */}
       {lastInvite && (
-        <div className="bg-gray-700/50 rounded px-2 py-1 text-xs text-gray-400">
+        <div className={`bg-gray-700/50 rounded px-2 py-1 text-xs ${TEXT_COLOR.muted}`}>
           Invite created for <span className="text-gray-200">{lastInvite.name}</span> — use the copy button in the table above.
         </div>
       )}

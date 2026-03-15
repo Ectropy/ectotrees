@@ -5,7 +5,7 @@ import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
-import { CONNECTION_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -20,17 +20,6 @@ interface SessionBarProps {
   onOpenSession: () => void;
 }
 
-const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
-  connected:    CONNECTION_COLOR.connectedDot,
-  connecting:   CONNECTION_COLOR.connectingDot,
-  disconnected: CONNECTION_COLOR.disconnectedDot,
-};
-
-const STATUS_TEXT_COLORS: Record<SessionState['status'], string> = {
-  connected:    CONNECTION_COLOR.connectedText,
-  connecting:   CONNECTION_COLOR.connectingText,
-  disconnected: CONNECTION_COLOR.disconnectedText,
-};
 
 function DismissableError({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (

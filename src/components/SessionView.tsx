@@ -5,7 +5,7 @@ import { extractSessionCode, buildSessionUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
-import { CONNECTION_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 
 interface SessionViewProps {
@@ -27,12 +27,6 @@ interface SessionViewProps {
   onTransferOwnership: (inviteToken: string) => void;
   onBack: () => void;
 }
-
-const STATUS_DOT_COLORS: Record<SessionState['status'], string> = {
-  connected:    CONNECTION_COLOR.connectedDot,
-  connecting:   CONNECTION_COLOR.connectingDot,
-  disconnected: CONNECTION_COLOR.disconnectedDot,
-};
 
 const STATUS_LABELS: Record<SessionState['status'], string> = {
   connected:    'Connected',
@@ -172,7 +166,7 @@ export function SessionView({
 
           <button
             onClick={onBack}
-            className="mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+            className={`mt-6 w-full ${BUTTON_SECONDARY} py-2.5`}
           >
             Close
           </button>
@@ -391,7 +385,7 @@ export function SessionView({
         <div className="flex gap-2">
           <button
             onClick={onBack}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+            className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}
           >
             Close
           </button>

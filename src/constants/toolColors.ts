@@ -83,3 +83,23 @@ export const CONNECTION_COLOR = {
   disconnectedDot:  'bg-red-500',                          // status dot when disconnected / error
   disconnectedText: 'text-red-500 hover:text-red-400',     // session label when disconnected
 } as const;
+
+type SessionStatus = 'connected' | 'connecting' | 'disconnected';
+
+/** Pre-built status → dot color map (SessionBar + SessionView) */
+export const STATUS_DOT_COLORS: Record<SessionStatus, string> = {
+  connected:    CONNECTION_COLOR.connectedDot,
+  connecting:   CONNECTION_COLOR.connectingDot,
+  disconnected: CONNECTION_COLOR.disconnectedDot,
+};
+
+/** Pre-built status → text color map (SessionBar + SessionView) */
+export const STATUS_TEXT_COLORS: Record<SessionStatus, string> = {
+  connected:    CONNECTION_COLOR.connectedText,
+  connecting:   CONNECTION_COLOR.connectingText,
+  disconnected: CONNECTION_COLOR.disconnectedText,
+};
+
+/** Base classes for secondary (gray) action buttons.
+ *  Add sizing (py-2 / py-2.5) and layout (flex-1, w-full, mt-6) per usage. */
+export const BUTTON_SECONDARY = 'bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors';

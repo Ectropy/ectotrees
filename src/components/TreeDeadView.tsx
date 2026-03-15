@@ -2,7 +2,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
 import { Skull, Check } from 'lucide-react';
-import { DEAD_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { ViewHeader } from './ViewHeader';
 
 interface Props {
@@ -54,7 +54,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
             </button>
             <button
               onClick={onBack}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+              className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}
             >
               Cancel
             </button>

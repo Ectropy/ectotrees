@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS } from '../constants/evilTree';
-import { TREE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import type { TreeType } from '../constants/evilTree';
@@ -190,7 +190,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             <button
               type="button"
               onClick={onBack}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2 transition-colors"
+              className={`flex-1 ${BUTTON_SECONDARY} py-2`}
             >
               Cancel
             </button>
@@ -225,7 +225,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                   <button
                     type="button"
                     onClick={() => setConfirmOverride(false)}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2 text-sm transition-colors"
+                    className={`flex-1 ${BUTTON_SECONDARY} py-2 text-sm`}
                   >
                     Cancel
                   </button>

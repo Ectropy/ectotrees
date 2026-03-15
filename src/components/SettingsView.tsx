@@ -1,7 +1,7 @@
 import { PanelLeft, PanelRight, Settings } from 'lucide-react';
 import type { AppSettings } from '../hooks/useSettings';
 import { Switch } from '@/components/ui/switch';
-import { TEXT_COLOR } from '../constants/toolColors';
+import { TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 
 interface Props {
   settings: AppSettings;
@@ -69,7 +69,7 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
 
         <button
           onClick={onBack}
-          className="mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+          className={`mt-6 w-full ${BUTTON_SECONDARY} py-2.5`}
         >
           Close
         </button>

@@ -5,7 +5,7 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { TREE_TYPE_LABELS, LOCATION_HINTS, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
@@ -372,7 +372,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           {/* Close button */}
           <button
             onClick={onBack}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2.5 transition-colors"
+            className={`w-full ${BUTTON_SECONDARY} py-2.5`}
           >
             Close
           </button>
@@ -427,7 +427,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2 transition-colors"
+                    className={`flex-1 ${BUTTON_SECONDARY} py-2`}
                   >
                     Cancel
                   </button>

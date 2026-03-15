@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS } from '../constants/evilTree';
-import { SPAWN_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
@@ -26,6 +26,12 @@ function clampToValues(typed: number, values: number[]): number {
   return values.reduce((closest, v) =>
     Math.abs(v - typed) < Math.abs(closest - typed) ? v : closest
   );
+}
+
+function commitNumericInput(text: string, fallback: number, validValues: number[]): number {
+  const typed = parseInt(text, 10);
+  if (isNaN(typed) || text.trim() === '') return fallback;
+  return clampToValues(typed, validValues);
 }
 
 interface Props {
@@ -72,23 +78,13 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   }
 
   function commitHours() {
-    const typed = parseInt(hoursText, 10);
-    if (isNaN(typed) || hoursText.trim() === '') {
-      setHoursText(String(hours));
-      return;
-    }
-    const clamped = clampToValues(typed, HOUR_VALUES);
+    const clamped = commitNumericInput(hoursText, hours, HOUR_VALUES);
     setHours(clamped);
     setHoursText(String(clamped));
   }
 
   function commitMinutes() {
-    const typed = parseInt(minutesText, 10);
-    if (isNaN(typed) || minutesText.trim() === '') {
-      setMinutesText(String(minutes));
-      return;
-    }
-    const clamped = clampToValues(typed, MINUTE_VALUES);
+    const clamped = commitNumericInput(minutesText, minutes, MINUTE_VALUES);
     setMinutes(clamped);
     setMinutesText(String(clamped));
   }
@@ -265,7 +261,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             <button
               type="button"
               onClick={onBack}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded py-2 transition-colors"
+              className={`flex-1 ${BUTTON_SECONDARY} py-2`}
             >
               Cancel
             </button>
