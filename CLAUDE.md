@@ -6,7 +6,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 19** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `HatGlasses`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI)
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
 - **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
@@ -64,7 +64,7 @@ src/
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
-    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code) — ?join=CODE URL param parsing, cleanup, and generation
+    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — ?join=CODE URL param parsing, cleanup, generation, and validation
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
@@ -75,6 +75,9 @@ src/
     useFavorites.ts     # Favorite worlds persisted to localStorage
     useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
+    useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
+    useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
+    useCopyFeedback.ts  # Returns { copied, copy(text) } — copy writes to clipboard, copied flips true for 2s
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -96,6 +99,9 @@ src/
     LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
     SparkEffect.tsx      # GSAP-based ember particle animation (dead trees)
     TipTicker.tsx        # Infinite-scrolling tip footer (tips from data/tips.json)
+    ToolButton.tsx       # Icon button used on world cards (w-7 h-6, configurable hover color via toolHover prop)
+    ToolView.tsx         # Layout shell for tool views: wraps ViewHeader + children in max-w-lg centered container
+    icons/PartyHatGlasses.tsx # Custom SVG icon (party hat + glasses) used as the View nav button
     ui/switch.tsx        # Radix UI switch wrapper
     ui/resizable.tsx     # react-resizable-panels v4 wrappers (shadcn/ui-style handle)
     ui/tooltip.tsx       # Radix UI tooltip wrapper
@@ -116,7 +122,7 @@ Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — number
 - Panel `defaultSize` starts at 30% and is persisted as a percentage (0–100) to `localStorage` key `ectotrees-sidebar-pct` via `onLayoutChanged` on the Group. `defaultSize` is always passed as a percentage **string** (e.g. `"30%"`) — bare pixel numbers cause the library to crash at mount before the container is in the DOM.
 - Panel constraints: sidebar `minSize="365px"`, grid `minSize="300px"` (px strings, no maxSize enforced). The `ResizablePanelGroup` uses `key={settings.sidebarSide}` so switching sides forces a full remount — the new panel reads the stored `sidebarPct` as its `defaultSize`, making the sidebar appear at the same width after a side swap.
 - Both `SidebarWrapper` and `FullscreenWrapper` render a **3-section toolbar**: left (dock/expand controls) · center (4 tool-navigation buttons) · right (Close). The center buttons are defined in `NAV_ITEMS` (module-level constant in `App.tsx`) and only render when `worldNavProp` is non-null (i.e. a world tool/detail view is active — not grid or settings). Active button is highlighted `text-amber-400`. `worldNavProp` is `undefined` for the settings view.
-- **Tool nav buttons** (`NAV_ITEMS`): `HatGlasses` View · `Timer` Timer · `TreeDeciduous` Tree · `Skull` Dead. Labels use `hidden sm:inline` — icons only below 640px. On mobile fullscreen, buttons are larger (`h-5 w-5 px-2 py-2`) and left-aligned; on desktop they are smaller (`sm:h-3.5 sm:w-3.5 sm:px-1.5 sm:py-1`) and centered via `sm:absolute sm:left-1/2 sm:-translate-x-1/2`.
+- **Tool nav buttons** (`NAV_ITEMS`): `PartyHatGlasses` (custom SVG) View · `Timer` Timer · `TreeDeciduous` Tree · `Skull` Dead. Labels use `hidden sm:inline` — icons only below 640px. On mobile fullscreen, buttons are larger (`h-5 w-5 px-2 py-2`) and left-aligned; on desktop they are smaller (`sm:h-3.5 sm:w-3.5 sm:px-1.5 sm:py-1`) and centered via `sm:absolute sm:left-1/2 sm:-translate-x-1/2`.
 - `SidebarWrapper` toolbar uses `grid grid-cols-[1fr_auto_1fr]`; `FullscreenWrapper` toolbar uses `relative flex` (left-aligned on mobile, absolute-centered nav on desktop).
 - `[&>*]:!min-h-full` on the scroll container overrides the `min-h-screen` class on view root divs so they fill the panel height rather than forcing `100vh`
 - `useIsMobile()` (`src/hooks/useIsMobile.ts`) reactively watches `window.matchMedia('(max-width: 639px)')` and forces full-screen mode below 640px (Tailwind `sm`) regardless of the setting — tablets (≥ 640px) can use the sidebar
@@ -369,6 +375,49 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
 - `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`, `recentOwnWorldId`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
+
+## Alt1 Scout Plugin (`alt1-plugin/`)
+
+A separate Vite app (served at `/alt1`) for scouts to submit spawn intel from inside RuneScape via Alt1 Toolkit.
+
+### Plugin Structure
+
+```
+alt1-plugin/src/
+  App.tsx               # Root component: orchestrates session, world, scan, and form state
+  session.ts            # EctoSession class — plain TS port of useSession (no React); event-emitter pattern
+  scanner.ts            # Alt1 pixel scanning logic: reads spawn timer and location hint from dialog
+  parser.ts             # Parses raw dialog text into { hours, minutes, hint }
+  hooks/
+    useScoutSession.ts  # React wrapper around EctoSession — exposes state + actions
+    useAlt1.ts          # Alt1 API access: isAlt1, hasPixel, hasGameState, scanWorld(), scanDialog()
+  components/
+    SessionPanel.tsx    # Session connect/join/create UI + 4-char pair code input
+    WorldInput.tsx      # World number field with manual scan button + auto-world toggle
+    ReportForm.tsx      # Spawn timer (hr/min) + hint field + scan/auto-scan/auto-submit controls
+    DebugPanel.tsx      # Dev-only debug overlay (rendered in development mode only)
+    ui/tooltip.tsx      # Tooltip primitive (local copy)
+```
+
+### Plugin Features
+
+- **Session management**: join by 6-char code or `?join=` URL param; create a new session from within the plugin; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
+- **Pairing**: enter the 4-char pair token generated by the dashboard to link scout ↔ dashboard; once paired, world hops are reported in real time (`reportWorld`); pair ID persisted to `localStorage` (`evilTree_pairId`) and auto-resumed via `resumePair`; Unpair button dissolves the link
+- **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `session.reportWorld(worldId)` to sync the dashboard's scout indicator
+- **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint
+- **Auto-scan** (toggleable, persisted as `scout_autoScan`): watches `alt1.rsLastActive` for RS clicks; retries scan every 300ms in the 150–800ms window after a click to catch the dialog as soon as it renders
+- **Auto-submit** (toggleable, persisted as `scout_autoSubmit`): starts a 10s countdown when world + timer + hint are all filled in; payload is snapshotted at countdown start so world hops during the countdown don't corrupt the submission; cancel by clicking the auto-submit button or clearing a field
+- **ACK-driven UX**: submit button shows "Submitting…" until server `ack` is received; disconnect before ack shows an error; fields auto-clear on successful ack (only if unchanged since submit)
+
+### EctoSession (alt1-plugin/src/session.ts)
+
+Plain TypeScript class (no React) that mirrors `useSession.ts`. Key differences from the main app session:
+- Event-emitter API (`session.on(event, listener)`) instead of React state
+- Identifies as `clientType: 'scout'` on connect
+- `submitPairToken(token)` — connects via `?pairToken=` URL; on `paired` message, saves the resolved session code for reconnects
+- `reportWorld(worldId | null)` — sends `reportWorld` message; called by auto-world on each hop
+- `unpair()` — sends `unpair` and clears stored pair ID
+- Same reconnect backoff, ping/pong, and ACK system as the main app
 
 ## Adding/Removing Worlds
 Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`

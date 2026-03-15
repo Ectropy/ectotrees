@@ -58,10 +58,12 @@ Any session creator can upgrade their session to **managed (invite-only) mode** 
 
 An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
 
-- Connects to a session via a 6-character code or a pairing token generated from the main dashboard
-- Detects your current world automatically via Alt1 gamestate (including world hops)
-- Scans the in-game Spirit Tree dialog to read the spawn timer and location hint automatically
-- **Auto-submit** — when enabled, submits 10 seconds after world, time, and hint are all filled in, with a countdown and a cancel button; manual submit is always available without a hint
+- **Session**: join by 6-character code (or paste a `?join=` link) or create a new session from within the plugin; session is remembered and auto-resumed on next launch
+- **Pairing**: enter the 4-character pair code shown on the main dashboard to link your scout to a specific dashboard — the dashboard then shows a live indicator of which world you are on as you hop
+- **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the paired dashboard is notified in real time
+- **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
+- **Auto-scan** (toggle) — watches for clicks inside RuneScape and automatically triggers a dialog scan 150–800 ms after each click, catching the dialog as soon as it opens
+- **Auto-submit** (toggle) — starts a 10-second countdown once world, time, and hint are all filled in; the submission payload is snapshotted at countdown start so a world hop during the countdown doesn't corrupt it; cancel by clicking the auto-submit button or clearing a field; manual submit is always available (hint not required)
 
 > **Beta:** The plugin covers the core scouting workflow. Additional features (tree info reporting, mark-dead, etc.) are planned but not yet included.
 
