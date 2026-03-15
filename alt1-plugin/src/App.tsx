@@ -29,7 +29,6 @@ export function App() {
 
   // Form state
   const [world, setWorld] = useState('');
-  const [autoDetected, setAutoDetected] = useState(false);
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [hint, setHint] = useState('');
@@ -43,6 +42,8 @@ export function App() {
   const [blinkFrame, setBlinkFrame] = useState(false);
   const cloudCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSubmitRef = useRef<() => void>(() => {});
+  type PendingSubmit = { worldId: number; msFromNow: number; hintText: string };
+  const pendingSubmitRef = useRef<PendingSubmit | null>(null);
 
   // Auto-world state
   const [autoWorld, setAutoWorld] = useState(false);
@@ -102,7 +103,6 @@ export function App() {
         const w = alt1.currentWorld;
         if (VALID_WORLD_IDS.has(w)) {
           setWorld(String(w));
-          setAutoDetected(true);
           setIsWorldScanning(true);
           if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
           worldScanTimerRef.current = setTimeout(() => setIsWorldScanning(false), 1500);
@@ -182,7 +182,15 @@ export function App() {
   // Start auto-submit countdown when all conditions are met
   useEffect(() => {
     if (autoSubmit && canAutoSubmit && autoCountdown === null && !submitting && !cloudCheck) {
-      setAutoCountdown(10);
+      const worldId = getWorldId();
+      if (worldId !== null) {
+        pendingSubmitRef.current = {
+          worldId,
+          msFromNow: getTotalMs(),
+          hintText: hint.trim().slice(0, 200),
+        };
+        setAutoCountdown(10);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSubmit, canAutoSubmit, submitting, cloudCheck]);
@@ -190,6 +198,7 @@ export function App() {
   // Cancel countdown if fields become invalid for auto-submit
   useEffect(() => {
     if (!canAutoSubmit && autoCountdown !== null) {
+      pendingSubmitRef.current = null;
       setAutoCountdown(null);
     }
   }, [canAutoSubmit, autoCountdown]);
@@ -272,10 +281,8 @@ export function App() {
     const result = scanWorld();
     if (result) {
       setWorld(String(result.world));
-      setAutoDetected(true);
       showStatus(`World ${result.world} detected (via Alt1 gamestate).`, 'ok');
     } else {
-      setAutoDetected(false);
       showStatus('Could not detect world. Right click on "Alt1 Toolkit," then enable "Show current world."', 'warn');
     }
   }
@@ -317,16 +324,26 @@ export function App() {
   }
 
   function handleSubmit() {
-    const worldId = getWorldId();
-    const msFromNow = getTotalMs();
+    const pending = pendingSubmitRef.current;
+    pendingSubmitRef.current = null;
+
+    const worldId = pending?.worldId ?? getWorldId();
+    const msFromNow = pending?.msFromNow ?? getTotalMs();
+    const hintText = pending?.hintText ?? hint.trim().slice(0, 200);
+
     if (!worldId || msFromNow <= 0 || status === 'disconnected') return;
 
     setAutoCountdown(null);
-    const hintText = hint.trim().slice(0, 200);
 
     setSubmitting(true);
     submittingRef.current = true;
     showStatus('Submitting...');
+
+    const submittedWorld = String(worldId);
+    const h = Math.floor(msFromNow / 3_600_000);
+    const m = Math.floor((msFromNow % 3_600_000) / 60_000);
+    const submittedHours = h > 0 ? String(h) : '';
+    const submittedMinutes = m > 0 ? String(m) : '';
 
     const unsubAck = session.on('ack', () => {
       unsubAck();
@@ -334,11 +351,10 @@ export function App() {
       setSubmitting(false);
       submittingRef.current = false;
       showStatus('Submitted!', 'ok');
-      setWorld('');
-      setAutoDetected(false);
-      setHours('');
-      setMinutes('');
-      setHint('');
+      setWorld(w => (w.trim() === submittedWorld ? '' : w));
+      setHours(v => (v === submittedHours ? '' : v));
+      setMinutes(v => (v === submittedMinutes ? '' : v));
+      setHint(v => (v.trim().slice(0, 200) === hintText ? '' : v));
       if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
       setCloudCheck(true);
       cloudCheckTimerRef.current = setTimeout(() => setCloudCheck(false), 1500);
@@ -368,7 +384,6 @@ export function App() {
     setHours('');
     setMinutes('');
     setHint('');
-    setAutoDetected(false);
     clearStatus();
   }
 
@@ -407,12 +422,11 @@ export function App() {
 
         <WorldInput
           world={world}
-          autoDetected={autoDetected}
           hasPixel={hasPixel}
           hasGameState={hasGameState}
           autoWorld={autoWorld}
           isWorldScanning={isWorldScanning}
-          onChange={(v) => { setWorld(v); setAutoDetected(false); }}
+          onChange={(v) => { setWorld(v); }}
           onScan={handleScanWorld}
           onAutoWorldToggle={() => {
             setAutoWorld(s => {
@@ -424,7 +438,6 @@ export function App() {
                   return false;
                 }
                 setWorld(String(result.world));
-                setAutoDetected(true);
                 showStatus(`World ${result.world} detected. Auto-detect on.`, 'ok');
               } else {
                 clearStatus();

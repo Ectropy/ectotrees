@@ -3,7 +3,6 @@ import { Tooltip } from './ui/tooltip';
 
 interface WorldInputProps {
   world: string;
-  autoDetected: boolean;
   hasPixel: boolean;
   hasGameState: boolean;
   autoWorld: boolean;
@@ -15,7 +14,6 @@ interface WorldInputProps {
 
 export function WorldInput({
   world,
-  autoDetected,
   hasPixel,
   hasGameState,
   autoWorld,
