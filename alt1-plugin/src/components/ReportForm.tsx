@@ -102,7 +102,7 @@ export function ReportForm({
           />
           <Tooltip
             content={hasPixel ? 'Scan dialogs for intel' : 'Pixel permission required to scan'}
-            side="left"
+            side="top"
           >
             <button
               onClick={onScanDialog}
@@ -115,7 +115,7 @@ export function ReportForm({
           </Tooltip>
           <Tooltip
             content={autoScan ? 'Disable intel auto-detect' : 'Enable intel auto-detect'}
-            side="left"
+            side="top"
           >
             <button
               onClick={onAutoScanToggle}

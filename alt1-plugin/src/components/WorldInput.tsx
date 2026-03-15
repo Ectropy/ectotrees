@@ -36,7 +36,7 @@ export function WorldInput({
           onChange={(e) => onChange(e.target.value)}
           className="max-w-[90px] text-center bg-input border border-border rounded px-2 py-1 text-foreground text-[13px] focus:outline-none focus:border-primary placeholder:text-muted-foreground"
         />
-        <Tooltip content={hasPixel || hasGameState ? 'Scan for current world' : 'Pixel/gamestate permission required'} side="right">
+        <Tooltip content={hasPixel || hasGameState ? 'Scan for current world' : 'Pixel/gamestate permission required'} side="top">
           <button
             onClick={onScan}
             disabled={!hasPixel && !hasGameState}
@@ -48,7 +48,7 @@ export function WorldInput({
         </Tooltip>
         <Tooltip
           content={autoWorld ? 'Disable current world auto-detect' : 'Enable current world auto-detect'}
-          side="right"
+          side="top"
         >
           <button
             onClick={onAutoWorldToggle}

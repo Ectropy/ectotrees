@@ -36,7 +36,7 @@ export function App() {
   const submittingRef = useRef(false);
 
   // Auto-submit state
-  const [autoSubmit, setAutoSubmit] = useState(false);
+  const [autoSubmit, setAutoSubmit] = useState(() => localStorage.getItem('scout_autoSubmit') === 'true');
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const [cloudCheck, setCloudCheck] = useState(false);
   const [blinkFrame, setBlinkFrame] = useState(false);
@@ -46,13 +46,13 @@ export function App() {
   const pendingSubmitRef = useRef<PendingSubmit | null>(null);
 
   // Auto-world state
-  const [autoWorld, setAutoWorld] = useState(false);
+  const [autoWorld, setAutoWorld] = useState(() => localStorage.getItem('scout_autoWorld') === 'true');
   const [isWorldScanning, setIsWorldScanning] = useState(false);
   const worldScanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastWorldHopRef = useRef(0);
 
   // Auto-scan state
-  const [autoScan, setAutoScan] = useState(false);
+  const [autoScan, setAutoScan] = useState(() => localStorage.getItem('scout_autoScan') === 'true');
   const [isScanning, setIsScanning] = useState(false);
   const scanningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -393,7 +393,11 @@ export function App() {
       setAutoCountdown(null);
       return;
     }
-    setAutoSubmit(v => !v);
+    setAutoSubmit(v => {
+      const next = !v;
+      localStorage.setItem('scout_autoSubmit', String(next));
+      return next;
+    });
   }
 
   handleSubmitRef.current = handleSubmit;
@@ -442,7 +446,9 @@ export function App() {
               } else {
                 clearStatus();
               }
-              return !s;
+              const next = !s;
+              localStorage.setItem('scout_autoWorld', String(next));
+              return next;
             });
           }}
         />
@@ -467,7 +473,9 @@ export function App() {
             setAutoScan(s => {
               if (!s) showStatus('Auto-detect on. Clicks will trigger a scan. Keyboard interactions do not.');
               else clearStatus();
-              return !s;
+              const next = !s;
+              localStorage.setItem('scout_autoScan', String(next));
+              return next;
             });
           }}
           autoSubmit={autoSubmit}
