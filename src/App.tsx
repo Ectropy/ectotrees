@@ -636,7 +636,7 @@ export default function App() {
           onDismissLightning={() => dismissLightningEvent(world.id)}
           effectsLightning={settings.effectsLightning}
           effectsSparks={settings.effectsSparks}
-          isPairedScoutWorld={session.pairedScoutWorld === world.id}
+          isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
           isRecentOwnSubmission={session.recentOwnWorldId === world.id}
         />
       ))}

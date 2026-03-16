@@ -20,11 +20,11 @@ interface Props {
   onDismissLightning?: () => void;
   effectsLightning?: boolean;
   effectsSparks?: boolean;
-  isPairedScoutWorld?: boolean;
+  isActiveWorld?: boolean;
   isRecentOwnSubmission?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isPairedScoutWorld, isRecentOwnSubmission }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission }: Props) {
   const isP2P = world.type === 'P2P';
   const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
@@ -40,15 +40,15 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
   }, [state.treeStatus]);
   const borderColor = isP2P ? P2P_COLOR.border : F2P_COLOR.border;
 
-  // Scroll paired scout's world into view when it changes
+  // Scroll active world's card into view when it becomes selected
   useEffect(() => {
-    if (isPairedScoutWorld) {
+    if (isActiveWorld) {
       cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [isPairedScoutWorld]);
+  }, [isActiveWorld]);
 
-  // Pairing highlights
-  const pairRing = isPairedScoutWorld ? 'ring-2 ring-white ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
+  // Selection / pairing highlights
+  const pairRing = isActiveWorld ? 'ring-2 ring-white ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
 
   return (
     <div
