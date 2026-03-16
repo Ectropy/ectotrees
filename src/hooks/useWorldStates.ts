@@ -31,8 +31,6 @@ export function useWorldStates(sync?: SyncChannel | null) {
     }
   });
 
-  const [tick, setTick] = useState(0);
-
   const pendingLightningRef = useRef<Array<{ worldId: number; kind: LightningKind }>>([]);
   const lightningSeqRef = useRef(0);
   const [lightningEvents, setLightningEvents] = useState<Map<number, LightningEvent>>(() => new Map());
@@ -104,7 +102,6 @@ export function useWorldStates(sync?: SyncChannel | null) {
         }
         return next;
       });
-      setTick(t => t + 1);
     }, 1_000);
     return () => clearInterval(id);
   }, []);
@@ -204,5 +201,5 @@ export function useWorldStates(sync?: SyncChannel | null) {
     });
   }, []);
 
-  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, tick, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent };
+  return { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent };
 }
