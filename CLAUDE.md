@@ -93,6 +93,7 @@ src/
     SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites)
     MemberPanel.tsx      # Member list with role badges, admin controls (role change, ban), and invite creation form
     SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
+    UpdateBanner.tsx     # Fixed bottom banner shown in production when a new app version is detected (polls /api/health every 15 min, compares `data.version` against `__APP_VERSION__`)
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
     SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar toggles)
@@ -243,7 +244,8 @@ Security response headers applied to all HTTP responses:
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/session` | Create a new session. Returns `{ code }` |
-| `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients }` |
+| `POST` | `/api/session/:code/self-invite` | Self-register into a managed session during a fork invite window. Body: `{ name: string; selfRegisterToken: string }`. Returns `{ inviteToken }` or an error. |
+| `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
 
 ### WebSocket Protocol
 Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/ws?pairToken=XXXX` (4-char token obtained from the dashboard's `requestPairToken` flow). The server validates the code or pair token on upgrade. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
@@ -265,7 +267,7 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `resumePair` | `pairId: string` — re-associates a reconnected client with an existing pair group (no `msgId`) |
 | `reportWorld` | `worldId: number \| null` — scout reports which world it is currently scouting (no `msgId`) |
 | `unpair` | (no payload, no `msgId`) — voluntarily dissolves the current pair |
-| `enableManaged` | (no payload, no `msgId`) — upgrades session to invite-only managed mode; only the session creator can send this |
+| `forkToManaged` | `name: string` — initiates a fork of the current anonymous session to a new managed session; `name` is the initiator's display name; only works on non-managed sessions (replaces the old `enableManaged` message) |
 | `createInvite` | `name: string; role?: 'scout' \| 'viewer'` — creates a 12-char invite token for a named member |
 | `banMember` | `inviteToken: string` — disconnects and permanently revokes a member's invite token |
 | `renameMember` | `inviteToken: string; name: string` — renames a member (admin only) |
@@ -284,7 +286,10 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `unpaired` | `reason: string` — sent when a pair is dissolved (peer disconnect, re-pair, or voluntary unpair) |
 | `peerWorld` | `worldId: number \| null` — sent to dashboard when its paired scout changes worlds |
 | `identity` | `name: string; role: MemberRole` — sent to a connecting member after joining a managed session |
-| `managedEnabled` | `ownerToken: string` — sent to the session creator when managed mode is activated; owner token persisted to localStorage for reconnect |
+| `managedEnabled` | `ownerToken: string` — sent to the session creator when a directly-upgraded managed session activates |
+| `forkInvite` | `managedCode`, `inviteLink`, `initiatorName`, `expiresAt`, `selfRegisterToken?` — broadcast to all clients in an anonymous session when someone initiates a fork; `selfRegisterToken` is included so each client can self-register into the new managed session |
+| `forkInviteExpired` | (no payload) — broadcast when the fork invite window expires without completing |
+| `forkCreated` | `managedCode: string; ownerToken: string` — sent to the fork initiator when the managed session has been created and is ready |
 | `inviteCreated` | `inviteToken: string; name: string; link: string` — sent to the admin who created the invite |
 | `memberJoined` | `name: string` — broadcast when a member connects |
 | `memberLeft` | `name: string` — broadcast when a member disconnects |
@@ -292,7 +297,7 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `banned` | `reason: string` — sent to a client whose invite token has been revoked |
 | `ack` | `msgId: number` — confirms a mutation was applied |
 | `pong` | (no payload) — response to `ping` |
-| `error` | `message: string` |
+| `error` | `message: string; serverVersion?: string` |
 | `sessionClosed` | `reason: string` — sent before closing expired sessions |
 
 ### Session Management (`session.ts`)
@@ -302,7 +307,7 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
 - Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
 - **Pairing**: each session maintains `pairTokens` (4-char tokens, 60s TTL), `pairs` (pairId → `{ dashboard, scout, currentWorld }`), and `wsToPairId` maps. A dashboard requests a token via `requestPairToken`; a Scout connects with that token via `?pairToken=`; the server calls `consumeAndCompletePairing` and sends `paired` to both sides. `resumePair` lets reconnecting clients re-join an existing pair group. Pair token sweep runs on the 10s transition interval.
-- **Managed sessions**: one-way upgrade from anonymous via `enableManaged`. Generates a 12-char owner token (sent via `managedEnabled`, stored in client localStorage for reconnect). Members join via `?invite=TOKEN` on the WS upgrade URL. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations. Admins (owner/moderator) receive `inviteToken` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous pairId string).
+- **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken`. Clients self-register via `POST /api/session/:code/self-invite` (returns an `inviteToken`) then reconnect to the managed session. The initiator receives `forkCreated` with their `ownerToken`. Fork invite window is 10 minutes (`FORK_INVITE_TTL_MS`); a 1-hour cooldown (`FORK_COOLDOWN_MS`) prevents rapid forks. Owner token is 12-char, persisted to client localStorage for reconnect. Members also join via `?invite=TOKEN` on the WS upgrade URL. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations. Admins (owner/moderator) receive `inviteToken` and `link` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous pairId string).
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`
@@ -362,7 +367,8 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - `cancelPreview()` — closes the preview WS without joining; clears `previewWorlds`
 - `leaveSession()` — close WebSocket cleanly
 - `dismissError()` — clear the current error state
-- `enableManaged()` — sends `enableManaged` to upgrade session to invite-only mode
+- `forkToManaged(name)` — initiates a fork of the current anonymous session to a new managed session; sends `forkToManaged` with the caller's display name; all clients receive a `forkInvite` notification
+- `joinManagedFork(managedCode, name, selfRegisterToken)` — calls `POST /api/session/:code/self-invite` to self-register using the token from `forkInvite`, then switches the WebSocket connection to the new managed session
 - `createInvite(name, role?)` — creates a named invite token; result arrives via `inviteCreated` → `session.lastInvite`
 - `banMember(inviteToken)` — revokes a member's token and disconnects them
 - `renameMember(inviteToken, name)` — renames a member
@@ -374,7 +380,7 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
-- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`, `recentOwnWorldId`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
+- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`, `recentOwnWorldId`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`, `forkInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
 
 ## Alt1 Scout Plugin (`alt1-plugin/`)
 
@@ -401,7 +407,7 @@ alt1-plugin/src/
 
 ### Plugin Features
 
-- **Session management**: join by 6-char code or `?join=` URL param; create a new session from within the plugin; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
+- **Session management**: join by 6-char code or `?join=` URL param; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
 - **Pairing**: enter the 4-char pair token generated by the dashboard to link scout ↔ dashboard; once paired, world hops are reported in real time (`reportWorld`); pair ID persisted to `localStorage` (`evilTree_pairId`) and auto-resumed via `resumePair`; Unpair button dissolves the link
 - **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `session.reportWorld(worldId)` to sync the dashboard's scout indicator
 - **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint

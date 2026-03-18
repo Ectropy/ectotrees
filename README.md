@@ -46,11 +46,11 @@ Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session l
 
 ### Managed sessions
 
-Any session creator can upgrade their session to **managed (invite-only) mode** from the Session panel. Once enabled, new clients can only join via a named invite link.
+Any member can **fork** the current session into a new **managed (invite-only) session** from the Session panel. Forking creates a fresh managed session and notifies everyone in the current session with an invite link — each person clicks the link to self-register and migrate over. The fork invite window is open for 10 minutes.
 
 - **Create invites** — give each member a name and a role: Scout (can submit updates) or Viewer (read-only)
 - **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites and ban members
-- **Member list** — see who is connected, their role, and (for admins) their invite token
+- **Member list** — see who is connected, their role, and (for admins) their invite token and link
 - **Admin controls** — change a member's role, rename them, ban them (disconnects + revokes token), or transfer ownership
 - World updates in managed sessions show the submitter's name and role
 
@@ -58,7 +58,7 @@ Any session creator can upgrade their session to **managed (invite-only) mode** 
 
 An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
 
-- **Session**: join by 6-character code (or paste a `?join=` link) or create a new session from within the plugin; session is remembered and auto-resumed on next launch
+- **Session**: join by 6-character code (or paste a `?join=` link); session is remembered and auto-resumed on next launch
 - **Pairing**: enter the 4-character pair code shown on the main dashboard to link your scout to a specific dashboard — the dashboard then shows a live indicator of which world you are on as you hop
 - **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the paired dashboard is notified in real time
 - **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
