@@ -108,30 +108,6 @@ export class EctoSession {
     return () => (set as Set<Listener<K>>).delete(listener);
   }
 
-  async createSession(initialStates?: WorldStates): Promise<string | null> {
-    this.setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        this.setError(data.error ?? 'Failed to create session.');
-        return null;
-      }
-      const code = data.code as string;
-      this.code = code;
-      this.saveCode(code);
-      this.initialStates = initialStates ?? null;
-      this.clearPending();
-      this.reconnectAttempt = 0;
-      this.emit('codeChange', code);
-      this.connectWs(code);
-      return code;
-    } catch {
-      this.setError('Network error creating session.');
-      return null;
-    }
-  }
-
   joinSession(code: string, localStates?: WorldStates): boolean {
     if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
       this.setError('Invalid session code.');

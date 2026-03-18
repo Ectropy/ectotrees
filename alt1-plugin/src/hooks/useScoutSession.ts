@@ -57,10 +57,6 @@ export function useScoutSession() {
     };
   }, [session]);
 
-  const createSession = useCallback(async () => {
-    return session.createSession();
-  }, [session]);
-
   const joinSession = useCallback((code: string) => {
     return session.joinSession(code);
   }, [session]);
@@ -88,7 +84,6 @@ export function useScoutSession() {
   return {
     ...state,
     session,
-    createSession,
     joinSession,
     leaveSession,
     sendMutation,
