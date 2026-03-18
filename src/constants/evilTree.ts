@@ -66,6 +66,10 @@ export function resolveExactLocation(hint: string): string {
   return match?.locations.length === 1 ? match.locations[0] : '';
 }
 
+export function hintForLocation(location: string): string {
+  return LOCATION_HINTS.find(lh => lh.locations.includes(location))?.hint ?? '';
+}
+
 export function formatMs(ms: number): string {
   if (ms <= 0) return '0m';
   const totalSec = Math.ceil(ms / 1000);

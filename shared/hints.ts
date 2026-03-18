@@ -38,7 +38,7 @@ export const LOCATION_HINTS: LocationHint[] = [
   },
   {
     hint: 'Close to the town you call Yanille',
-    locations: ['Northeast of Yanille', 'South of Tree Gnome Village, northwest of Yanille'],
+    locations: ['Northeast of Yanille', 'South of Tree Gnome Village and northwest of Yanille'],
   },
   {
     hint: "Close to the village you call 'Seers'",
@@ -50,7 +50,7 @@ export const LOCATION_HINTS: LocationHint[] = [
   },
   {
     hint: 'Due west of the town you call Lumbridge',
-    locations: ['South of Draynor Village near the willow trees'],
+    locations: ['South of Draynor Village, near the willow trees'],
   },
   {
     hint: 'In a location with rare trees and ogres nearby',
@@ -74,7 +74,7 @@ export const LOCATION_HINTS: LocationHint[] = [
   },
   {
     hint: 'On the island known as Karamja',
-    locations: ['East of the teak trees in the Kharazi Jungle', 'Southwest of mining spot near the nature altar, northwest of Shilo Village'],
+    locations: ['Kharazi Jungle, east of the teak trees', 'Southwest of mining spot near the nature altar, northwest of Shilo Village'],
   },
   {
     hint: 'On the southern coast of a tropical island',

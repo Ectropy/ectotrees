@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { TreeDeciduous } from 'lucide-react';
-import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation, hintForLocation } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ToolView } from './ToolView';
@@ -34,13 +34,29 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   useEscapeKey(onBack);
 
-  const availableLocations = locationsForHint(hint);
+  const allLocations = useMemo(
+    () => [...new Set(LOCATION_HINTS.flatMap(lh => lh.locations))].sort(),
+    []
+  );
+  const availableLocations = hint ? locationsForHint(hint) : allLocations;
   const isStrangeSapling = treeType != null && (treeType === 'sapling' || treeType.startsWith('sapling-'));
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'];
 
+  function handleExactLocationChange(loc: string) {
+    setExactLocation(loc);
+    if (loc && !hint) {
+      const derived = hintForLocation(loc);
+      if (derived) setHint(derived);
+    }
+  }
+
   function handleHintChange(newHint: string) {
     setHint(newHint);
-    setExactLocation(resolveExactLocation(newHint));
+    if (exactLocation && !locationsForHint(newHint).includes(exactLocation)) {
+      setExactLocation('');
+    } else {
+      setExactLocation(resolveExactLocation(newHint));
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -130,24 +146,22 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           </div>
 
           {/* Exact location */}
-          {availableLocations.length > 0 && (
-            <div>
-              <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
-                Exact location <span className="text-gray-500 font-normal">(optional)</span>
-              </label>
-              <SelectCombobox
-                items={availableLocations}
-                value={exactLocation || null}
-                onValueChange={v => setExactLocation(v ?? '')}
-                clearLabel="— none —"
-                autoHighlight
-                placeholder="Select or type an exact location"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                The specific spawn location, if known.
-              </p>
-            </div>
-          )}
+          <div>
+            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
+              Exact location <span className="text-gray-500 font-normal">(optional)</span>
+            </label>
+            <SelectCombobox
+              items={availableLocations}
+              value={exactLocation || null}
+              onValueChange={v => handleExactLocationChange(v ?? '')}
+              clearLabel="— none —"
+              autoHighlight
+              placeholder="Select or type an exact location"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              The specific spawn location. Auto-fills the hint if no hint is selected.
+            </p>
+          </div>
 
           {/* Health remaining */}
           {!isStrangeSapling && (
