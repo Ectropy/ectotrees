@@ -26,7 +26,7 @@ export type ClientMessage =
   | { type: 'resumePair'; pairId: string }
   | { type: 'reportWorld'; worldId: number | null }
   | { type: 'unpair' }
-  | { type: 'enableManaged'; name: string }
+  | { type: 'forkToManaged'; name: string }
   | { type: 'createInvite'; name: string; role?: 'scout' | 'viewer' }
   | { type: 'banMember'; inviteToken: string }
   | { type: 'renameMember'; inviteToken: string; name: string }
@@ -44,6 +44,9 @@ export type ServerMessage =
   | { type: 'peerWorld';      worldId: number | null }
   | { type: 'identity';       name: string; role: MemberRole }
   | { type: 'managedEnabled'; ownerToken: string }
+  | { type: 'forkInvite';   managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string }
+  | { type: 'forkInviteExpired' }
+  | { type: 'forkCreated';  managedCode: string; ownerToken: string }
   | { type: 'inviteCreated';  inviteToken: string; name: string; link: string }
   | { type: 'memberJoined';   name: string }
   | { type: 'memberLeft';     name: string }
@@ -51,5 +54,5 @@ export type ServerMessage =
   | { type: 'banned';         reason: string }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }
-  | { type: 'error';          message: string }
+  | { type: 'error';          message: string; serverVersion?: string }
   | { type: 'sessionClosed';  reason: string };

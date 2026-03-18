@@ -36,6 +36,7 @@ export interface SessionState {
   memberRole: MemberRole | null;
   members: MemberInfo[];
   lastInvite: { inviteToken: string; name: string; link: string } | null;
+  forkInvite: { managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string } | null;
 }
 
 const API_BASE = resolveApiBase();
@@ -47,6 +48,7 @@ export const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 const PAIR_ID_STORAGE_KEY = 'evilTree_pairId';
+const INVITE_TOKEN_STORAGE_KEY = 'evilTree_inviteToken';
 
 const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
 
@@ -56,7 +58,7 @@ function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
     error: null, reconnectAttempt: 0, reconnectAt: null,
     pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false,
     pairedScoutWorld: null, recentOwnWorldId: null,
-    managed: false, ownerToken: null, memberName: null, memberRole: null, members: [], lastInvite: null,
+    managed: false, ownerToken: null, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
     ...overrides,
   };
 }
@@ -143,6 +145,21 @@ function persistPairId(id: string | null) {
   } catch { /* ignore */ }
 }
 
+function loadPersistedInviteToken(): string | null {
+  try {
+    return localStorage.getItem(INVITE_TOKEN_STORAGE_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function persistInviteToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, token);
+    else localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
+  } catch { /* ignore */ }
+}
+
 export function useSession(onSessionLost?: () => void) {
   const initialCode = loadPersistedSessionCode();
   const initialPairId = loadPersistedPairId();
@@ -167,6 +184,7 @@ export function useSession(onSessionLost?: () => void) {
     memberRole: null,
     members: [],
     lastInvite: null,
+    forkInvite: null,
   });
   const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
 
@@ -192,6 +210,7 @@ export function useSession(onSessionLost?: () => void) {
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
   const pairIdRef = useRef<string | null>(initialPairId);
+  const inviteTokenRef = useRef<string | null>(loadPersistedInviteToken());
   const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -257,7 +276,7 @@ export function useSession(onSessionLost?: () => void) {
     }
   }
 
-  function connectWs(code: string) {
+  function connectWs(code: string, inviteToken?: string) {
     // Prevent the old WS's onclose from scheduling a duplicate reconnect
     intentionalCloseRef.current = true;
     cleanup();
@@ -267,7 +286,11 @@ export function useSession(onSessionLost?: () => void) {
     setSession(prev => ({ ...prev, status: 'connecting', error: null }));
 
     const wsUrl = new URL(`${WS_BASE}/ws`);
-    wsUrl.searchParams.set('code', code);
+    if (inviteToken) {
+      wsUrl.searchParams.set('invite', inviteToken);
+    } else {
+      wsUrl.searchParams.set('code', code);
+    }
     const ws = new WebSocket(wsUrl.href);
     wsRef.current = ws;
 
@@ -405,11 +428,29 @@ export function useSession(onSessionLost?: () => void) {
           setSession(prev => ({ ...prev, pairedScoutWorld: msg.worldId }));
           break;
         case 'identity':
-          setSession(prev => ({ ...prev, memberName: msg.name, memberRole: msg.role }));
+          setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role }));
           break;
         case 'managedEnabled':
+          inviteTokenRef.current = msg.ownerToken;
+          persistInviteToken(msg.ownerToken);
           setSession(prev => ({ ...prev, managed: true, ownerToken: msg.ownerToken }));
           break;
+        case 'forkInvite':
+          setSession(prev => ({ ...prev, forkInvite: { managedCode: msg.managedCode, inviteLink: msg.inviteLink, initiatorName: msg.initiatorName, expiresAt: msg.expiresAt, selfRegisterToken: msg.selfRegisterToken } }));
+          break;
+        case 'forkInviteExpired':
+          setSession(prev => ({ ...prev, forkInvite: null }));
+          break;
+        case 'forkCreated': {
+          // Initiator joins the new managed session as owner via invite token
+          const { managedCode, ownerToken } = msg;
+          codeRef.current = managedCode;
+          persistSessionCode(managedCode);
+          clearPending();
+          setSession(prev => ({ ...defaultSessionState(), code: managedCode, status: prev.status }));
+          connectWs(managedCode, ownerToken);
+          break;
+        }
         case 'inviteCreated':
           setSession(prev => ({ ...prev, lastInvite: { inviteToken: msg.inviteToken, name: msg.name, link: msg.link } }));
           break;
@@ -448,6 +489,12 @@ export function useSession(onSessionLost?: () => void) {
           break;
         }
         case 'error':
+          if (msg.serverVersion && msg.serverVersion !== __APP_VERSION__) {
+            console.warn(
+              `[ectotrees] Version mismatch — client: ${__APP_VERSION__}, server: ${msg.serverVersion}\n` +
+              `Protocol files differ. Restart both dev server and client, or hard-refresh in production.`
+            );
+          }
           lastServerErrorRef.current = msg.message;
           setSession(prev => ({ ...prev, error: msg.message }));
           break;
@@ -533,7 +580,7 @@ export function useSession(onSessionLost?: () => void) {
       reconnectTimerRef.current = setTimeout(() => {
         setSession(prev => ({ ...prev, reconnectAt: null }));
         if (codeRef.current) {
-          connectWs(codeRef.current);
+          connectWs(codeRef.current, inviteTokenRef.current ?? undefined);
         }
       }, delay);
     };
@@ -593,6 +640,8 @@ export function useSession(onSessionLost?: () => void) {
     persistSessionCode(null);
     pairIdRef.current = null;
     persistPairId(null);
+    inviteTokenRef.current = null;
+    persistInviteToken(null);
     reconnectAttemptRef.current = 0;
     clearPending();
     setSession(defaultSessionState());
@@ -750,8 +799,34 @@ export function useSession(onSessionLost?: () => void) {
     }));
   }, []);
 
-  const enableManaged = useCallback((name: string) => {
-    sendWsMessage({ type: 'enableManaged', name });
+  const forkToManaged = useCallback((name: string) => {
+    sendWsMessage({ type: 'forkToManaged', name });
+  }, []);
+
+  const joinManagedFork = useCallback(async (managedCode: string, name: string, selfRegisterToken: string): Promise<void> => {
+    setSession(prev => ({ ...prev, error: null }));
+    try {
+      const res = await fetch(`${API_BASE}/session/${managedCode}/self-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, selfRegisterToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSession(prev => ({ ...prev, error: data.error ?? 'Failed to join managed session.' }));
+        return;
+      }
+      const inviteToken = data.inviteToken as string;
+      inviteTokenRef.current = inviteToken;
+      persistInviteToken(inviteToken);
+      codeRef.current = managedCode;
+      persistSessionCode(managedCode);
+      clearPending();
+      setSession(prev => ({ ...defaultSessionState(), code: managedCode, status: prev.status }));
+      connectWs(managedCode, inviteToken);
+    } catch {
+      setSession(prev => ({ ...prev, error: 'Network error joining managed session.' }));
+    }
   }, []);
 
   const createInviteAction = useCallback((name: string, role?: 'scout' | 'viewer') => {
@@ -803,7 +878,7 @@ export function useSession(onSessionLost?: () => void) {
   // Resume prior session across page reloads (common on mobile radio changes).
   useEffect(() => {
     if (codeRef.current && session.status === 'disconnected') {
-      connectWs(codeRef.current);
+      connectWs(codeRef.current, inviteTokenRef.current ?? undefined);
     }
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -827,7 +902,8 @@ export function useSession(onSessionLost?: () => void) {
     dismissError,
     requestPairToken,
     unpair,
-    enableManaged,
+    forkToManaged,
+    joinManagedFork,
     createInvite: createInviteAction,
     banMember: banMemberAction,
     renameMember: renameMemberAction,

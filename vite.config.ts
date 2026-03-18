@@ -1,7 +1,16 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
 import { version } from './package.json'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const _protocolHash = createHash('sha256')
+  .update(readFileSync(resolve(__dirname, 'shared/protocol.ts')))
+  .digest('hex')
+  .slice(0, 8)
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -11,7 +20,7 @@ export default defineConfig({
     },
   },
   define: {
-    __APP_VERSION__: JSON.stringify(version),
+    __APP_VERSION__: JSON.stringify(`${version}+${_protocolHash}`),
   },
   plugins: [react()],
   server: {

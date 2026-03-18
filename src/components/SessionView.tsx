@@ -8,6 +8,7 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SessionViewProps {
   session: SessionState;
@@ -20,7 +21,8 @@ interface SessionViewProps {
   onDismissError: () => void;
   onRequestPairToken: () => void;
   onUnpair: () => void;
-  onEnableManaged: (name: string) => void;
+  onForkToManaged: (name: string) => void;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string) => Promise<void>;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
   onBanMember: (inviteToken: string) => void;
   onRenameMember: (inviteToken: string, name: string) => void;
@@ -43,7 +45,7 @@ const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfi
 export function SessionView({
   session, activeLocalCount,
   onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
-  onDismissError, onRequestPairToken, onUnpair, onEnableManaged,
+  onDismissError, onRequestPairToken, onUnpair, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
@@ -53,9 +55,12 @@ export function SessionView({
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
   const countdown = useCountdown(session.reconnectAt ?? null);
   const tokenCountdown = useCountdown(session.pairTokenExpiresAt ?? null, 1000);
+  const forkCountdown = useCountdown(session.forkInvite?.expiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
   const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
   const [managedName, setManagedName] = useState('');
+  const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
+  const [joinForkName, setJoinForkName] = useState('');
 
   async function handleCreate() {
     setLoading(true);
@@ -239,7 +244,7 @@ export function SessionView({
         {isConnected && (
           <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Alt1 Scout Pairing</h2>
+              <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Ectotrees Scout Alt1 plugin <TooltipProvider><Tooltip><TooltipTrigger asChild><sup className="text-xs font-normal text-amber-400 cursor-help">Beta</sup></TooltipTrigger><TooltipContent side="top" className="max-w-56 bg-[#1e1e2a] border border-gray-700 text-gray-200 [&_.fill-primary]:fill-[#1e1e2a]">Ectotrees Scout may have bugs and not all intended features are implemented. Please report issues on GitHub.</TooltipContent></Tooltip></TooltipProvider></h2>
               <a
                 href={ALT1_INSTALL_LINK}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
@@ -248,12 +253,7 @@ export function SessionView({
                 Install <ExternalLink className="w-3 h-3" />
               </a>
             </div>
-
-            <div className="bg-gray-700/30 border border-gray-700/50 rounded p-2 text-xs text-gray-300 space-y-1">
-              <p className="font-medium text-amber-300">ℹ Beta Plugin</p>
-              <p>The Alt1 plugin is in beta with known issues and not all features are implemented yet. Please report issues on GitHub.</p>
-            </div>
-
+            <p className={`text-xs ${TEXT_COLOR.muted}`}>Scout currently allows auto-detection of world hops, and can automatically read the Spirit Trees's dialog box to gather timer and hint intel. Requires <a href='https://runeapps.org/alt1' className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>.</p>
             {session.isPaired ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -308,7 +308,7 @@ export function SessionView({
           <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent} flex items-center gap-1.5`}>
-                <Shield className="w-4 h-4" /> Managed Mode
+                <Shield className="w-4 h-4" /> Managed Mode <TooltipProvider><Tooltip><TooltipTrigger asChild><sup className="text-xs font-normal text-amber-400 cursor-help">Beta</sup></TooltipTrigger><TooltipContent side="top" className="max-w-56 bg-[#1e1e2a] border border-gray-700 text-gray-200 [&_.fill-primary]:fill-[#1e1e2a]">Managed mode is in beta. Members, roles, and invite links are experimental features. Expect rough edges and please report issues on GitHub.</TooltipContent></Tooltip></TooltipProvider>
               </h2>
               {session.managed && (
                 <span className="text-xs text-green-500">Active</span>
@@ -324,13 +324,137 @@ export function SessionView({
                 onBanMember={onBanMember}
                 onSetMemberRole={onSetMemberRole}
               />
+            ) : session.forkInvite && (forkCountdown === null || forkCountdown > 0) ? (
+              /* A fork invite is live — show join prompt */
+              <div className="space-y-3">
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded p-3 space-y-2">
+                  <p className={`text-xs font-medium text-amber-300`}>
+                    <span className="font-bold">{session.forkInvite.initiatorName}</span> created a managed fork of this session
+                  </p>
+                  <p className={`text-xs ${TEXT_COLOR.muted}`}>
+                    Members with invite links can join the managed session. The original session remains open.
+                    {forkCountdown !== null && forkCountdown > 0 && (
+                      <> Invite expires in {forkCountdown}s.</>
+                    )}
+                  </p>
+                  {session.forkInvite.selfRegisterToken ? (
+                    joinForkStep === 'naming' ? (
+                      <form
+                        className="flex gap-2"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const name = joinForkName.trim();
+                          if (!name) return;
+                          setJoinForkStep('idle');
+                          setJoinForkName('');
+                          await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!);
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          value={joinForkName}
+                          onChange={e => setJoinForkName(e.target.value)}
+                          placeholder="Your name"
+                          maxLength={32}
+                          className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!joinForkName.trim()}
+                          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs rounded transition-colors"
+                        >
+                          Join →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
+                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setJoinForkStep('naming')}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded transition-colors"
+                        >
+                          Join managed session →
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(session.forkInvite!.inviteLink).catch(() => {});
+                          }}
+                          className={`px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors flex items-center gap-1`}
+                          title="Copy join link"
+                        >
+                          <Copy className="w-3 h-3" /> Copy link
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <p className={`text-xs ${TEXT_COLOR.muted}`}>
+                      You were not present when this fork was created — no invite slot is available.
+                    </p>
+                  )}
+                </div>
+                {managedSetupStep === 'naming' ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const name = managedName.trim();
+                      if (!name) return;
+                      onForkToManaged(name);
+                      setManagedSetupStep('idle');
+                      setManagedName('');
+                    }}
+                    className="space-y-2"
+                  >
+                    <label className="block text-xs text-gray-400">
+                      Create a separate managed fork with you as owner
+                    </label>
+                    <input
+                      type="text"
+                      value={managedName}
+                      onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
+                      placeholder="Your username"
+                      maxLength={30}
+                      autoFocus
+                      className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={!managedName.trim()}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                      >
+                        Fork
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setManagedSetupStep('idle'); setManagedName(''); }}
+                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setManagedSetupStep('naming')}
+                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors`}
+                  >
+                    Or create your own managed fork →
+                  </button>
+                )}
+              </div>
             ) : managedSetupStep === 'naming' ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const name = managedName.trim();
                   if (!name) return;
-                  onEnableManaged(name);
+                  onForkToManaged(name);
                   setManagedSetupStep('idle');
                   setManagedName('');
                 }}
@@ -354,7 +478,7 @@ export function SessionView({
                     disabled={!managedName.trim()}
                     className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
                   >
-                    Enable managed mode
+                    Fork to managed
                   </button>
                   <button
                     type="button"
@@ -368,16 +492,16 @@ export function SessionView({
             ) : (
               <>
                 <ul className={`text-xs ${TEXT_COLOR.muted} space-y-1 list-disc list-inside`}>
-                  <li>New members must join via a personal invite link — open joining is disabled</li>
+                  <li>Creates a new managed session with a snapshot of current world data</li>
+                  <li>All members are invited to join — the original session is unchanged</li>
+                  <li>New members must join via a personal invite link</li>
                   <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
-                  <li>Viewers cannot submit world updates</li>
-                  <li className="text-yellow-600">This cannot be undone for this session</li>
                 </ul>
                 <button
                   onClick={() => setManagedSetupStep('naming')}
                   className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
                 >
-                  Set up managed mode →
+                  Fork to managed session →
                 </button>
               </>
             )}

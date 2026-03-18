@@ -14,6 +14,8 @@ const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
 const PAIR_TOKEN_TTL_MS = 60_000;                  // 60 seconds
+const FORK_INVITE_TTL_MS = 10 * 60 * 1000;        // 10 minutes
+const FORK_COOLDOWN_MS = 60 * 60 * 1000;          // 1 hour
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 
@@ -57,6 +59,17 @@ export interface Session {
   ownerToken?: string;
   members?: Map<string, Member>;       // inviteToken -> Member
   wsToInviteToken?: Map<WebSocket, string>;
+  // Fork-to-managed fields (anonymous sessions only)
+  pendingFork?: {
+    managedCode: string;
+    initiatorName: string;
+    expiresAt: number;
+    wsTokens: Map<WebSocket, string>;  // per-connected-client self-register tokens
+  };
+  lastForkAt?: number;
+  // Set on managed sessions created by fork — allows self-registration during the fork invite window
+  selfRegisterUntil?: number;
+  selfRegisterTokens?: Map<string, boolean>;  // token → consumed; only valid tokens may self-register
 }
 
 const sessions = new Map<string, Session>();
@@ -183,6 +196,12 @@ export function createSession(): { code: string } | { error: string } {
         }
       }
 
+      // Sweep expired fork invite
+      if (s.pendingFork && now2 > s.pendingFork.expiresAt) {
+        s.pendingFork = undefined;
+        broadcast(s, { type: 'forkInviteExpired' });
+      }
+
       const prev = s.worldStates;
       const next = applyTransitions(prev, now2);
       if (next !== prev) {
@@ -230,6 +249,17 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   }
   const snapshot: ServerMessage = { type: 'snapshot', worlds: activeWorlds };
   ws.send(JSON.stringify(snapshot));
+
+  // Re-send active fork invite only to clients who were present at fork time (have a self-register token)
+  if (session.pendingFork) {
+    const { managedCode, initiatorName, expiresAt, wsTokens } = session.pendingFork;
+    const selfRegisterToken = wsTokens.get(ws);
+    if (selfRegisterToken) {
+      const inviteLink = `${APP_URL}/?join=${managedCode}`;
+      const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken };
+      ws.send(JSON.stringify(forkInviteMsg));
+    }
+  }
 
   broadcastClientCount(session);
   return clientId;
@@ -565,8 +595,12 @@ function broadcastManagedClientCount(session: Session) {
   broadcast(session, { type: 'clientCount', count: onlineMembers, scouts, dashboards });
 }
 
-/** Enable managed mode on an existing anonymous session. Returns the owner token. */
-export function enableManaged(session: Session, creatorWs: WebSocket, name: string): string | { error: string } {
+/**
+ * Internal: initialise managed-mode infrastructure on a session without sending
+ * any WebSocket messages.  The caller is responsible for notifying the owner WS.
+ * Returns the owner token, or an error if the session is already managed.
+ */
+function setupManagedOwner(session: Session, name: string): string | { error: string } {
   if (session.managed) return { error: 'Session is already managed.' };
 
   const ownerToken = generateInviteToken();
@@ -575,29 +609,119 @@ export function enableManaged(session: Session, creatorWs: WebSocket, name: stri
   session.members = new Map();
   session.wsToInviteToken = new Map();
 
-  // Create owner member entry
   const ownerMember: Member = {
     name,
     inviteToken: ownerToken,
     role: 'owner',
     banned: false,
-    connections: new Set([creatorWs]),
+    connections: new Set(),   // no WS yet — owner joins via ?invite= on the new session
     currentWorld: null,
     lastSeen: Date.now(),
   };
   session.members.set(ownerToken, ownerMember);
-  session.wsToInviteToken.set(creatorWs, ownerToken);
   inviteTokenIndex.set(ownerToken, session.code);
 
-  // Send owner their identity + token
-  const identityMsg: ServerMessage = { type: 'identity', name, role: 'owner' };
-  creatorWs.send(JSON.stringify(identityMsg));
-  const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken };
-  creatorWs.send(JSON.stringify(enabledMsg));
-
-  broadcastMemberList(session);
-  broadcastManagedClientCount(session);
   return ownerToken;
+}
+
+/**
+ * Fork an anonymous session into a new managed session.
+ * Creates the child session, copies world state, sets up the initiator as owner,
+ * and broadcasts a forkInvite to all clients of the original session.
+ */
+export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: string): { managedCode: string; ownerToken: string } | { error: string } {
+  if (session.managed) return { error: 'Managed sessions cannot be forked.' };
+
+  const now = Date.now();
+
+  if (session.pendingFork && now < session.pendingFork.expiresAt) {
+    return { error: 'A managed fork invite is already active for this session.' };
+  }
+
+  if (session.lastForkAt !== undefined && now - session.lastForkAt < FORK_COOLDOWN_MS) {
+    const remainingMin = Math.ceil((FORK_COOLDOWN_MS - (now - session.lastForkAt)) / 60_000);
+    return { error: `Please wait ${remainingMin} minute${remainingMin === 1 ? '' : 's'} before creating another managed fork.` };
+  }
+
+  // Create the child managed session
+  const childResult = createSession();
+  if ('error' in childResult) return childResult;
+  const childSession = sessions.get(childResult.code)!;
+
+  // Copy world state snapshot
+  childSession.worldStates = { ...session.worldStates };
+
+  // Set up managed mode on the child without sending WS messages
+  // (the initiator joins via ?invite=ownerToken on the new session)
+  const ownerResult = setupManagedOwner(childSession, name);
+  if (typeof ownerResult === 'object' && 'error' in ownerResult) return ownerResult;
+  const ownerToken = ownerResult;
+
+  const expiresAt = now + FORK_INVITE_TTL_MS;
+  const wsTokens = new Map<WebSocket, string>();
+  const selfRegisterTokens = new Map<string, boolean>();
+
+  // Generate a unique self-register token for each currently connected client
+  for (const ws of session.clients) {
+    const srToken = crypto.randomBytes(16).toString('hex');
+    wsTokens.set(ws, srToken);
+    selfRegisterTokens.set(srToken, false);
+  }
+
+  session.pendingFork = { managedCode: childResult.code, initiatorName: name, expiresAt, wsTokens };
+  session.lastForkAt = now;
+  childSession.selfRegisterUntil = expiresAt;
+  childSession.selfRegisterTokens = selfRegisterTokens;
+
+  // Send each client their personalized fork invite (with their unique self-register token)
+  const inviteLink = `${APP_URL}/?join=${childResult.code}`;
+  for (const ws of session.clients) {
+    if (ws.readyState !== 1) continue;
+    const selfRegisterToken = wsTokens.get(ws);
+    const msg: ServerMessage = { type: 'forkInvite', managedCode: childResult.code, inviteLink, initiatorName: name, expiresAt, selfRegisterToken };
+    ws.send(JSON.stringify(msg));
+  }
+
+  log(`[fork] ${session.code} forked to managed session ${childResult.code} by "${name}"`);
+  return { managedCode: childResult.code, ownerToken };
+}
+
+/**
+ * Self-registration for fork invitees: creates a scout-role member entry without
+ * requiring an admin to pre-create the invite.  Only allowed during the fork window.
+ */
+export function selfRegisterMember(session: Session, name: string, selfRegisterToken: string): { inviteToken: string } | { error: string } {
+  if (!session.managed || !session.members) return { error: 'Session is not managed.' };
+  if (!session.selfRegisterUntil || Date.now() > session.selfRegisterUntil) {
+    return { error: 'Self-registration window has closed.' };
+  }
+  if (!session.selfRegisterTokens) return { error: 'Self-registration is not available.' };
+  const consumed = session.selfRegisterTokens.get(selfRegisterToken);
+  if (consumed === undefined) return { error: 'Invalid self-registration token.' };
+  if (consumed) return { error: 'This self-registration token has already been used.' };
+  // Reject duplicate names
+  for (const m of session.members.values()) {
+    if (!m.banned && m.name.toLowerCase() === name.toLowerCase()) {
+      return { error: 'That name is already taken in this session.' };
+    }
+  }
+  if (session.members.size >= MAX_MEMBERS_PER_SESSION) {
+    return { error: 'Session is full.' };
+  }
+  const inviteToken = generateInviteToken();
+  const member: Member = {
+    name,
+    inviteToken,
+    role: 'scout',
+    banned: false,
+    connections: new Set(),
+    currentWorld: null,
+    lastSeen: Date.now(),
+  };
+  session.members.set(inviteToken, member);
+  inviteTokenIndex.set(inviteToken, session.code);
+  session.selfRegisterTokens.set(selfRegisterToken, true);  // consume
+  return { inviteToken };
 }
 
 /** Look up an invite token to its session + member (for WS upgrade). */
@@ -636,6 +760,12 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   // Send identity
   const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role };
   ws.send(JSON.stringify(identityMsg));
+
+  // Owner gets their token so the client can persist it for reconnection
+  if (member.role === 'owner' && session.ownerToken) {
+    const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken: session.ownerToken };
+    ws.send(JSON.stringify(enabledMsg));
+  }
 
   broadcastManagedClientCount(session);
   broadcastMemberList(session);

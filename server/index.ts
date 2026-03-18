@@ -1,10 +1,12 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { URL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import { version as PKG_VERSION } from '../package.json' with { type: 'json' };
 import type { ClientMessage, ServerMessage } from '../shared/protocol.ts';
 import {
   applySetSpawnTimer,
@@ -30,7 +32,8 @@ import {
   cleanupExpiredSessions,
   getSessionCount,
   getTotalClientCount,
-  enableManaged,
+  forkToManaged,
+  selfRegisterMember,
   lookupInviteToken,
   addMemberConnection,
   canWrite,
@@ -55,6 +58,16 @@ const HTTP_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute sliding window
 const HTTP_RATE_LIMIT_MAX = 20;           // requests per window per IP
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
+
+// --- Protocol version stamp ---
+const _protocolPath = fileURLToPath(new URL('../shared/protocol.ts', import.meta.url));
+const _protocolHash = createHash('sha256').update(fs.readFileSync(_protocolPath)).digest('hex').slice(0, 8);
+const SERVER_VERSION = `${PKG_VERSION}+${_protocolHash}`;
+log(`[server] version ${SERVER_VERSION}`);
+
+function errorMsg(message: string): ServerMessage {
+  return { type: 'error', message, serverVersion: SERVER_VERSION };
+}
 
 // --- Origin allowlist ---
 
@@ -157,6 +170,22 @@ app.post('/api/session', httpRateLimitMiddleware, (_req, res) => {
   res.json({ code: result.code });
 });
 
+
+app.post('/api/session/:code/self-invite', httpRateLimitMiddleware, (req, res) => {
+  const code = validateSessionCode(req.params.code);
+  if (!code) { res.status(400).json({ error: 'Invalid session code.' }); return; }
+  const session = getSession(code);
+  if (!session) { res.status(404).json({ error: 'Session not found.' }); return; }
+  const rawName = typeof req.body?.name === 'string' ? req.body.name : '';
+  const name = rawName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 30);
+  if (!name) { res.status(400).json({ error: 'Name is required.' }); return; }
+  const selfRegisterToken = typeof req.body?.selfRegisterToken === 'string' ? req.body.selfRegisterToken : '';
+  if (!selfRegisterToken) { res.status(400).json({ error: 'Self-registration token is required.' }); return; }
+  const result = selfRegisterMember(session, name, selfRegisterToken);
+  if ('error' in result) { res.status(400).json({ error: result.error }); return; }
+  log(`[self-invite] ${code} — "${name}" self-registered`);
+  res.json({ inviteToken: result.inviteToken });
+});
 
 app.get('/api/health', (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
@@ -275,8 +304,7 @@ server.on('upgrade', (req, socket, head) => {
 wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, pendingPairToken?: string, inviteMember?: import('./session.ts').Member) => {
   if (!session) {
     log(`[connect] Rejected — session ${attemptedCode} not found`);
-    const msg: ServerMessage = { type: 'error', message: 'Session not found.' };
-    ws.send(JSON.stringify(msg));
+    ws.send(JSON.stringify(errorMsg('Session not found.')));
     ws.close(1008, 'Session not found');
     return;
   }
@@ -288,8 +316,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     clientId = addMemberConnection(activeSession, ws, inviteMember);
     if (clientId === false) {
       log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
-      const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg('Session is full.')));
       ws.close();
       return;
     }
@@ -298,8 +325,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     clientId = addClient(activeSession, ws);
     if (clientId === false) {
       log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
-      const msg: ServerMessage = { type: 'error', message: 'Session is full.' };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg('Session is full.')));
       ws.close();
       return;
     }
@@ -310,8 +336,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
       const pairId = consumeAndCompletePairing(activeSession, pendingPairToken, ws);
       if (!pairId) {
         // Token expired between upgrade and connection (very unlikely race)
-        const msg: ServerMessage = { type: 'error', message: 'Pair token expired.' };
-        ws.send(JSON.stringify(msg));
+        ws.send(JSON.stringify(errorMsg('Pair token expired.')));
         ws.close();
         removeClient(activeSession, ws);
         return;
@@ -356,15 +381,13 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     const raw = data.toString();
     const sizeLimit = (raw.includes('"initializeState"') || raw.includes('"contributeWorlds"')) ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
     if (raw.length > sizeLimit) {
-      const msg: ServerMessage = { type: 'error', message: 'Message too large.' };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg('Message too large.')));
       return;
     }
 
     // Rate limit
     if (!checkRateLimit(ws)) {
-      const msg: ServerMessage = { type: 'error', message: 'Rate limit exceeded.' };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg('Rate limit exceeded.')));
       return;
     }
 
@@ -373,16 +396,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     try {
       parsed = JSON.parse(raw);
     } catch {
-      const msg: ServerMessage = { type: 'error', message: 'Invalid JSON.' };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg('Invalid JSON.')));
       return;
     }
 
     // Validate
     const validated = validateMessage(parsed);
     if ('error' in validated) {
-      const msg: ServerMessage = { type: 'error', message: validated.error };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(errorMsg(validated.error)));
       return;
     }
 
@@ -414,8 +435,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
 
   // Write permission check for managed sessions
   if (MUTATION_TYPES.has(msg.type) && !canWrite(session, ws)) {
-    const err: ServerMessage = { type: 'error', message: 'Permission denied. Viewers cannot modify session data.' };
-    ws.send(JSON.stringify(err));
+    ws.send(JSON.stringify(errorMsg('Permission denied. Viewers cannot modify session data.')));
     return;
   }
 
@@ -434,8 +454,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'requestPairToken': {
       const clientType = session.clientTypes.get(ws);
       if (clientType !== 'dashboard') {
-        const err: ServerMessage = { type: 'error', message: 'Only dashboards can request pair tokens.' };
-        ws.send(JSON.stringify(err));
+        ws.send(JSON.stringify(errorMsg('Only dashboards can request pair tokens.')));
         break;
       }
       requestPairToken(session, ws);
@@ -466,12 +485,15 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       break;
     }
 
-    case 'enableManaged': {
-      const result = enableManaged(session, ws, msg.name);
-      if (typeof result === 'object' && 'error' in result) {
-        ws.send(JSON.stringify({ type: 'error', message: result.error } satisfies ServerMessage));
+    case 'forkToManaged': {
+      const result = forkToManaged(session, ws, msg.name);
+      if ('error' in result) {
+        ws.send(JSON.stringify(errorMsg(result.error)));
       } else {
-        log(`[managed] ${session.code} ${c} enabled managed mode as "${msg.name}" — ownerToken ${result.slice(0, 4)}…`);
+        // Tell the initiator which session to join and provide their owner token
+        const forkCreatedMsg: ServerMessage = { type: 'forkCreated', managedCode: result.managedCode, ownerToken: result.ownerToken };
+        ws.send(JSON.stringify(forkCreatedMsg));
+        log(`[fork] ${session.code} ${c} forked to managed session ${result.managedCode} as "${msg.name}"`);
       }
       break;
     }
@@ -585,8 +607,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
     case 'initializeState': {
       // Only allow when session has no world data (fresh session)
       if (Object.keys(session.worldStates).length > 0) {
-        const err: ServerMessage = { type: 'error', message: 'Session already has state.' };
-        ws.send(JSON.stringify(err));
+        ws.send(JSON.stringify(errorMsg('Session already has state.')));
         break;
       }
       const count = Object.keys(msg.worlds).length;
@@ -610,7 +631,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair', 'enableManaged', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

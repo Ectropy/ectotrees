@@ -189,6 +189,18 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           <DismissableError message={session.error} onDismiss={onDismissError} />
         )}
 
+        {/* Fork invite indicator */}
+        {session.forkInvite && !session.managed && (
+          <button
+            onClick={onOpenSession}
+            className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-900/40 border border-amber-700/50 hover:bg-amber-900/60 text-amber-300 text-xs rounded transition-colors flex-shrink-0"
+            title={`${session.forkInvite.initiatorName} created a managed fork — click to view`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            Managed fork available
+          </button>
+        )}
+
         {/* Right side: member count + manage button */}
         <span className="ml-auto flex items-center gap-2">
           {!canRejoin && (
