@@ -17,6 +17,7 @@ import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
 import { SessionView } from './components/SessionView';
 import { TipTicker } from './components/TipTicker';
+import { UpdateBanner } from './components/UpdateBanner';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
@@ -763,6 +764,8 @@ export default function App() {
           </div>
         )}
       </div>
+
+      <UpdateBanner />
 
       {/* Footer is a direct flex child of h-screen — always anchored to the bottom */}
       <footer className="px-2 py-1 bg-gray-800 flex-shrink-0">

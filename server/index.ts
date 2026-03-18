@@ -197,6 +197,7 @@ app.get('/api/health', (_req, res) => {
     : m > 0 ? `${m}m ${s}s` : `${s}s`;
   res.json({
     ok: true,
+    version: SERVER_VERSION,
     uptimeSeconds,
     uptime: uptimeHuman,
     sessions: getSessionCount(),
