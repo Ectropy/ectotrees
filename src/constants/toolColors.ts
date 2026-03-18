@@ -6,26 +6,44 @@
  */
 
 export const SPAWN_COLOR = {
-  text:        'text-blue-700',     // nav button active state (toolbar highlight)
-  bg:          'bg-blue-700',       // primary "Set Timer" button background
-  bgHover:     'hover:bg-blue-600', // primary button hover
-  toolHover:   'hover:bg-blue-700', // small tool-button hover on WorldCard / WorldDetailView
+  text:        'text-blue-400',     // nav button active state (toolbar highlight)
+  bg:          'bg-blue-400',       // primary "Set Timer" button background
+  bgHover:     'hover:bg-blue-200', // primary button hover
+  bgText:      'text-black',        // text color on colored primary button background
+  border:      'border border-blue-400', // bordered button style
+  borderText:  'text-gray-300',     // text color on bordered (transparent bg) button
+  borderHover: 'hover:bg-blue-400/20', // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-blue-400', // border color on hover for tool buttons
+  toolHover:   'hover:bg-blue-400', // small tool-button hover on WorldCard / WorldDetailView
+  toolIcon:    'text-gray-100',     // resting icon color on WorldCard tool button
   subtle:      'bg-blue-700/20',    // wheel-picker selected-row highlight tint
 } as const;
 
 export const TREE_COLOR = {
-  text:        'text-green-700',     // nav button active state (toolbar highlight)
-  bg:          'bg-green-700',       // primary "Confirm" button background in TreeInfoView
-  bgHover:     'hover:bg-green-600', // primary button hover
-  toolHover:   'hover:bg-green-700', // small tool-button hover on WorldCard / WorldDetailView
+  text:        'text-green-400',     // nav button active state (toolbar highlight)
+  bg:          'bg-emerald-400',       // primary "Confirm" button background in TreeInfoView
+  bgHover:     'hover:bg-emerald-300', // primary button hover
+  bgText:      'text-black',           // text color on colored primary button background
+  border:      'border border-emerald-400', // bordered button style
+  borderText:  'text-gray-300',        // text color on bordered (transparent bg) button
+  borderHover: 'hover:bg-emerald-400/20', // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-emerald-400', // border color on hover for tool buttons
+  toolHover:   'hover:bg-emerald-400', // small tool-button hover on WorldCard / WorldDetailView
+  toolIcon:    'text-gray-100',      // resting icon color on WorldCard tool button
 } as const;
 
 export const DEAD_COLOR = {
-  text:        'text-red-700',       // nav button active state (toolbar highlight)
-  bg:          'bg-red-700',         // primary "Confirm Dead" button background
-  bgHover:     'hover:bg-red-600',   // primary button hover
-  toolHover:   'hover:bg-red-700',   // small tool-button hover on WorldCard / WorldDetailView
-  alertBorder: 'border-red-800',     // warning card border in TreeDeadView
+  text:        'text-red-500',       // nav button active state (toolbar highlight)
+  bg:          'bg-red-500',         // primary "Confirm Dead" button background
+  bgHover:     'hover:bg-red-300',   // primary button hover
+  bgText:      'text-black',         // text color on colored primary button background
+  border:      'border border-red-500', // bordered button style
+  borderText:  'text-gray-300',      // text color on bordered (transparent bg) button
+  borderHover: 'hover:bg-red-500/20', // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-red-500', // border color on hover for tool buttons
+  toolHover:   'hover:bg-red-500',   // small tool-button hover on WorldCard / WorldDetailView
+  toolIcon:    'text-gray-100',      // resting icon color on WorldCard tool button
+  alertBorder: 'border-red-500',     // warning card border in TreeDeadView
 } as const;
 
 /** World membership type colors */
@@ -117,4 +135,4 @@ export const ROLE_LABELS = {
 
 /** Base classes for secondary (gray) action buttons.
  *  Add sizing (py-2 / py-2.5) and layout (flex-1, w-full, mt-6) per usage. */
-export const BUTTON_SECONDARY = 'bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors';
+export const BUTTON_SECONDARY = 'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 font-medium rounded transition-colors';

@@ -780,10 +780,10 @@ export default function App() {
 }
 
 const NAV_ITEMS = [
-  { kind: 'detail' as const, icon: PartyHatGlasses, label: 'View',  activeColor: 'text-amber-400'    },
-  { kind: 'spawn'  as const, icon: Timer,          label: 'Timer', activeColor: SPAWN_COLOR.text    },
-  { kind: 'tree'   as const, icon: TreeDeciduous,  label: 'Tree',  activeColor: TREE_COLOR.text     },
-  { kind: 'dead'   as const, icon: Skull,          label: 'Dead',  activeColor: DEAD_COLOR.text     },
+  { kind: 'detail' as const, icon: PartyHatGlasses, label: 'View',  activeColor: 'text-amber-400', hoverBg: 'hover:bg-amber-400/20', underline: 'border-b border-amber-400' },
+  { kind: 'spawn'  as const, icon: Timer,           label: 'Timer', activeColor: SPAWN_COLOR.text,  hoverBg: SPAWN_COLOR.borderHover, underline: 'border-b border-blue-400'  },
+  { kind: 'tree'   as const, icon: TreeDeciduous,   label: 'Tree',  activeColor: TREE_COLOR.text,   hoverBg: TREE_COLOR.borderHover,  underline: 'border-b border-green-400' },
+  { kind: 'dead'   as const, icon: Skull,           label: 'Dead',  activeColor: DEAD_COLOR.text,   hoverBg: DEAD_COLOR.borderHover,  underline: 'border-b border-red-500'   },
 ];
 
 function NavButton({ item, isActive, onClick, variant }: {
@@ -792,9 +792,9 @@ function NavButton({ item, isActive, onClick, variant }: {
   onClick: () => void;
   variant: 'sidebar' | 'fullscreen';
 }) {
-  const { icon: Icon, label, activeColor } = item;
-  const activeClass = `${activeColor} bg-gray-700/60`;
-  const inactiveClass = 'text-gray-400 hover:text-gray-200 hover:bg-gray-700';
+  const { icon: Icon, label, activeColor, hoverBg, underline } = item;
+  const activeClass = `${activeColor} ${hoverBg} ${underline}`;
+  const inactiveClass = `text-gray-400 hover:text-gray-200 ${hoverBg}`;
   const sizeClass = variant === 'sidebar'
     ? 'px-1.5 py-1'
     : 'px-2 py-2 sm:px-1.5 sm:py-1';
@@ -805,7 +805,7 @@ function NavButton({ item, isActive, onClick, variant }: {
     <button
       onClick={onClick}
       title={label}
-      className={`${sizeClass} rounded flex items-center gap-1 transition-colors ${isActive ? activeClass : inactiveClass}`}
+      className={`${sizeClass} ${isActive ? 'rounded-t' : 'rounded'} flex items-center gap-1 transition-colors ${isActive ? activeClass : inactiveClass}`}
     >
       <Icon className={iconClass} />
       <span className="hidden sm:inline text-[11px]">{label}</span>
