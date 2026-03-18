@@ -18,7 +18,6 @@ interface SessionPanelProps {
   clientCount: number;
   isPaired: boolean;
   onJoin: (code: string) => boolean;
-  onCreate: () => Promise<string | null>;
   onLeave: () => void;
   onSubmitPairToken: (token: string) => void;
   onUnpair: () => void;
@@ -31,7 +30,6 @@ export function SessionPanel({
   clientCount,
   isPaired,
   onJoin,
-  onCreate,
   onLeave,
   onSubmitPairToken,
   onUnpair,
@@ -39,7 +37,6 @@ export function SessionPanel({
 }: SessionPanelProps) {
   const [inputCode, setInputCode] = useState(code ?? '');
   const [pairToken, setPairToken] = useState('');
-  const [busy, setBusy] = useState(false);
   const connected = status === 'connected';
   const connecting = status === 'connecting';
   const active = connected || connecting;
@@ -64,13 +61,6 @@ export function SessionPanel({
     }
     setInputCode(c);
     onJoin(c);
-  }
-
-  async function handleCreate() {
-    setBusy(true);
-    const c = await onCreate();
-    if (c) setInputCode(c);
-    setBusy(false);
   }
 
   function handlePairInput(raw: string) {
@@ -176,17 +166,10 @@ export function SessionPanel({
         />
         <button
           onClick={handleJoin}
-          disabled={active || busy}
+          disabled={active}
           className="bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 rounded disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
         >
           Join
-        </button>
-        <button
-          onClick={handleCreate}
-          disabled={active || busy}
-          className="bg-secondary text-foreground text-xs font-semibold px-2.5 py-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-border"
-        >
-          New
         </button>
       </div>
       <div className="flex items-center justify-between mt-1">

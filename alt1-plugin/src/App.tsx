@@ -23,7 +23,7 @@ export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
     status, code, clientCount, error, isPaired,
-    session, createSession, joinSession, leaveSession, sendMutation, dismissError,
+    session, joinSession, leaveSession, sendMutation, dismissError,
     submitPairToken, unpair,
   } = useScoutSession();
 
@@ -249,9 +249,6 @@ export function App() {
   if (!hasPixel && !hasGameState) {
     return (
       <div className="flex flex-col min-h-screen">
-        <header className="bg-[#111116] px-3 py-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase border-b border-border select-none">
-          Ectotrees Scout
-        </header>
         <div className="px-3 py-4 text-sm text-warning">
           Grant pixel and/or gamestate permissions in Alt1 settings to use this app.
         </div>
@@ -405,17 +402,12 @@ export function App() {
   return (
     <TooltipProvider>
       <div className="flex flex-col min-h-screen">
-        <header className="bg-[#111116] px-3 py-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase border-b border-border select-none">
-          Ectotrees Scout
-        </header>
-
         <SessionPanel
           status={status}
           code={code}
           clientCount={clientCount}
           isPaired={isPaired}
           onJoin={joinSession}
-          onCreate={createSession}
           onLeave={leaveSession}
           onSubmitPairToken={submitPairToken}
           onUnpair={unpair}
