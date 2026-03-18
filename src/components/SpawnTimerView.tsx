@@ -247,7 +247,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
             <button
               type="submit"
               disabled={(hours * 60 + minutes) === 0}
-              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.borderText} ${SPAWN_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
+              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
                 font-medium rounded py-2 transition-colors`}
             >
               Set Timer

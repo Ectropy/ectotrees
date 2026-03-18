@@ -5,45 +5,36 @@
  * detect them during the build purge pass.
  */
 
+/** Shared label color for all bordered action buttons */
+export const BUTTON_LABEL_COLOR = 'text-gray-300';
+
 export const SPAWN_COLOR = {
-  text:        'text-blue-400',     // nav button active state (toolbar highlight)
-  bg:          'bg-blue-400',       // primary "Set Timer" button background
-  bgHover:     'hover:bg-blue-200', // primary button hover
-  bgText:      'text-black',        // text color on colored primary button background
-  border:      'border border-blue-400', // bordered button style
-  borderText:  'text-gray-300',     // text color on bordered (transparent bg) button
-  borderHover: 'hover:bg-blue-400/20', // subtle fill on hover for bordered button
-  borderHoverBorder: 'hover:border-blue-400', // border color on hover for tool buttons
-  toolHover:   'hover:bg-blue-400', // small tool-button hover on WorldCard / WorldDetailView
-  toolIcon:    'text-gray-100',     // resting icon color on WorldCard tool button
-  subtle:      'bg-blue-700/20',    // wheel-picker selected-row highlight tint
+  text:              'text-blue-300',          // nav button active state (toolbar highlight)
+  border:            'border border-blue-300', // bordered button style
+  label:             BUTTON_LABEL_COLOR,        // label color on bordered buttons
+  borderHover:       'hover:bg-blue-300/20',   // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-blue-300',  // border color on hover for tool buttons
+  underline:         'border-b border-blue-300', // active nav button underline indicator
+  subtle:            'bg-blue-700/20',         // wheel-picker selected-row highlight tint
 } as const;
 
 export const TREE_COLOR = {
-  text:        'text-green-400',     // nav button active state (toolbar highlight)
-  bg:          'bg-emerald-400',       // primary "Confirm" button background in TreeInfoView
-  bgHover:     'hover:bg-emerald-300', // primary button hover
-  bgText:      'text-black',           // text color on colored primary button background
-  border:      'border border-emerald-400', // bordered button style
-  borderText:  'text-gray-300',        // text color on bordered (transparent bg) button
-  borderHover: 'hover:bg-emerald-400/20', // subtle fill on hover for bordered button
-  borderHoverBorder: 'hover:border-emerald-400', // border color on hover for tool buttons
-  toolHover:   'hover:bg-emerald-400', // small tool-button hover on WorldCard / WorldDetailView
-  toolIcon:    'text-gray-100',      // resting icon color on WorldCard tool button
+  text:              'text-green-400',            // nav button active state (toolbar highlight)
+  border:            'border border-green-400',   // bordered button style
+  label:             BUTTON_LABEL_COLOR,             // label color on bordered buttons
+  borderHover:       'hover:bg-green-400/20',     // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-green-400',    // border color on hover for tool buttons
+  underline:         'border-b border-green-400', // active nav button underline indicator
 } as const;
 
 export const DEAD_COLOR = {
-  text:        'text-red-500',       // nav button active state (toolbar highlight)
-  bg:          'bg-red-500',         // primary "Confirm Dead" button background
-  bgHover:     'hover:bg-red-300',   // primary button hover
-  bgText:      'text-black',         // text color on colored primary button background
-  border:      'border border-red-500', // bordered button style
-  borderText:  'text-gray-300',      // text color on bordered (transparent bg) button
-  borderHover: 'hover:bg-red-500/20', // subtle fill on hover for bordered button
-  borderHoverBorder: 'hover:border-red-500', // border color on hover for tool buttons
-  toolHover:   'hover:bg-red-500',   // small tool-button hover on WorldCard / WorldDetailView
-  toolIcon:    'text-gray-100',      // resting icon color on WorldCard tool button
-  alertBorder: 'border-red-500',     // warning card border in TreeDeadView
+  text:              'text-red-500',          // nav button active state (toolbar highlight)
+  border:            'border border-red-500', // bordered button style
+  label:             BUTTON_LABEL_COLOR,       // label color on bordered buttons
+  borderHover:       'hover:bg-red-500/20',   // subtle fill on hover for bordered button
+  borderHoverBorder: 'hover:border-red-500',  // border color on hover for tool buttons
+  underline:         'border-b border-red-500', // active nav button underline indicator
+  alertBorder:       'border-red-500',        // warning card border in TreeDeadView
 } as const;
 
 /** World membership type colors */
@@ -63,12 +54,12 @@ export const F2P_COLOR = {
 /** Tree / game-state display colors (StatusSection + WorldDetailView) */
 
 export const TREE_STATE_COLOR = {
-  dead:         'text-red-400',     // "R.I.P." tree-type label + dead countdown in StatusSection
+  dead:         DEAD_COLOR.text,    // "R.I.P." tree-type label + dead countdown in StatusSection
   sapling:      'text-cyan-400',    // sapling type label while tree is a sapling
-  matureAlive:  'text-emerald-400', // mature / alive tree type label
+  matureAlive:  TREE_COLOR.text,    // mature / alive tree type label
   deathTimer:   'text-orange-400',  // "Dies in ~" countdown while tree is alive
   saplingTimer: 'text-yellow-300',  // "Matures in ~" countdown while tree is a sapling
-  spawnTimer:   'text-blue-300',    // "Next:" / "Spawn in" countdown before tree arrives
+  spawnTimer:   SPAWN_COLOR.text,   // "Next:" / "Spawn in" countdown before tree arrives
   rewardTimer:  'text-gray-300',    // "Clears in" reward-window countdown after tree dies
 } as const;
 
@@ -79,7 +70,7 @@ export const CHIP_COLOR = {
   active:     'bg-blue-700 text-white font-semibold',                  // active boolean filter chip (Favorite, P2P, F2P)
   sortActive: 'bg-amber-700 text-white font-semibold',                 // active sort button (W#, Soonest, Favorite, Health)
   needs:      'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500',       // tri-state "Needs" — show worlds missing this info
-  has:        'bg-emerald-500/30 text-emerald-200 font-semibold ring-1 ring-emerald-500', // tri-state "Has" — show worlds that have this info
+  has:        'bg-green-500/30 text-green-200 font-semibold ring-1 ring-green-500', // tri-state "Has" — show worlds that have this info
 } as const;
 
 /** General UI text hierarchy */

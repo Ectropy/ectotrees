@@ -345,19 +345,19 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           <div className="flex gap-2">
             <button
               onClick={() => onOpenTool('spawn')}
-              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.borderText} ${SPAWN_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
               <Timer className="h-3.5 w-3.5" /> Spawn Timer
             </button>
             <button
               onClick={() => onOpenTool('tree')}
-              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.borderText} ${TREE_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
               <TreeDeciduous className="h-3.5 w-3.5" /> Tree Info
             </button>
             <button
               onClick={() => onOpenTool('dead')}
-              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.borderText} ${DEAD_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
             >
               <Skull className="h-3.5 w-3.5" /> Mark Dead
             </button>

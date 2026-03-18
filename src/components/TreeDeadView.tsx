@@ -42,7 +42,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
             <button
               autoFocus
               onClick={onConfirm}
-              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.borderText} ${DEAD_COLOR.borderHover} font-medium rounded py-2.5 transition-colors text-lg`}
+              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded py-2.5 transition-colors text-lg`}
             >
               Confirm Dead
             </button>

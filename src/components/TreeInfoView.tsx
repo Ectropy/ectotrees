@@ -170,7 +170,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
             <button
               type="submit"
               disabled={!hint || !treeType}
-              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.borderText} ${TREE_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
+              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
                 font-medium rounded py-2 transition-colors`}
             >
               {isUpdateMode ? 'Update Tree Info' : 'Confirm'}
