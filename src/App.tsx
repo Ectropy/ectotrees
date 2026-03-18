@@ -100,6 +100,7 @@ function loadFilters(): Filters {
 }
 
 const APP_VERSION = __APP_VERSION__;
+const APP_VERSION_DISPLAY = APP_VERSION.replace(/\+[0-9a-f]+$/, '');
 
 // Sidebar panel IDs for layout persistence
 const SIDEBAR_PANEL_ID = 'sidebar';
@@ -771,7 +772,7 @@ export default function App() {
       <footer className="px-2 py-1 bg-gray-800 flex-shrink-0">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {settings.showTipTicker && <TipTicker />}
-          <span className="text-[10px] text-gray-200 leading-none flex-shrink-0 text-center sm:text-left">Ecto Trees v{APP_VERSION} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+          <span className="text-[10px] text-gray-200 leading-none flex-shrink-0 text-center sm:text-left">Ectotrees v{APP_VERSION_DISPLAY} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
         </div>
       </footer>
     </div>

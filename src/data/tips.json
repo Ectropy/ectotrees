@@ -5,9 +5,9 @@
     "After it has been mature for 10 minutes, lightning strikes the Evil Tree to 50% health, unless it is already lower.",
     "After it has been mature for 20 minutes, lightning strikes the Evil Tree to 25%, unless it is already lower.",
     "After it has been mature for 30 minutes, a final lightning strike kills the Evil Tree.",
-    "Press ⏱ to set a spawn timer after learning when the next tree will appear. A hint is optional.",
-    "Press 🌳 to record the sapling or tree type and exact location once you've found it.",
-    "Press ☠ to mark a tree as dead and start the 10-minute reward window countdown.",
+    "Press {Timer} to set a spawn timer after learning when the next tree will appear. A hint is optional.",
+    "Press {TreeDeciduous} to record the sapling or tree type and exact location once you've found it.",
+    "Press {Skull} to mark a tree as dead and start the 10-minute reward window countdown.",
     "Join a session to share intel with other scouts in real time.",
     "Click the session code to copy a link you can share with friends.",
     "Use the 'Needs Intel' filter to find worlds that have no intel and need to be scouted.",
@@ -19,7 +19,7 @@
     "Magic and elder trees only spawn in P2P worlds.",
     "Evil Trees only spawn in 6 locations on F2P worlds.",
     "If the hint says \"There won't be another evil tree for a long time.\" this means the current tree is dead and the hint that follows actually points to the fallen tree which is in its 10-minute reward window. You must wait until the reward window ends before you can learn the hint and spawn timer for the next evil tree.",
-    "You can participate in the Evil Tree D&D twice daily.",
+    "There is no limit to the amount of evil trees you can kill each day. Chop them all down!",
     "You can see how many scouts are in the same session as you via the session bar.",
     "Share a session link with your friends so everyone can see the same live intel.",
     "Use the Needs Health filter to find trees with no reported health.",
@@ -30,9 +30,9 @@
     "You can disable this tip ticker in the settings.",
     "Open an issue on the ectotrees GitHub repo to report bugs or suggest improvements.",
     "Click any card to view the World Status screen for that world.",
-    "If you've completed the Tree Gnome Village quest, sprit trees will tell you the time until the next evil tree and a hint.",
-    "If you've completed the Tree Gnome Village quest, sprit trees will offer to teleport you to an evil tree once it is mature.",
+    "If you've completed the Tree Gnome Village quest, spirit trees will tell you the time until the next evil tree and a hint.",
+    "If you've completed the Tree Gnome Village quest, spirit trees will offer to teleport you to an evil tree once it is mature.",
     "The nature's sentinel outfit can teleport you to an evil tree once it is mature.",
-    "The nature's sentinel helm can tell you the time until the next evil tree, not won't reveal the hint unless the sapling is spawned."
+    "The nature's sentinel helm can tell you the time until the next evil tree, but won't reveal the hint unless the sapling is spawned."
   ]
 }
