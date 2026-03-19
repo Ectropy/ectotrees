@@ -5,9 +5,7 @@ import type { ClientMessage } from '@shared/protocol';
 export interface ScoutSessionState {
   status: SessionStatus;
   code: string | null;
-  clientCount: number;
   error: string | null;
-  inviteToken: string | null;
   memberName: string | null;
   memberRole: string | null;
 }
@@ -22,9 +20,7 @@ export function useScoutSession() {
   const [state, setState] = useState<ScoutSessionState>({
     status: session.status,
     code: session.code,
-    clientCount: session.clientCount,
     error: session.error,
-    inviteToken: session.inviteToken,
     memberName: session.memberName,
     memberRole: session.memberRole,
   });
@@ -37,14 +33,11 @@ export function useScoutSession() {
       session.on('codeChange', (code) => {
         setState((prev) => ({ ...prev, code }));
       }),
-      session.on('clientCount', (count) => {
-        setState((prev) => ({ ...prev, clientCount: count }));
-      }),
       session.on('error', (error) => {
         setState((prev) => ({ ...prev, error }));
       }),
       session.on('identity', (memberName, memberRole) => {
-        setState((prev) => ({ ...prev, memberName, memberRole, inviteToken: session.inviteToken }));
+        setState((prev) => ({ ...prev, memberName, memberRole }));
       }),
     ];
 
@@ -62,7 +55,7 @@ export function useScoutSession() {
 
   const leaveSession = useCallback(() => {
     session.leaveSession();
-    setState((prev) => ({ ...prev, inviteToken: null, memberName: null, memberRole: null }));
+    setState((prev) => ({ ...prev, memberName: null, memberRole: null }));
   }, [session]);
 
   const sendMutation = useCallback((msg: ClientMessage) => {
@@ -74,11 +67,7 @@ export function useScoutSession() {
   }, [session]);
 
   const joinWithToken = useCallback((tokenOrUrl: string) => {
-    const ok = session.joinWithToken(tokenOrUrl);
-    if (ok) {
-      setState((prev) => ({ ...prev, inviteToken: session.inviteToken }));
-    }
-    return ok;
+    return session.joinWithToken(tokenOrUrl);
   }, [session]);
 
   return {

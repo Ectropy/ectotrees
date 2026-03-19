@@ -22,8 +22,8 @@ const STATUS_DURATIONS: Record<StatusKind, number> = {
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, clientCount, error,
-    inviteToken, memberName, memberRole,
+    status, code, error,
+    memberName, memberRole,
     session, joinSession, leaveSession, sendMutation, dismissError,
     joinWithToken,
   } = useScoutSession();
@@ -406,8 +406,6 @@ export function App() {
         <SessionPanel
           status={status}
           code={code}
-          clientCount={clientCount}
-          inviteToken={inviteToken}
           memberName={memberName}
           memberRole={memberRole}
           onJoin={joinSession}
