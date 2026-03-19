@@ -12,6 +12,9 @@ export interface MemberInfo {
 }
 
 export type ClientMessage =
+  | { type: 'authSession';     code: string }
+  | { type: 'authInvite';      token: string }
+  | { type: 'authPersonal';    token: string }
   | { type: 'setSpawnTimer';    worldId: number; msFromNow: number; treeInfo?: { treeHint?: string }; msgId?: number }
   | { type: 'setTreeInfo';      worldId: number; info: TreeInfoPayload; msgId?: number }
   | { type: 'updateTreeFields'; worldId: number; fields: TreeFieldsPayload; msgId?: number }
@@ -34,6 +37,8 @@ export type ClientMessage =
   | { type: 'ping' };
 
 export type ServerMessage =
+  | { type: 'authSuccess';    sessionCode: string; personalToken?: string }
+  | { type: 'authError';      reason: string; code?: 'invalid' | 'expired' | 'full' | 'banned' | 'timeout' }
   | { type: 'snapshot';       worlds: WorldStates }
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null; source?: string | { name: string; role: string } }
   | { type: 'clientCount';    count: number; scouts: number; dashboards: number }

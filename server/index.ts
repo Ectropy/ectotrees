@@ -30,7 +30,6 @@ import {
   getTotalClientCount,
   forkToManaged,
   selfRegisterMember,
-  lookupInviteToken,
   addMemberConnection,
   canWrite,
   createInvite,
@@ -40,9 +39,14 @@ import {
   transferOwnership,
   setAllowViewers,
   requestPersonalToken,
+  authenticateByCode,
+  authenticateByInviteToken,
+  authenticateByPersonalToken,
+  MAX_CLIENTS_PER_SESSION,
 } from './session.ts';
-import { validateMessage, validateSessionCode, validateInviteToken } from './validation.ts';
-import { log, warn } from './log.ts';
+import { validateMessage, validateSessionCode, validateAuthMessage } from './validation.ts';
+import type { Session, Member } from './session.ts';
+import { log } from './log.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const __filename = fileURLToPath(import.meta.url);
@@ -56,6 +60,18 @@ const HTTP_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute sliding window
 const HTTP_RATE_LIMIT_MAX = 20;           // requests per window per IP
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
+const AUTH_TIMEOUT_MS = 10_000; // 10 seconds
+
+// --- Per-connection state for message-based authentication ---
+interface WsExtensions {
+  authenticated: boolean;
+  authTimeout?: ReturnType<typeof setTimeout>;
+  session?: Session;
+  member?: Member;
+  rateLimitMessages: number[];
+  clientId?: number;
+}
+const wsExtensions = new WeakMap<WebSocket, WsExtensions>();
 
 // --- Protocol version stamp ---
 const _protocolPath = fileURLToPath(new URL('../shared/protocol.ts', import.meta.url));
@@ -89,19 +105,18 @@ interface RateState {
   windowStart: number;
 }
 
-// WebSocket: per-connection, stored on the socket object
-const wsRateLimits = new WeakMap<WebSocket, RateState>();
-
 function checkRateLimit(ws: WebSocket): boolean {
   const now = Date.now();
-  let state = wsRateLimits.get(ws);
-  if (!state || now - state.windowStart > RATE_LIMIT_WINDOW_MS) {
-    state = { count: 1, windowStart: now };
-    wsRateLimits.set(ws, state);
+  const extensions = wsExtensions.get(ws);
+  if (!extensions) return false;
+
+  if (!extensions.rateLimitMessages || extensions.rateLimitMessages.length === 0 ||
+      now - extensions.rateLimitMessages[0] > RATE_LIMIT_WINDOW_MS) {
+    extensions.rateLimitMessages = [now];
     return true;
   }
-  state.count++;
-  return state.count <= RATE_LIMIT_MAX;
+  extensions.rateLimitMessages.push(now);
+  return extensions.rateLimitMessages.length <= RATE_LIMIT_MAX;
 }
 
 // HTTP: per-IP sliding window, applied to session REST endpoints
@@ -255,85 +270,134 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
-  // Invite token connect: managed session member joins via ?invite=
-  const rawInviteToken = url.searchParams.get('invite');
-  if (rawInviteToken !== null) {
-    const inviteToken = validateInviteToken(rawInviteToken);
-    if (!inviteToken) {
-      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    const resolved = lookupInviteToken(inviteToken);
-    if (!resolved) {
-      socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    if (resolved.member.banned) {
-      socket.write('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req, resolved.session, resolved.session.code, resolved.member);
-    });
-    return;
-  }
-
-  // Normal session code connect
-  const code = validateSessionCode(url.searchParams.get('code'));
-  if (!code) {
-    socket.destroy();
-    return;
-  }
-
-  const session = getSession(code);
+  // Accept all WebSocket connections; authentication happens via message-based auth
   wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit('connection', ws, req, session, code);
+    // Initialize unauthenticated connection with auth timeout
+    const extensions: WsExtensions = {
+      authenticated: false,
+      rateLimitMessages: [],
+    };
+
+    extensions.authTimeout = setTimeout(() => {
+      if (!extensions.authenticated) {
+        ws.send(JSON.stringify({ type: 'authError', reason: 'Authentication required. Send an auth message within 10 seconds.', code: 'timeout' }));
+        ws.close(1008, 'Authentication timeout');
+      }
+    }, AUTH_TIMEOUT_MS);
+
+    wsExtensions.set(ws, extensions);
+    wss.emit('connection', ws, req);
   });
 });
 
-wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, inviteMember?: import('./session.ts').Member) => {
-  if (!session) {
-    log(`[connect] Rejected — session ${attemptedCode} not found`);
-    ws.send(JSON.stringify(errorMsg('Session not found.')));
-    ws.close(1008, 'Session not found');
+// Handle authentication messages from unauthenticated clients
+function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authInvite' | 'authPersonal' }): void {
+  const extensions = wsExtensions.get(ws);
+  if (!extensions) {
+    ws.send(JSON.stringify({ type: 'authError', reason: 'Internal server error.' }));
+    ws.close();
     return;
   }
-  const activeSession = session;
 
-  // Block anonymous connections to managed sessions (unless allowViewers is on)
-  if (activeSession.managed && !inviteMember && !activeSession.allowViewers) {
-    log(`[connect] Rejected — ${activeSession.code} is managed and requires invite`);
-    ws.send(JSON.stringify(errorMsg('This is a private session. You need an invite link to join.')));
+  let session: Session | { error: string };
+  let member: Member | undefined;
+
+  if (msg.type === 'authSession') {
+    session = authenticateByCode((msg as unknown as { code: string }).code);
+  } else if (msg.type === 'authInvite') {
+    const result = authenticateByInviteToken((msg as unknown as { token: string }).token);
+    if ('error' in result) {
+      session = result;
+    } else {
+      session = result.session;
+      member = result.member;
+    }
+  } else if (msg.type === 'authPersonal') {
+    const result = authenticateByPersonalToken((msg as unknown as { token: string }).token);
+    if ('error' in result) {
+      session = result;
+    } else {
+      session = result.session;
+      member = result.member;
+    }
+  } else {
+    ws.send(JSON.stringify({ type: 'authError', reason: 'Unknown auth type.' }));
+    ws.close();
+    return;
+  }
+
+  if ('error' in session) {
+    const errorResult = session as { error: string };
+    let code: 'invalid' | 'expired' | 'full' | 'banned' = 'invalid';
+    if (errorResult.error.includes('expired')) code = 'expired';
+    else if (errorResult.error.includes('full')) code = 'full';
+    else if (errorResult.error.includes('banned')) code = 'banned';
+
+    ws.send(JSON.stringify({ type: 'authError', reason: errorResult.error, code }));
+    ws.close(code === 'full' ? 1003 : 1008, errorResult.error);
+    return;
+  }
+
+  // session is now guaranteed to be Session (not error type)
+  const validatedSession = session as Session;
+
+  // Check if session is full
+  if (validatedSession.clients.size >= MAX_CLIENTS_PER_SESSION) {
+    ws.send(JSON.stringify({ type: 'authError', reason: 'Session is full.', code: 'full' }));
+    ws.close(1003, 'Session is full');
+    return;
+  }
+
+  // Check if managed session allows anonymous connections
+  if (validatedSession.managed && !member && !validatedSession.allowViewers) {
+    ws.send(JSON.stringify({ type: 'authError', reason: 'This is a private session. You need an invite link to join.', code: 'banned' }));
     ws.close(1008, 'Invite required');
     return;
   }
 
-  // Invite token connect: add as managed session member
-  let clientId: number | false;
-  if (inviteMember) {
-    clientId = addMemberConnection(activeSession, ws, inviteMember);
-    if (clientId === false) {
-      log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
-      ws.send(JSON.stringify(errorMsg('Session is full.')));
-      ws.close();
+  // Add connection to session
+  let clientId: number;
+  if (member) {
+    const memberResult = addMemberConnection(validatedSession, ws, member);
+    if (memberResult === false) {
+      ws.send(JSON.stringify({ type: 'authError', reason: 'Session is full.', code: 'full' }));
+      ws.close(1003, 'Session is full');
       return;
     }
-    log(`[connect] Member "${inviteMember.name}" (${inviteMember.role}) joined ${activeSession.code} via invite`);
+    clientId = memberResult;
+    log(`[connect] Member "${member.name}" (${member.role}) joined ${validatedSession.code} via auth`);
   } else {
-    clientId = addClient(activeSession, ws);
-    if (clientId === false) {
-      log(`[connect] Rejected — ${activeSession.code} is full (${activeSession.clients.size} clients)`);
-      ws.send(JSON.stringify(errorMsg('Session is full.')));
-      ws.close();
+    const clientResult = addClient(validatedSession, ws);
+    if (clientResult === false) {
+      ws.send(JSON.stringify({ type: 'authError', reason: 'Session is full.', code: 'full' }));
+      ws.close(1003, 'Session is full');
       return;
     }
-
+    clientId = clientResult;
+    log(`[connect] Client ${clientId} joined ${validatedSession.code} — ${validatedSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
   }
 
-  log(`[connect] Client ${clientId} joined ${activeSession.code} — ${activeSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
+  // Mark as authenticated
+  extensions.authenticated = true;
+  extensions.session = validatedSession;
+  extensions.member = member;
+  extensions.clientId = clientId;
+  if (extensions.authTimeout) {
+    clearTimeout(extensions.authTimeout);
+    extensions.authTimeout = undefined;
+  }
+
+  // Send auth success response (with personal token if applicable)
+  const personalToken = member ? validatedSession.wsToInviteToken.get(ws) : undefined;
+  ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, personalToken }));
+}
+
+wss.on('connection', (ws: WebSocket, _req: unknown) => {
+  const extensions = wsExtensions.get(ws);
+  if (!extensions) {
+    ws.close();
+    return;
+  }
 
   // Heartbeat tracking
   let lastPong = Date.now();
@@ -354,19 +418,30 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     if (removed) return;
     removed = true;
     clearInterval(heartbeatCheck);
-    removeClient(activeSession, ws);
+    const ext = wsExtensions.get(ws);
+    if (ext) {
+      if (ext.authTimeout) {
+        clearTimeout(ext.authTimeout);
+      }
+      if (ext.session && ext.session.clients.has(ws)) {
+        removeClient(ext.session, ws);
+      }
+    }
+    wsExtensions.delete(ws);
   }
 
   ws.on('message', (data) => {
-    // Ignore (and close) sockets no longer tracked by this session.
-    if (!activeSession.clients.has(ws)) {
-      warn(`[error] Client ${clientId} sent message after removal from ${activeSession.code} — closing`);
-      ws.close();
+    // Parse message
+    const raw = data.toString();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      ws.send(JSON.stringify(errorMsg('Invalid JSON.')));
       return;
     }
 
     // Size check (allow larger messages for initializeState)
-    const raw = data.toString();
     const sizeLimit = (raw.includes('"initializeState"') || raw.includes('"contributeWorlds"')) ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
     if (raw.length > sizeLimit) {
       ws.send(JSON.stringify(errorMsg('Message too large.')));
@@ -379,23 +454,35 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
       return;
     }
 
-    // Parse
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      ws.send(JSON.stringify(errorMsg('Invalid JSON.')));
+    // Handle auth messages (even when unauthenticated)
+    const authValidated = validateAuthMessage(parsed);
+    if (!('error' in authValidated)) {
+      handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authInvite' | 'authPersonal' });
       return;
     }
 
-    // Validate
+    // Reject non-auth messages if not authenticated
+    if (!extensions.authenticated) {
+      ws.send(JSON.stringify({ type: 'authError', reason: 'Authentication required.', code: 'invalid' }));
+      ws.close(1008, 'Authentication required');
+      return;
+    }
+
+    // Validate non-auth messages
     const validated = validateMessage(parsed);
     if ('error' in validated) {
       ws.send(JSON.stringify(errorMsg(validated.error)));
       return;
     }
 
-    handleMessage(activeSession, validated, ws, clientId);
+    const ext = wsExtensions.get(ws);
+    if (!ext || !ext.session || ext.clientId === undefined) {
+      ws.send(JSON.stringify(errorMsg('Connection not authenticated.')));
+      ws.close();
+      return;
+    }
+
+    handleMessage(ext.session, validated, ws, ext.clientId);
   });
 
   ws.on('close', (_code, reasonBuffer) => {
@@ -403,12 +490,17 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
     const reason = rawReason || serverCloseReason || '';
     const suffix = reason ? ` — ${reason}` : '';
-    log(`[disconnect] Client ${clientId} left ${activeSession.code}${suffix} — ${activeSession.clients.size} remaining in session, ${getTotalClientCount()} clients across all sessions`);
+    const ext = wsExtensions.get(ws);
+    const sessionCode = ext?.session?.code ?? 'unknown';
+    const clientId = ext?.clientId ?? 'unknown';
+    log(`[disconnect] Client ${clientId} left ${sessionCode}${suffix}`);
   });
 
   ws.on('error', (err) => {
-    log(`[error] Client ${clientId} on ${activeSession.code}: ${err.message}`);
-    // Ensure close runs promptly so cleanup and UI updates are not delayed.
+    const ext = wsExtensions.get(ws);
+    const sessionCode = ext?.session?.code ?? 'unknown';
+    const clientId = ext?.clientId ?? 'unknown';
+    log(`[error] Client ${clientId} on ${sessionCode}: ${err.message}`);
     if (ws.readyState !== 3) { // WebSocket.CLOSED
       ws.terminate();
     }
@@ -417,7 +509,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
 
 const MUTATION_TYPES = new Set(['setSpawnTimer', 'setTreeInfo', 'updateTreeFields', 'updateHealth', 'reportLightning', 'markDead', 'clearWorld', 'contributeWorlds', 'initializeState']);
 
-function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg: ClientMessage, ws: WebSocket, clientId: number) {
+function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clientId: number) {
   const now = Date.now();
   const c = `Client ${clientId}`;
 

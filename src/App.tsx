@@ -111,7 +111,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -179,6 +179,22 @@ export default function App() {
     handleJoinSession(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-join managed session from ?invite= query param on first load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('invite');
+    if (!raw) return;
+    const token = raw.trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
+    // Remove the param from the URL without a page reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete('invite');
+    history.replaceState(null, '', url.toString());
+    joinByInviteToken(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
   const [copied, setCopied] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);

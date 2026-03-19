@@ -233,7 +233,7 @@ export function useSession(onSessionLost?: () => void) {
     }
   }
 
-  function connectWs(code: string, inviteToken?: string) {
+  function connectWs(code: string | null, inviteToken?: string) {
     // Prevent the old WS's onclose from scheduling a duplicate reconnect
     intentionalCloseRef.current = true;
     cleanup();
@@ -242,13 +242,7 @@ export function useSession(onSessionLost?: () => void) {
     snapshotReceivedRef.current = false;
     setSession(prev => ({ ...prev, status: 'connecting', error: null }));
 
-    const wsUrl = new URL(`${WS_BASE}/ws`);
-    if (inviteToken) {
-      wsUrl.searchParams.set('invite', inviteToken);
-    } else {
-      wsUrl.searchParams.set('code', code);
-    }
-    const ws = new WebSocket(wsUrl.href);
+    const ws = new WebSocket(`${WS_BASE}/ws`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -257,28 +251,12 @@ export function useSession(onSessionLost?: () => void) {
       lastServerErrorRef.current = null;
       setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
 
-      // Identify as a dashboard
-      ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
-
-      // Send local state to populate a newly created session
-      if (initialStatesRef.current) {
-        ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
+      // Send auth message first
+      if (inviteToken) {
+        ws.send(JSON.stringify({ type: 'authInvite', token: inviteToken }));
+      } else if (code) {
+        ws.send(JSON.stringify({ type: 'authSession', code }));
       }
-
-      // Start ping interval with ACK timeout
-      pingTimerRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }));
-          // Expect a pong back within PING_ACK_TIMEOUT_MS; if not, the connection is dead
-          if (pingAckTimerRef.current) clearTimeout(pingAckTimerRef.current);
-          pingAckTimerRef.current = setTimeout(() => {
-            pingAckTimerRef.current = null;
-            if (wsRef.current === ws && ws.readyState === WebSocket.OPEN) {
-              ws.close();
-            }
-          }, PING_ACK_TIMEOUT_MS);
-        }
-      }, PING_INTERVAL_MS);
     };
 
     ws.onmessage = (event) => {
@@ -291,6 +269,50 @@ export function useSession(onSessionLost?: () => void) {
       }
 
       switch (msg.type) {
+        case 'authSuccess':
+          // Server tells us the confirmed session code (critical when joining via invite token)
+          if (msg.sessionCode && msg.sessionCode !== codeRef.current) {
+            codeRef.current = msg.sessionCode;
+            persistSessionCode(msg.sessionCode);
+            setSession(prev => ({ ...prev, code: msg.sessionCode }));
+          }
+          // Identify as a dashboard
+          ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
+
+          // Send local state to populate a newly created session
+          if (initialStatesRef.current) {
+            ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
+            initialStatesRef.current = null;
+          }
+
+          // Start ping interval with ACK timeout
+          pingTimerRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+              // Expect a pong back within PING_ACK_TIMEOUT_MS; if not, the connection is dead
+              if (pingAckTimerRef.current) clearTimeout(pingAckTimerRef.current);
+              pingAckTimerRef.current = setTimeout(() => {
+                pingAckTimerRef.current = null;
+                if (wsRef.current === ws && ws.readyState === WebSocket.OPEN) {
+                  ws.close();
+                }
+              }, PING_ACK_TIMEOUT_MS);
+            }
+          }, PING_INTERVAL_MS);
+          break;
+
+        case 'authError':
+          lastServerErrorRef.current = msg.reason;
+          intentionalCloseRef.current = true;
+          // Clear a bad invite token so it isn't replayed on reload
+          if (inviteTokenRef.current) {
+            inviteTokenRef.current = null;
+            persistInviteToken(null);
+          }
+          setSession(prev => ({ ...prev, error: msg.reason, status: 'disconnected', reconnectAttempt: 0, reconnectAt: null }));
+          ws.close();
+          break;
+
         case 'snapshot': {
           let worlds: WorldStates;
           let toContribute: WorldStates | null = null;
@@ -516,7 +538,7 @@ export function useSession(onSessionLost?: () => void) {
 
       reconnectTimerRef.current = setTimeout(() => {
         setSession(prev => ({ ...prev, reconnectAt: null }));
-        if (codeRef.current) {
+        if (codeRef.current || inviteTokenRef.current) {
           connectWs(codeRef.current, inviteTokenRef.current ?? undefined);
         }
       }, delay);
@@ -566,6 +588,14 @@ export function useSession(onSessionLost?: () => void) {
     return true;
   }, []);
 
+  const joinByInviteToken = useCallback((token: string): void => {
+    inviteTokenRef.current = token;
+    persistInviteToken(token);
+    setSession(prev => ({ ...prev, error: null, reconnectAttempt: 0 }));
+    clearPending();
+    connectWs(null, token);
+  }, []);
+
   const leaveSession = useCallback(() => {
     intentionalCloseRef.current = true;
     if (wsRef.current) {
@@ -604,10 +634,12 @@ export function useSession(onSessionLost?: () => void) {
     return new Promise<WorldStates | null>((resolve) => {
       previewResolveRef.current = resolve;
 
-      const wsUrl = new URL(`${WS_BASE}/ws`);
-      wsUrl.searchParams.set('code', code);
-      const ws = new WebSocket(wsUrl.href);
+      const ws = new WebSocket(`${WS_BASE}/ws`);
       previewWsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'authSession', code }));
+      };
 
       ws.onmessage = (event) => {
         if (previewWsRef.current !== ws) return;
@@ -788,7 +820,7 @@ export function useSession(onSessionLost?: () => void) {
 
   // Resume prior session across page reloads (common on mobile radio changes).
   useEffect(() => {
-    if (codeRef.current && session.status === 'disconnected') {
+    if ((codeRef.current || inviteTokenRef.current) && session.status === 'disconnected') {
       connectWs(codeRef.current, inviteTokenRef.current ?? undefined);
     }
     // Run once on mount.
@@ -805,6 +837,7 @@ export function useSession(onSessionLost?: () => void) {
     syncChannel,
     createSession,
     joinSession,
+    joinByInviteToken,
     rejoinSession,
     leaveSession,
     previewJoin,

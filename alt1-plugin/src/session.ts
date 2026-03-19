@@ -213,7 +213,10 @@ export class EctoSession {
 
   /** Auto-resume a previously active session on startup (mirrors useEffect on mount). */
   resume(): void {
-    if (this.code && this.status === 'disconnected') {
+    if (this.status !== 'disconnected') return;
+    if (this.inviteToken) {
+      this.connectWithInviteToken(this.inviteToken);
+    } else if (this.code) {
       this.connectWs(this.code);
     }
   }
@@ -342,7 +345,7 @@ export class EctoSession {
     const base = WS_BASE
       ? `${WS_BASE}/ws`
       : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-    const ws = new WebSocket(`${base}?invite=${token}`);
+    const ws = new WebSocket(base);
     this.ws = ws;
     this.setupWsHandlers(ws);
   }
@@ -355,24 +358,17 @@ export class EctoSession {
       this.reconnectAt = null;
       this.setStatus('connected');
 
-      // Identify as a scout
-      ws.send(JSON.stringify({ type: 'identify', clientType: 'scout' }));
+      // Send auth message first
+      if (this.inviteToken) {
+        ws.send(JSON.stringify({ type: 'authInvite', token: this.inviteToken }));
+      } else {
+        ws.send(JSON.stringify({ type: 'authSession', code: this.code }));
+      }
 
       if (this.initialStates) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: this.initialStates }));
         this.initialStates = null;
       }
-
-      this.pingTimer = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }));
-          if (this.pingAckTimer) clearTimeout(this.pingAckTimer);
-          this.pingAckTimer = setTimeout(() => {
-            this.pingAckTimer = null;
-            if (this.ws === ws && ws.readyState === WebSocket.OPEN) ws.close();
-          }, PING_ACK_TIMEOUT_MS);
-        }
-      }, PING_INTERVAL_MS);
     };
 
     ws.onmessage = (event) => {
@@ -382,6 +378,48 @@ export class EctoSession {
       catch { return; }
 
       switch (msg.type) {
+        case 'authSuccess':
+          this.setStatus('connected');
+          if (msg.personalToken) {
+            this.inviteToken = msg.personalToken;
+            this.saveInviteToken(msg.personalToken);
+          }
+          if (msg.sessionCode && this.code !== msg.sessionCode) {
+            this.code = msg.sessionCode;
+            this.saveCode(msg.sessionCode);
+            this.emit('codeChange', msg.sessionCode);
+          }
+          // Identify as a scout
+          ws.send(JSON.stringify({ type: 'identify', clientType: 'scout' }));
+          if (this.initialStates) {
+            ws.send(JSON.stringify({ type: 'initializeState', worlds: this.initialStates }));
+            this.initialStates = null;
+          }
+          this.pingTimer = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+              if (this.pingAckTimer) clearTimeout(this.pingAckTimer);
+              this.pingAckTimer = setTimeout(() => {
+                this.pingAckTimer = null;
+                if (this.ws === ws && ws.readyState === WebSocket.OPEN) ws.close();
+              }, PING_ACK_TIMEOUT_MS);
+            }
+          }, PING_INTERVAL_MS);
+          break;
+
+        case 'authError':
+          // Clear a bad stored invite token so it isn't replayed on reload
+          if (this.inviteToken) {
+            this.inviteToken = null;
+            this.saveInviteToken(null);
+          }
+          this.intentionalClose = true;
+          this.setError(msg.reason);
+          this.setStatus('disconnected');
+          this.emit('codeChange', null);
+          ws.close();
+          break;
+
         case 'snapshot': {
           let worlds: WorldStates;
           let toContribute: WorldStates | null = null;
@@ -519,7 +557,8 @@ export class EctoSession {
 
       this.reconnectTimer = setTimeout(() => {
         this.reconnectAt = null;
-        if (this.code) this.connectWs(this.code);
+        if (this.inviteToken) this.connectWithInviteToken(this.inviteToken);
+        else if (this.code) this.connectWs(this.code);
       }, delay);
     };
 

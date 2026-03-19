@@ -8,7 +8,7 @@ import { log, warn } from './log.ts';
 const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 
 const MAX_SESSIONS = 1000;
-const MAX_CLIENTS_PER_SESSION = 1000;
+export const MAX_CLIENTS_PER_SESSION = 1000;
 const MAX_MEMBERS_PER_SESSION = 500;
 const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
@@ -96,7 +96,7 @@ function broadcast(session: Session, msg: ServerMessage) {
   }
 }
 
-function broadcastClientCount(session: Session) {
+export function broadcastClientCount(session: Session) {
   let scouts = 0, dashboards = 0;
 
   for (const ws of session.clients) {
@@ -564,6 +564,39 @@ export function lookupInviteToken(token: string): { session: Session; member: Me
   const member = session.members.get(token);
   if (!member) return null;
   return { session, member };
+}
+
+/** Authenticate using a session code (anonymous session join). */
+export function authenticateByCode(code: string): Session | { error: string } {
+  const session = getSession(code);
+  if (!session) {
+    return { error: 'Session not found.' };
+  }
+  return session;
+}
+
+/** Authenticate using an invite token (managed member or personal token reconnection). */
+export function authenticateByInviteToken(token: string): { session: Session; member: Member } | { error: string } {
+  const resolved = lookupInviteToken(token);
+  if (!resolved) {
+    return { error: 'Invalid invite token.' };
+  }
+  if (resolved.member.banned) {
+    return { error: 'You are banned from this session.' };
+  }
+  return resolved;
+}
+
+/** Authenticate using a personal token (dashboard-scout pairing or identity persistence). */
+export function authenticateByPersonalToken(token: string): { session: Session; member: Member } | { error: string } {
+  const resolved = lookupInviteToken(token);
+  if (!resolved) {
+    return { error: 'Invalid personal token.' };
+  }
+  if (resolved.member.banned) {
+    return { error: 'You are banned from this session.' };
+  }
+  return resolved;
 }
 
 /** Add a WS connection to a session member (managed or anonymous with personal token). */

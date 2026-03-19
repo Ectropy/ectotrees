@@ -357,3 +357,39 @@ export function validateInviteToken(token: unknown): string | null {
   if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null;
   return token;
 }
+
+export function validateAuthMessage(raw: unknown):
+  | { type: 'authSession'; code: string }
+  | { type: 'authInvite'; token: string }
+  | { type: 'authPersonal'; token: string }
+  | { error: string }
+{
+  if (typeof raw !== 'object' || raw === null || !('type' in raw)) {
+    return { error: 'Invalid message structure.' };
+  }
+
+  const { type } = raw as { type: string };
+
+  if (type === 'authSession') {
+    if (!('code' in raw)) return { error: 'Missing code field.' };
+    const code = validateSessionCode(raw.code);
+    if (!code) return { error: 'Invalid session code format.' };
+    return { type: 'authSession', code };
+  }
+
+  if (type === 'authInvite') {
+    if (!('token' in raw)) return { error: 'Missing token field.' };
+    const token = validateInviteToken(raw.token);
+    if (!token) return { error: 'Invalid invite token format.' };
+    return { type: 'authInvite', token };
+  }
+
+  if (type === 'authPersonal') {
+    if (!('token' in raw)) return { error: 'Missing token field.' };
+    const token = validateInviteToken(raw.token);
+    if (!token) return { error: 'Invalid personal token format.' };
+    return { type: 'authPersonal', token };
+  }
+
+  return { error: `Unknown auth type: ${type}` };
+}
