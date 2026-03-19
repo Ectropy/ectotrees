@@ -179,10 +179,15 @@ export function applyUpdateTreeFields(
     }
   }
 
+  // When treeHint changes, clear treeExactLocation unless a new one is explicitly provided
+  const shouldClearExactLocation =
+    fields.treeHint !== undefined && fields.treeExactLocation === undefined;
+
   return {
     ...states,
     [worldId]: {
       ...current,
+      ...(shouldClearExactLocation ? { treeExactLocation: undefined } : {}),
       ...fields,
       ...(matureAtOverride !== undefined ? { matureAt: matureAtOverride } : {}),
       treeStatus: nextStatus,
