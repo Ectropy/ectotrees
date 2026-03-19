@@ -391,6 +391,9 @@ export function useSession(onSessionLost?: () => void) {
           const { managedCode, ownerToken } = msg;
           codeRef.current = managedCode;
           persistSessionCode(managedCode);
+          // Persist ownerToken so identity handler picks it up as personalToken
+          inviteTokenRef.current = ownerToken;
+          persistInviteToken(ownerToken);
           clearPending();
           setSession(prev => ({ ...defaultSessionState(), code: managedCode, status: prev.status }));
           connectWs(managedCode, ownerToken);

@@ -411,10 +411,10 @@ function broadcastManagedClientCount(session: Session) {
  * any WebSocket messages.  The caller is responsible for notifying the owner WS.
  * Returns the owner token, or an error if the session is already managed.
  */
-function setupManagedOwner(session: Session, name: string): string | { error: string } {
+function setupManagedOwner(session: Session, name: string, existingToken?: string): string | { error: string } {
   if (session.managed) return { error: 'Session is already managed.' };
 
-  const ownerToken = generateInviteToken();
+  const ownerToken = existingToken ?? generateInviteToken();
   session.managed = true;
   session.ownerToken = ownerToken;
 
@@ -460,11 +460,44 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   // Copy world state snapshot
   childSession.worldStates = { ...session.worldStates };
 
-  // Set up managed mode on the child without sending WS messages
-  // (the initiator joins via ?invite=ownerToken on the new session)
-  const ownerResult = setupManagedOwner(childSession, name);
+  // If the initiator already has a personal token (e.g. linked Alt1 scout),
+  // reuse it as the owner token so the scout can follow via redirect.
+  const initiatorToken = session.wsToInviteToken.get(_initiatorWs);
+  const ownerResult = setupManagedOwner(childSession, name, initiatorToken);
   if (typeof ownerResult === 'object' && 'error' in ownerResult) return ownerResult;
   const ownerToken = ownerResult;
+
+  // Migrate the token from the anonymous session to the managed session
+  if (initiatorToken) {
+    // Update global index to point to the new managed session
+    inviteTokenIndex.set(initiatorToken, childSession.code);
+
+    // Collect the initiator's other connections (e.g. scout) to redirect later
+    const initiatorMember = session.members.get(initiatorToken);
+    const connectionsToRedirect: WebSocket[] = [];
+    if (initiatorMember) {
+      for (const conn of initiatorMember.connections) {
+        if (conn !== _initiatorWs && conn.readyState === 1) {
+          connectionsToRedirect.push(conn);
+        }
+      }
+      // Clean up from the anonymous session
+      session.members.delete(initiatorToken);
+      for (const conn of initiatorMember.connections) {
+        session.wsToInviteToken.delete(conn);
+      }
+    }
+
+    // Send redirect to the scout connections after the fork is set up
+    // (deferred until after forkCreated is sent — see below)
+    setTimeout(() => {
+      for (const conn of connectionsToRedirect) {
+        conn.send(JSON.stringify({ type: 'redirect', code: childSession.code } satisfies ServerMessage));
+        // Remove from anonymous session so onclose doesn't double-count
+        removeClient(session, conn);
+      }
+    }, 0);
+  }
 
   const expiresAt = now + FORK_INVITE_TTL_MS;
   const wsTokens = new Map<WebSocket, string>();
