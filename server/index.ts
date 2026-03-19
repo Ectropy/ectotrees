@@ -19,16 +19,12 @@ import {
 import {
   createSession,
   getSession,
+  getSessionEntries,
   addClient,
   removeClient,
   setClientType,
   updateWorldState,
-  lookupPairToken,
-  consumeAndCompletePairing,
-  resumePair,
-  handleUnpair,
   handleReportWorld,
-  requestPairToken,
   cleanupExpiredSessions,
   getSessionCount,
   getTotalClientCount,
@@ -42,8 +38,10 @@ import {
   renameMember,
   setMemberRole,
   transferOwnership,
+  setAllowViewers,
+  requestPersonalToken,
 } from './session.ts';
-import { validateMessage, validateSessionCode, validatePairToken, validateInviteToken } from './validation.ts';
+import { validateMessage, validateSessionCode, validateInviteToken } from './validation.ts';
 import { log, warn } from './log.ts';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -181,9 +179,24 @@ app.post('/api/session/:code/self-invite', httpRateLimitMiddleware, (req, res) =
   if (!name) { res.status(400).json({ error: 'Name is required.' }); return; }
   const selfRegisterToken = typeof req.body?.selfRegisterToken === 'string' ? req.body.selfRegisterToken : '';
   if (!selfRegisterToken) { res.status(400).json({ error: 'Self-registration token is required.' }); return; }
-  const result = selfRegisterMember(session, name, selfRegisterToken);
+  const personalToken = typeof req.body?.personalToken === 'string' ? req.body.personalToken : undefined;
+  const result = selfRegisterMember(session, name, selfRegisterToken, personalToken);
   if ('error' in result) { res.status(400).json({ error: result.error }); return; }
   log(`[self-invite] ${code} — "${name}" self-registered`);
+
+  // If a personal token was migrated, redirect scout connections in the anonymous session
+  if (personalToken && result.inviteToken === personalToken) {
+    // Find the anonymous session that owns this token and redirect its connections
+    for (const [, s] of Array.from(getSessionEntries())) {
+      if (s.managed) continue;
+      for (const [ws, tok] of s.wsToInviteToken) {
+        if (tok === personalToken && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'redirect', code } as import('../shared/protocol.ts').ServerMessage));
+        }
+      }
+    }
+  }
+
   res.json({ inviteToken: result.inviteToken });
 });
 
@@ -242,27 +255,6 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
-  // Pair token connect: Scout joins via ?pairToken= instead of ?code=
-  const rawPairToken = url.searchParams.get('pairToken');
-  if (rawPairToken !== null) {
-    const token = validatePairToken(rawPairToken);
-    if (!token) {
-      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    const resolved = lookupPairToken(token);
-    if (!resolved) {
-      socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req, resolved.session, resolved.session.code, token);
-    });
-    return;
-  }
-
   // Invite token connect: managed session member joins via ?invite=
   const rawInviteToken = url.searchParams.get('invite');
   if (rawInviteToken !== null) {
@@ -284,7 +276,7 @@ server.on('upgrade', (req, socket, head) => {
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req, resolved.session, resolved.session.code, undefined, resolved.member);
+      wss.emit('connection', ws, req, resolved.session, resolved.session.code, resolved.member);
     });
     return;
   }
@@ -302,7 +294,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, pendingPairToken?: string, inviteMember?: import('./session.ts').Member) => {
+wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof getSession>, attemptedCode: string, inviteMember?: import('./session.ts').Member) => {
   if (!session) {
     log(`[connect] Rejected — session ${attemptedCode} not found`);
     ws.send(JSON.stringify(errorMsg('Session not found.')));
@@ -310,6 +302,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
     return;
   }
   const activeSession = session;
+
+  // Block anonymous connections to managed sessions (unless allowViewers is on)
+  if (activeSession.managed && !inviteMember && !activeSession.allowViewers) {
+    log(`[connect] Rejected — ${activeSession.code} is managed and requires invite`);
+    ws.send(JSON.stringify(errorMsg('This is a private session. You need an invite link to join.')));
+    ws.close(1008, 'Invite required');
+    return;
+  }
 
   // Invite token connect: add as managed session member
   let clientId: number | false;
@@ -331,19 +331,6 @@ wss.on('connection', (ws: WebSocket, _req: unknown, session: ReturnType<typeof g
       return;
     }
 
-    // If this connection is arriving via a pair token, mark as scout and complete pairing
-    if (pendingPairToken) {
-      setClientType(activeSession, ws, 'scout');
-      const pairId = consumeAndCompletePairing(activeSession, pendingPairToken, ws);
-      if (!pairId) {
-        // Token expired between upgrade and connection (very unlikely race)
-        ws.send(JSON.stringify(errorMsg('Pair token expired.')));
-        ws.close();
-        removeClient(activeSession, ws);
-        return;
-      }
-      log(`[pair] Client ${clientId} paired in ${activeSession.code} — pairId ${pairId.slice(0, 8)}…`);
-    }
   }
 
   log(`[connect] Client ${clientId} joined ${activeSession.code} — ${activeSession.clients.size} clients in session, ${getTotalClientCount()} clients across all sessions`);
@@ -452,37 +439,17 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       break;
     }
 
-    case 'requestPairToken': {
-      const clientType = session.clientTypes.get(ws);
-      if (clientType !== 'dashboard') {
-        ws.send(JSON.stringify(errorMsg('Only dashboards can request pair tokens.')));
-        break;
-      }
-      requestPairToken(session, ws);
-      log(`[pair] ${session.code} ${c} requested pair token`);
-      break;
-    }
-
-    case 'resumePair': {
-      const ok = resumePair(session, ws, msg.pairId);
-      if (!ok) {
-        const err: ServerMessage = { type: 'unpaired', reason: 'Pair not found or expired.' };
-        ws.send(JSON.stringify(err));
-        log(`[pair] ${session.code} ${c} resumePair failed — pairId not found`);
-      } else {
-        log(`[pair] ${session.code} ${c} resumed pair ${msg.pairId.slice(0, 8)}…`);
+    case 'requestPersonalToken': {
+      const result = requestPersonalToken(session, ws);
+      ws.send(JSON.stringify(result));
+      if (result.type === 'personalToken') {
+        log(`[personal] ${session.code} ${c} generated personal token ${result.token.slice(0, 4)}…`);
       }
       break;
     }
 
     case 'reportWorld': {
       handleReportWorld(session, ws, msg.worldId);
-      break;
-    }
-
-    case 'unpair': {
-      handleUnpair(session, ws);
-      log(`[pair] ${session.code} ${c} voluntarily unpaired`);
       break;
     }
 
@@ -547,6 +514,13 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
       } else {
         log(`[managed] ${session.code} ${c} transferred ownership to ${msg.inviteToken.slice(0, 4)}…`);
       }
+      break;
+    }
+
+    case 'setAllowViewers': {
+      const err = setAllowViewers(session, ws, msg.allow);
+      if (err) ws.send(JSON.stringify(err));
+      else log(`[managed] ${session.code} ${c} setAllowViewers ${msg.allow}`);
       break;
     }
 
@@ -632,7 +606,7 @@ function handleMessage(session: NonNullable<ReturnType<typeof getSession>>, msg:
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'requestPairToken', 'resumePair', 'reportWorld', 'unpair', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

@@ -7,8 +7,9 @@ export interface ScoutSessionState {
   code: string | null;
   clientCount: number;
   error: string | null;
-  isPaired: boolean;
-  pairId: string | null;
+  inviteToken: string | null;
+  memberName: string | null;
+  memberRole: string | null;
 }
 
 export function useScoutSession() {
@@ -23,8 +24,9 @@ export function useScoutSession() {
     code: session.code,
     clientCount: session.clientCount,
     error: session.error,
-    isPaired: session.isPaired,
-    pairId: session.pairId,
+    inviteToken: session.inviteToken,
+    memberName: session.memberName,
+    memberRole: session.memberRole,
   });
 
   useEffect(() => {
@@ -41,11 +43,8 @@ export function useScoutSession() {
       session.on('error', (error) => {
         setState((prev) => ({ ...prev, error }));
       }),
-      session.on('paired', (pairId) => {
-        setState((prev) => ({ ...prev, isPaired: true, pairId }));
-      }),
-      session.on('unpaired', () => {
-        setState((prev) => ({ ...prev, isPaired: false }));
+      session.on('identity', (memberName, memberRole) => {
+        setState((prev) => ({ ...prev, memberName, memberRole, inviteToken: session.inviteToken }));
       }),
     ];
 
@@ -63,6 +62,7 @@ export function useScoutSession() {
 
   const leaveSession = useCallback(() => {
     session.leaveSession();
+    setState((prev) => ({ ...prev, inviteToken: null, memberName: null, memberRole: null }));
   }, [session]);
 
   const sendMutation = useCallback((msg: ClientMessage) => {
@@ -73,12 +73,12 @@ export function useScoutSession() {
     session.dismissError();
   }, [session]);
 
-  const submitPairToken = useCallback((token: string) => {
-    session.submitPairToken(token);
-  }, [session]);
-
-  const unpair = useCallback(() => {
-    session.unpair();
+  const joinWithToken = useCallback((tokenOrUrl: string) => {
+    const ok = session.joinWithToken(tokenOrUrl);
+    if (ok) {
+      setState((prev) => ({ ...prev, inviteToken: session.inviteToken }));
+    }
+    return ok;
   }, [session]);
 
   return {
@@ -88,7 +88,6 @@ export function useScoutSession() {
     leaveSession,
     sendMutation,
     dismissError,
-    submitPairToken,
-    unpair,
+    joinWithToken,
   };
 }

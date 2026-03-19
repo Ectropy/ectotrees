@@ -15,9 +15,8 @@ interface SessionBarProps {
   onRequestSessionJoin: (code: string) => Promise<void>;
   onRejoinSession: (code: string) => void;
   onDismissError: () => void;
-  onRequestPairToken: () => void;
-  onUnpair: () => void;
   onOpenSession: () => void;
+  onRequestPersonalToken: () => void;
 }
 
 
@@ -33,14 +32,13 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onRequestPairToken, onUnpair, onOpenSession }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const { copied, copy: copyCode } = useCopyFeedback();
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
   const countdown = useCountdown(session.reconnectAt ?? null);
-  const tokenCountdown = useCountdown(session.pairTokenExpiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
 
   async function handleCreate() {
@@ -72,11 +70,6 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   async function handleCopyCode() {
     if (!session.code) return;
     await copyCode(buildSessionUrl(session.code));
-  }
-
-  async function handleCopyToken() {
-    if (!session.pairToken) return;
-    await copyToken(session.pairToken);
   }
 
   function getReconnectText(): string | null {
@@ -135,42 +128,29 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </button>
         )}
 
-        {/* Pairing controls — only when connected */}
+        {/* Alt1 Scout link — only when connected */}
         {isConnected && !canRejoin && (
           <>
-            {session.isPaired ? (
-              <span className={`flex items-center gap-1.5 ${CONNECTION_COLOR.connectedText} text-xs`}>
-                <Link2 className="w-3 h-3" /><span>Paired</span>
-                <button
-                  onClick={onUnpair}
-                  className="text-gray-500 hover:text-gray-300 transition-colors"
-                  title="Unpair Scout"
-                >
-                  ×
-                </button>
-              </span>
-            ) : session.pairToken ? (
+            {session.personalToken ? (
               <span className="flex items-center gap-1.5">
-                <span className="text-gray-400 text-xs">Alt1 pair code:</span>
+                <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
+                <span className="text-gray-400 text-xs">Alt1 code:</span>
                 <button
-                  onClick={handleCopyToken}
+                  onClick={() => copyToken(session.personalToken!)}
                   className="font-mono font-bold text-amber-300 tracking-widest transition-colors hover:text-amber-200"
-                  title="Copy pair token"
+                  title="Copy Alt1 code"
                 >
-                  {session.pairToken}
+                  {session.personalToken}
                 </button>
                 {tokenCopied && <span className="text-green-400 text-xs">Copied!</span>}
-                {tokenCountdown !== null && (
-                  <span className="text-gray-600 text-xs">{tokenCountdown}s</span>
-                )}
               </span>
             ) : (
               <button
-                onClick={onRequestPairToken}
+                onClick={session.managed ? undefined : onRequestPersonalToken}
                 className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                title="Pair with Ectotrees Scout Alt1 plugin"
+                title="Get a code to link your Ectotrees Scout Alt1 plugin"
               >
-                Pair with Alt1
+                Get Alt1 Code
               </button>
             )}
           </>

@@ -22,9 +22,10 @@ interface Props {
   effectsSparks?: boolean;
   isActiveWorld?: boolean;
   isRecentOwnSubmission?: boolean;
+  canEdit?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission }: Props) {
+export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission, canEdit = true }: Props) {
   const isP2P = world.type === 'P2P';
   const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
@@ -82,14 +83,16 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
         <StatusSection state={state} />
       </div>
 
-      <div
-        className="flex items-center justify-around px-1 pb-1 flex-shrink-0"
-        onClick={e => e.stopPropagation()}
-      >
-        <SpawnTimerTool onClick={() => onOpenTool('spawn')} />
-        <TreeInfoTool onClick={() => onOpenTool('tree')} />
-        <TreeDeadTool onClick={() => onOpenTool('dead')} />
-      </div>
+      {canEdit && (
+        <div
+          className="flex items-center justify-around px-1 pb-1 flex-shrink-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <SpawnTimerTool onClick={() => onOpenTool('spawn')} />
+          <TreeInfoTool onClick={() => onOpenTool('tree')} />
+          <TreeDeadTool onClick={() => onOpenTool('dead')} />
+        </div>
+      )}
       {lightningEvent && (effectsLightning ?? true) && (
         <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
       )}

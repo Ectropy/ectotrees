@@ -22,9 +22,10 @@ const STATUS_DURATIONS: Record<StatusKind, number> = {
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, clientCount, error, isPaired,
+    status, code, clientCount, error,
+    inviteToken, memberName, memberRole,
     session, joinSession, leaveSession, sendMutation, dismissError,
-    submitPairToken, unpair,
+    joinWithToken,
   } = useScoutSession();
 
   // Form state
@@ -107,8 +108,8 @@ export function App() {
           if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
           worldScanTimerRef.current = setTimeout(() => setIsWorldScanning(false), 1500);
           showStatus(`World hop detected → W${w}`, 'ok');
-          if (session.isPaired) session.reportWorld(w);
-        } else if (session.isPaired) {
+          session.reportWorld(w);
+        } else {
           session.reportWorld(null);
         }
       }
@@ -406,11 +407,12 @@ export function App() {
           status={status}
           code={code}
           clientCount={clientCount}
-          isPaired={isPaired}
+          inviteToken={inviteToken}
+          memberName={memberName}
+          memberRole={memberRole}
           onJoin={joinSession}
           onLeave={leaveSession}
-          onSubmitPairToken={submitPairToken}
-          onUnpair={unpair}
+          onJoinWithToken={joinWithToken}
           onError={(msg) => showStatus(msg, 'error')}
         />
 

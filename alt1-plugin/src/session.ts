@@ -16,8 +16,8 @@ const PING_ACK_TIMEOUT_MS = 8_000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_KEY = 'evilTree_sessionCode';
-const PAIR_ID_KEY = 'evilTree_pairId';
-const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
+const INVITE_TOKEN_KEY = 'evilTree_inviteToken';
+const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is a private session. You need an invite link to join.']);
 
 interface PendingMutation {
   msg: ClientMessage;
@@ -32,9 +32,9 @@ type EventMap = {
   snapshot: [worlds: WorldStates];
   worldUpdate: [worldId: number, state: WorldState | null];
   ack: [msgId: number];
-  paired: [pairId: string, sessionCode: string];
-  unpaired: [reason: string];
   peerWorld: [worldId: number | null];
+  identity: [name: string, role: string];
+  redirect: [code: string];
 };
 
 type EventKey = keyof EventMap;
@@ -42,20 +42,34 @@ type Listener<K extends EventKey> = (...args: EventMap[K]) => void;
 
 // ---------------------------------------------------------------------------
 
-function buildWsUrl(code: string): string {
-  if (WS_BASE) {
-    return `${WS_BASE}/ws?code=${code}`;
+function buildWsUrl(code: string, inviteToken?: string | null): string {
+  const base = WS_BASE
+    ? `${WS_BASE}/ws`
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+  const params = new URLSearchParams();
+  if (inviteToken) {
+    params.set('invite', inviteToken);
+  } else {
+    params.set('code', code);
   }
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}/ws?code=${code}`;
+  return `${base}?${params.toString()}`;
 }
 
-function buildPairTokenUrl(token: string): string {
-  if (WS_BASE) {
-    return `${WS_BASE}/ws?pairToken=${token}`;
-  }
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}/ws?pairToken=${token}`;
+/** Extract a 12-char invite token from a raw string (URL or bare token). */
+function extractInviteToken(raw: string): string | null {
+  const trimmed = raw.trim();
+  // Try as URL with ?invite= param
+  try {
+    const url = new URL(trimmed);
+    const param = url.searchParams.get('invite');
+    if (param && /^[A-HJ-NP-Z2-9]{12}$/.test(param.toUpperCase())) {
+      return param.toUpperCase();
+    }
+  } catch { /* not a URL */ }
+  // Try as bare 12-char token
+  const upper = trimmed.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '');
+  if (/^[A-HJ-NP-Z2-9]{12}$/.test(upper)) return upper;
+  return null;
 }
 
 export class EctoSession {
@@ -67,8 +81,9 @@ export class EctoSession {
   error: string | null = null;
   reconnectAttempt = 0;
   reconnectAt: number | null = null;
-  pairId: string | null = null;
-  isPaired = false;
+  inviteToken: string | null = null;
+  memberName: string | null = null;
+  memberRole: string | null = null;
 
   // Private internals
   private ws: WebSocket | null = null;
@@ -78,8 +93,6 @@ export class EctoSession {
   private initialStates: WorldStates | null = null;
   private joinMergeStates: WorldStates | null = null;
   private pendingSnapshot: WorldStates | null = null;
-  private connectingViaPairToken = false;
-
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private pingAckTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -92,7 +105,7 @@ export class EctoSession {
 
   constructor() {
     this.code = this.loadCode();
-    this.pairId = this.loadPairId();
+    this.inviteToken = this.loadInviteToken();
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -139,9 +152,10 @@ export class EctoSession {
     this.cleanup();
     this.code = null;
     this.saveCode(null);
-    this.pairId = null;
-    this.savePairId(null);
-    this.isPaired = false;
+    this.inviteToken = null;
+    this.saveInviteToken(null);
+    this.memberName = null;
+    this.memberRole = null;
     this.reconnectAttempt = 0;
     this.clearPending();
     this.setStatus('disconnected');
@@ -170,43 +184,27 @@ export class EctoSession {
     }
   }
 
-  /**
-   * Connect via a 4-char pair token. Server resolves the session and completes pairing.
-   * The session code and pairId are received in the `paired` server message.
-   */
-  submitPairToken(token: string): void {
-    if (!/^[A-HJ-NP-Z2-9]{4}$/.test(token)) {
-      this.setError('Invalid pair token format.');
-      return;
-    }
-    this.intentionalClose = true;
-    this.cleanup();
-    this.intentionalClose = false;
-
-    this.connectingViaPairToken = true;
-    this.snapshotReceived = false;
-    this.setStatus('connecting');
-    this.setError(null);
-
-    const ws = new WebSocket(buildPairTokenUrl(token));
-    this.ws = ws;
-    this.setupWsHandlers(ws);
-  }
-
   reportWorld(worldId: number | null): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'reportWorld', worldId }));
     }
   }
 
-  unpair(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'unpair' }));
-    }
-    this.pairId = null;
-    this.savePairId(null);
-    this.isPaired = false;
-    this.emit('unpaired', 'Voluntarily unpaired');
+  /**
+   * Join a session using a 12-char invite token (or URL containing one).
+   * The token is persisted and used for all future connections.
+   */
+  joinWithToken(tokenOrUrl: string): boolean {
+    const token = extractInviteToken(tokenOrUrl);
+    if (!token) return false;
+    this.inviteToken = token;
+    this.saveInviteToken(token);
+    this.setError(null);
+    this.clearPending();
+    this.reconnectAttempt = 0;
+    // Connect using the invite token — server resolves the session from it
+    this.connectWithInviteToken(token);
+    return true;
   }
 
   dismissError(): void {
@@ -264,20 +262,20 @@ export class EctoSession {
     } catch { /* ignore */ }
   }
 
-  private loadPairId(): string | null {
+  private loadInviteToken(): string | null {
     try {
-      const raw = localStorage.getItem(PAIR_ID_KEY);
+      const raw = localStorage.getItem(INVITE_TOKEN_KEY);
       if (!raw) return null;
-      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(raw) ? raw : null;
+      return /^[A-HJ-NP-Z2-9]{12}$/.test(raw.toUpperCase()) ? raw.toUpperCase() : null;
     } catch {
       return null;
     }
   }
 
-  private savePairId(id: string | null): void {
+  private saveInviteToken(token: string | null): void {
     try {
-      if (id) localStorage.setItem(PAIR_ID_KEY, id);
-      else localStorage.removeItem(PAIR_ID_KEY);
+      if (token) localStorage.setItem(INVITE_TOKEN_KEY, token);
+      else localStorage.removeItem(INVITE_TOKEN_KEY);
     } catch { /* ignore */ }
   }
 
@@ -322,19 +320,34 @@ export class EctoSession {
     this.cleanup();
     this.intentionalClose = false;
 
-    this.connectingViaPairToken = false;
     this.snapshotReceived = false;
     this.setStatus('connecting');
     this.setError(null);
 
-    const ws = new WebSocket(buildWsUrl(code));
+    const ws = new WebSocket(buildWsUrl(code, this.inviteToken));
+    this.ws = ws;
+    this.setupWsHandlers(ws);
+  }
+
+  /** Connect using only an invite token (server resolves the session). */
+  private connectWithInviteToken(token: string): void {
+    this.intentionalClose = true;
+    this.cleanup();
+    this.intentionalClose = false;
+
+    this.snapshotReceived = false;
+    this.setStatus('connecting');
+    this.setError(null);
+
+    const base = WS_BASE
+      ? `${WS_BASE}/ws`
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+    const ws = new WebSocket(`${base}?invite=${token}`);
     this.ws = ws;
     this.setupWsHandlers(ws);
   }
 
   private setupWsHandlers(ws: WebSocket): void {
-    const isPairTokenConnect = this.connectingViaPairToken;
-
     ws.onopen = () => {
       if (this.ws !== ws) return;
       this.reconnectAttempt = 0;
@@ -342,13 +355,8 @@ export class EctoSession {
       this.reconnectAt = null;
       this.setStatus('connected');
 
-      // Identify as a scout (unless connecting via pairToken — server already marks as scout)
+      // Identify as a scout
       ws.send(JSON.stringify({ type: 'identify', clientType: 'scout' }));
-
-      // Resume pair on normal reconnect (not pairToken connect)
-      if (!isPairTokenConnect && this.pairId) {
-        ws.send(JSON.stringify({ type: 'resumePair', pairId: this.pairId }));
-      }
 
       if (this.initialStates) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: this.initialStates }));
@@ -413,28 +421,6 @@ export class EctoSession {
           this.scoutCount = msg.scouts;
           this.emit('clientCount', msg.count);
           break;
-        case 'paired':
-          this.pairId = msg.pairId;
-          this.isPaired = true;
-          this.savePairId(msg.pairId);
-          // If this was a pairToken connect, update the session code for future reconnects
-          if (isPairTokenConnect) {
-            this.code = msg.sessionCode;
-            this.saveCode(msg.sessionCode);
-            this.emit('codeChange', msg.sessionCode);
-          }
-          this.emit('paired', msg.pairId, msg.sessionCode);
-          break;
-        case 'unpaired': {
-          const keepPairId = msg.reason === 'Peer disconnected';
-          if (!keepPairId) {
-            this.pairId = null;
-            this.savePairId(null);
-          }
-          this.isPaired = false;
-          this.emit('unpaired', msg.reason);
-          break;
-        }
         case 'peerWorld':
           this.emit('peerWorld', msg.worldId);
           break;
@@ -450,6 +436,31 @@ export class EctoSession {
           this.emit('ack', msg.msgId);
           break;
         }
+        case 'identity':
+          this.memberName = msg.name;
+          this.memberRole = msg.role;
+          // Learn session code from identity (needed when connected via invite token only)
+          if (msg.sessionCode && this.code !== msg.sessionCode) {
+            this.code = msg.sessionCode;
+            this.saveCode(msg.sessionCode);
+            this.emit('codeChange', msg.sessionCode);
+          }
+          this.emit('identity', msg.name, msg.role);
+          break;
+        case 'personalToken':
+          this.inviteToken = msg.token;
+          this.saveInviteToken(msg.token);
+          break;
+        case 'redirect':
+          // Server is telling us to reconnect to a different session (e.g. fork migration)
+          this.code = msg.code;
+          this.saveCode(msg.code);
+          this.emit('codeChange', msg.code);
+          this.emit('redirect', msg.code);
+          this.reconnectAttempt = 0;
+          this.clearPending();
+          this.connectWs(msg.code);
+          break;
         case 'error':
           this.lastServerError = msg.message;
           this.setError(msg.message);
@@ -459,9 +470,6 @@ export class EctoSession {
           this.cleanup();
           this.code = null;
           this.saveCode(null);
-          this.pairId = null;
-          this.savePairId(null);
-          this.isPaired = false;
           this.clearPending();
           this.setStatus('disconnected');
           this.emit('codeChange', null);
@@ -482,14 +490,6 @@ export class EctoSession {
       }
 
       if (this.intentionalClose) { this.intentionalClose = false; return; }
-
-      // If this was a pairToken connect that failed (no paired event received), just disconnect
-      if (isPairTokenConnect && !this.isPaired) {
-        this.connectingViaPairToken = false;
-        this.setStatus('disconnected');
-        if (!this.error) this.setError('Pairing failed. Check the token and try again.');
-        return;
-      }
 
       // Fatal server rejection → give up
       if (this.lastServerError && FATAL_ERRORS.has(this.lastServerError)) {

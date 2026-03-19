@@ -13,22 +13,10 @@ const MAX_MEMBERS_PER_SESSION = 500;
 const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
-const PAIR_TOKEN_TTL_MS = 60_000;                  // 60 seconds
 const FORK_INVITE_TTL_MS = 10 * 60 * 1000;        // 10 minutes
 const FORK_COOLDOWN_MS = 60 * 60 * 1000;          // 1 hour
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
-
-interface PairTokenEntry {
-  dashboardWs: WebSocket;
-  expiresAt: number;
-}
-
-interface PairGroup {
-  dashboard: WebSocket | null;
-  scout: WebSocket | null;
-  currentWorld: number | null;
-}
 
 export interface Member {
   name: string;
@@ -51,14 +39,13 @@ export interface Session {
   clientTypes: Map<WebSocket, 'scout' | 'dashboard' | 'unknown'>;
   nextClientId: number;
   transitionTimer: ReturnType<typeof setInterval>;
-  pairTokens: Map<string, PairTokenEntry>;
-  pairs: Map<string, PairGroup>;
-  wsToPairId: Map<WebSocket, string>;
+  // Member tracking (all sessions — lightweight in anonymous, full in managed)
+  members: Map<string, Member>;        // inviteToken -> Member
+  wsToInviteToken: Map<WebSocket, string>;
   // Managed session fields (undefined when anonymous)
   managed?: boolean;
   ownerToken?: string;
-  members?: Map<string, Member>;       // inviteToken -> Member
-  wsToInviteToken?: Map<WebSocket, string>;
+  allowViewers?: boolean;              // when true, ?code= connections are admitted as read-only viewers
   // Fork-to-managed fields (anonymous sessions only)
   pendingFork?: {
     managedCode: string;
@@ -74,9 +61,6 @@ export interface Session {
 
 const sessions = new Map<string, Session>();
 
-// Global index: pair token → session code for O(1) lookup during WS upgrade
-const pairTokenIndex = new Map<string, string>();
-
 // Global index: invite token → session code for O(1) lookup during WS upgrade
 const inviteTokenIndex = new Map<string, string>();
 
@@ -87,20 +71,6 @@ function generateCode(): string {
     code += CODE_CHARS[bytes[i] % CODE_CHARS.length];
   }
   return code;
-}
-
-function generatePairToken(): string {
-  let token: string;
-  let attempts = 0;
-  do {
-    const bytes = crypto.randomBytes(4);
-    token = '';
-    for (let i = 0; i < 4; i++) {
-      token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
-    }
-    attempts++;
-  } while (pairTokenIndex.has(token) && attempts < 20);
-  return token;
 }
 
 function generateInviteToken(): string {
@@ -128,29 +98,14 @@ function broadcast(session: Session, msg: ServerMessage) {
 
 function broadcastClientCount(session: Session) {
   let scouts = 0, dashboards = 0;
-  let users = 0;
-  const pairedWs = new Set<WebSocket>();
 
-  // Each active pair group (at least one connected member) = 1 user
-  for (const pair of session.pairs.values()) {
-    const dashConnected = pair.dashboard !== null && session.clients.has(pair.dashboard);
-    const scoutConnected = pair.scout !== null && session.clients.has(pair.scout);
-    if (dashConnected || scoutConnected) {
-      users++;
-      if (pair.dashboard) pairedWs.add(pair.dashboard);
-      if (pair.scout) pairedWs.add(pair.scout);
-    }
-  }
-
-  // Each unpaired connection = 1 user; count types for all connections
   for (const ws of session.clients) {
     const t = session.clientTypes.get(ws) ?? 'unknown';
-    if (!pairedWs.has(ws)) users++;
     if (t === 'scout') scouts++;
     else if (t === 'dashboard') dashboards++;
   }
 
-  broadcast(session, { type: 'clientCount', count: users, scouts, dashboards });
+  broadcast(session, { type: 'clientCount', count: session.clients.size, scouts, dashboards });
 }
 
 export function createSession(): { code: string } | { error: string } {
@@ -180,21 +135,13 @@ export function createSession(): { code: string } | { error: string } {
     clientIds: new Map(),
     clientTypes: new Map(),
     nextClientId: 1,
-    pairTokens: new Map(),
-    pairs: new Map(),
-    wsToPairId: new Map(),
+    members: new Map(),
+    wsToInviteToken: new Map(),
     transitionTimer: setInterval(() => {
       const s = sessions.get(code);
       if (!s) return;
 
-      // Sweep expired pair tokens
       const now2 = Date.now();
-      for (const [token, entry] of s.pairTokens) {
-        if (now2 > entry.expiresAt) {
-          s.pairTokens.delete(token);
-          pairTokenIndex.delete(token);
-        }
-      }
 
       // Sweep expired fork invite
       if (s.pendingFork && now2 > s.pendingFork.expiresAt) {
@@ -230,6 +177,10 @@ export function getSession(code: string): Session | undefined {
   return sessions.get(code);
 }
 
+export function getSessionEntries(): IterableIterator<[string, Session]> {
+  return sessions.entries();
+}
+
 export function addClient(session: Session, ws: WebSocket): number | false {
   if (session.clients.size >= MAX_CLIENTS_PER_SESSION) {
     return false;
@@ -256,7 +207,8 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     const selfRegisterToken = wsTokens.get(ws);
     if (selfRegisterToken) {
       const inviteLink = `${APP_URL}/?join=${managedCode}`;
-      const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken };
+      const personalToken = session.wsToInviteToken.get(ws);
+      const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken, personalToken };
       ws.send(JSON.stringify(forkInviteMsg));
     }
   }
@@ -282,43 +234,16 @@ export function removeClient(session: Session, ws: WebSocket) {
   session.clientIds.delete(ws);
   session.clientTypes.delete(ws);
 
-  // Managed session: remove from member connections
-  if (session.managed && session.wsToInviteToken && session.members) {
-    const token = session.wsToInviteToken.get(ws);
-    if (token) {
-      session.wsToInviteToken.delete(ws);
-      const member = session.members.get(token);
-      if (member) {
-        member.connections.delete(ws);
-        member.lastSeen = Date.now();
-        if (member.connections.size === 0) {
-          broadcast(session, { type: 'memberLeft', name: member.name });
-        }
-      }
-    }
-  }
-
-  // Pair cleanup: null out the disconnected slot, notify peer
-  const pairId = session.wsToPairId.get(ws);
-  if (pairId) {
-    session.wsToPairId.delete(ws);
-    const pair = session.pairs.get(pairId);
-    if (pair) {
-      let peerWs: WebSocket | null = null;
-      if (pair.dashboard === ws) {
-        pair.dashboard = null;
-        peerWs = pair.scout;
-      } else if (pair.scout === ws) {
-        pair.scout = null;
-        peerWs = pair.dashboard;
-      }
-      if (peerWs && session.clients.has(peerWs) && peerWs.readyState === 1) {
-        const msg: ServerMessage = { type: 'unpaired', reason: 'Peer disconnected' };
-        peerWs.send(JSON.stringify(msg));
-      }
-      // Delete pair group only when both sides are gone
-      if (!pair.dashboard && !pair.scout) {
-        session.pairs.delete(pairId);
+  // Remove from member connections
+  const token = session.wsToInviteToken.get(ws);
+  if (token) {
+    session.wsToInviteToken.delete(ws);
+    const member = session.members.get(token);
+    if (member) {
+      member.connections.delete(ws);
+      member.lastSeen = Date.now();
+      if (session.managed && member.connections.size === 0) {
+        broadcast(session, { type: 'memberLeft', name: member.name });
       }
     }
   }
@@ -349,7 +274,7 @@ export function updateWorldState(
   }
 
   // Managed session: public attribution (name + role visible to all)
-  if (session.managed && originWs && session.wsToInviteToken && session.members) {
+  if (session.managed && originWs) {
     const token = session.wsToInviteToken.get(originWs);
     if (token) {
       const member = session.members.get(token);
@@ -361,163 +286,49 @@ export function updateWorldState(
     }
   }
 
-  // Anonymous mode: If the originating WS is paired, send the paired dashboard a copy with source attribution
+  // Member-based attribution: send dashboard connections of same member a copy with source = token
   if (originWs) {
-    const pairId = session.wsToPairId.get(originWs);
-    if (pairId) {
-      const pair = session.pairs.get(pairId);
-      if (pair?.dashboard && pair.dashboard !== originWs && session.clients.has(pair.dashboard) && pair.dashboard.readyState === 1) {
-        pair.dashboard.send(JSON.stringify({ type: 'worldUpdate', worldId, state, source: pairId }));
+    const token = session.wsToInviteToken.get(originWs);
+    if (token) {
+      const member = session.members.get(token);
+      if (member) {
+        // Send attributed update to same-member dashboard connections, normal to everyone else
+        const attributed = JSON.stringify({ type: 'worldUpdate', worldId, state, source: token });
         const normal = JSON.stringify({ type: 'worldUpdate', worldId, state });
         for (const ws of session.clients) {
-          if (ws !== pair.dashboard && ws.readyState === 1) ws.send(normal);
+          if (ws.readyState !== 1) continue;
+          if (ws !== originWs && member.connections.has(ws) && session.clientTypes.get(ws) === 'dashboard') {
+            ws.send(attributed);
+          } else {
+            ws.send(normal);
+          }
         }
         return;
       }
     }
+
   }
 
   broadcast(session, { type: 'worldUpdate', worldId, state });
 }
 
-// ── Pair token management ───────────────────────────────────────────────────
-
-export function requestPairToken(session: Session, dashboardWs: WebSocket): void {
-  const token = generatePairToken();
-  const expiresAt = Date.now() + PAIR_TOKEN_TTL_MS;
-  session.pairTokens.set(token, { dashboardWs, expiresAt });
-  pairTokenIndex.set(token, session.code);
-  const msg: ServerMessage = { type: 'pairToken', token, expiresIn: PAIR_TOKEN_TTL_MS / 1000 };
-  dashboardWs.send(JSON.stringify(msg));
-}
-
-/** Resolves a pair token to its session without consuming it (for the WS upgrade handler). */
-export function lookupPairToken(token: string): { session: Session; dashboardWs: WebSocket } | null {
-  const code = pairTokenIndex.get(token);
-  if (!code) return null;
-  const session = sessions.get(code);
-  if (!session) return null;
-  const entry = session.pairTokens.get(token);
-  if (!entry || Date.now() > entry.expiresAt) return null;
-  return { session, dashboardWs: entry.dashboardWs };
-}
-
-function completePairing(session: Session, dashboardWs: WebSocket, scoutWs: WebSocket): string {
-  // Clean up any prior pair for the dashboard
-  const existingDashPairId = session.wsToPairId.get(dashboardWs);
-  if (existingDashPairId) {
-    const existing = session.pairs.get(existingDashPairId);
-    if (existing) {
-      if (existing.scout && existing.scout.readyState === 1) {
-        existing.scout.send(JSON.stringify({ type: 'unpaired', reason: 'Dashboard re-paired' } satisfies ServerMessage));
-      }
-      if (existing.dashboard) session.wsToPairId.delete(existing.dashboard);
-      if (existing.scout) session.wsToPairId.delete(existing.scout);
-      session.pairs.delete(existingDashPairId);
-    }
-  }
-
-  // Clean up any prior pair for the scout
-  const existingScoutPairId = session.wsToPairId.get(scoutWs);
-  if (existingScoutPairId) {
-    const existing = session.pairs.get(existingScoutPairId);
-    if (existing) {
-      if (existing.dashboard && existing.dashboard.readyState === 1) {
-        existing.dashboard.send(JSON.stringify({ type: 'unpaired', reason: 'Scout re-paired' } satisfies ServerMessage));
-      }
-      if (existing.dashboard) session.wsToPairId.delete(existing.dashboard);
-      if (existing.scout) session.wsToPairId.delete(existing.scout);
-      session.pairs.delete(existingScoutPairId);
-    }
-  }
-
-  const pairId = crypto.randomUUID();
-  session.pairs.set(pairId, { dashboard: dashboardWs, scout: scoutWs, currentWorld: null });
-  session.wsToPairId.set(dashboardWs, pairId);
-  session.wsToPairId.set(scoutWs, pairId);
-
-  const pairedMsg: ServerMessage = { type: 'paired', pairId, sessionCode: session.code };
-  const data = JSON.stringify(pairedMsg);
-  if (scoutWs.readyState === 1) scoutWs.send(data);
-  if (dashboardWs.readyState === 1) dashboardWs.send(data);
-
-  broadcastClientCount(session);
-  return pairId;
-}
-
-/** Consume the pair token and complete pairing. Returns pairId or null if token expired. */
-export function consumeAndCompletePairing(session: Session, token: string, scoutWs: WebSocket): string | null {
-  const entry = session.pairTokens.get(token);
-  if (!entry || Date.now() > entry.expiresAt) return null;
-  session.pairTokens.delete(token);
-  pairTokenIndex.delete(token);
-  return completePairing(session, entry.dashboardWs, scoutWs);
-}
-
-export function resumePair(session: Session, ws: WebSocket, pairId: string): boolean {
-  const pair = session.pairs.get(pairId);
-  if (!pair) return false;
-
-  const clientType = session.clientTypes.get(ws) ?? 'unknown';
-  let slotFilled = false;
-
-  if (clientType === 'dashboard' && (pair.dashboard === null || pair.dashboard === ws)) {
-    pair.dashboard = ws;
-    session.wsToPairId.set(ws, pairId);
-    slotFilled = true;
-  } else if (clientType === 'scout' && (pair.scout === null || pair.scout === ws)) {
-    pair.scout = ws;
-    session.wsToPairId.set(ws, pairId);
-    slotFilled = true;
-  }
-
-  if (!slotFilled) return false;
-
-  const pairedMsg: ServerMessage = { type: 'paired', pairId, sessionCode: session.code };
-  ws.send(JSON.stringify(pairedMsg));
-
-  // Send current peerWorld to a freshly reconnected dashboard
-  if (clientType === 'dashboard' && pair.scout && session.clients.has(pair.scout)) {
-    const peerWorldMsg: ServerMessage = { type: 'peerWorld', worldId: pair.currentWorld };
-    ws.send(JSON.stringify(peerWorldMsg));
-  }
-
-  broadcastClientCount(session);
-  return true;
-}
-
-export function handleUnpair(session: Session, ws: WebSocket): void {
-  const pairId = session.wsToPairId.get(ws);
-  if (!pairId) return;
-
-  const pair = session.pairs.get(pairId);
-  if (!pair) return;
-
-  if (pair.dashboard) session.wsToPairId.delete(pair.dashboard);
-  if (pair.scout) session.wsToPairId.delete(pair.scout);
-  session.pairs.delete(pairId);
-
-  const peerWs = pair.dashboard === ws ? pair.scout : pair.dashboard;
-  if (peerWs && session.clients.has(peerWs) && peerWs.readyState === 1) {
-    const msg: ServerMessage = { type: 'unpaired', reason: 'Peer unpaired' };
-    peerWs.send(JSON.stringify(msg));
-  }
-
-  broadcastClientCount(session);
-}
-
 export function handleReportWorld(session: Session, ws: WebSocket, worldId: number | null): void {
-  const pairId = session.wsToPairId.get(ws);
-  if (!pairId) return;
+  // Member-based routing: send peerWorld to dashboard connections of the same member
+  const token = session.wsToInviteToken.get(ws);
+  if (!token) return;
+  const member = session.members.get(token);
+  if (!member) return;
 
-  const pair = session.pairs.get(pairId);
-  if (!pair || pair.scout !== ws) return; // only scouts report their world
+  member.currentWorld = worldId;
 
-  pair.currentWorld = worldId;
-
-  if (pair.dashboard && session.clients.has(pair.dashboard) && pair.dashboard.readyState === 1) {
-    const msg: ServerMessage = { type: 'peerWorld', worldId };
-    pair.dashboard.send(JSON.stringify(msg));
+  const peerWorldMsg = JSON.stringify({ type: 'peerWorld', worldId } satisfies ServerMessage);
+  for (const conn of member.connections) {
+    if (conn !== ws && conn.readyState === 1) {
+      const connType = session.clientTypes.get(conn);
+      if (connType === 'dashboard') {
+        conn.send(peerWorldMsg);
+      }
+    }
   }
 }
 
@@ -606,8 +417,6 @@ function setupManagedOwner(session: Session, name: string): string | { error: st
   const ownerToken = generateInviteToken();
   session.managed = true;
   session.ownerToken = ownerToken;
-  session.members = new Map();
-  session.wsToInviteToken = new Map();
 
   const ownerMember: Member = {
     name,
@@ -673,12 +482,13 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   childSession.selfRegisterUntil = expiresAt;
   childSession.selfRegisterTokens = selfRegisterTokens;
 
-  // Send each client their personalized fork invite (with their unique self-register token)
+  // Send each client their personalized fork invite (with their unique self-register token + personal token if they have one)
   const inviteLink = `${APP_URL}/?join=${childResult.code}`;
   for (const ws of session.clients) {
     if (ws.readyState !== 1) continue;
     const selfRegisterToken = wsTokens.get(ws);
-    const msg: ServerMessage = { type: 'forkInvite', managedCode: childResult.code, inviteLink, initiatorName: name, expiresAt, selfRegisterToken };
+    const personalToken = session.wsToInviteToken.get(ws);
+    const msg: ServerMessage = { type: 'forkInvite', managedCode: childResult.code, inviteLink, initiatorName: name, expiresAt, selfRegisterToken, personalToken };
     ws.send(JSON.stringify(msg));
   }
 
@@ -690,8 +500,8 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
  * Self-registration for fork invitees: creates a scout-role member entry without
  * requiring an admin to pre-create the invite.  Only allowed during the fork window.
  */
-export function selfRegisterMember(session: Session, name: string, selfRegisterToken: string): { inviteToken: string } | { error: string } {
-  if (!session.managed || !session.members) return { error: 'Session is not managed.' };
+export function selfRegisterMember(session: Session, name: string, selfRegisterToken: string, personalToken?: string): { inviteToken: string } | { error: string } {
+  if (!session.managed) return { error: 'Session is not managed.' };
   if (!session.selfRegisterUntil || Date.now() > session.selfRegisterUntil) {
     return { error: 'Self-registration window has closed.' };
   }
@@ -708,7 +518,28 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) {
     return { error: 'Session is full.' };
   }
-  const inviteToken = generateInviteToken();
+
+  // If the client has a personal token from the anonymous session, migrate it
+  let inviteToken: string;
+  if (personalToken && /^[A-HJ-NP-Z2-9]{12}$/.test(personalToken)) {
+    // Validate the personal token existed in the anonymous session
+    const oldCode = inviteTokenIndex.get(personalToken);
+    if (oldCode && oldCode !== session.code) {
+      // Valid personal token from another session — migrate it
+      inviteToken = personalToken;
+      inviteTokenIndex.delete(personalToken);
+      // Remove from old session's member map (cleanup)
+      const oldSession = sessions.get(oldCode);
+      if (oldSession) {
+        oldSession.members.delete(personalToken);
+      }
+    } else {
+      inviteToken = generateInviteToken();
+    }
+  } else {
+    inviteToken = generateInviteToken();
+  }
+
   const member: Member = {
     name,
     inviteToken,
@@ -729,13 +560,13 @@ export function lookupInviteToken(token: string): { session: Session; member: Me
   const code = inviteTokenIndex.get(token);
   if (!code) return null;
   const session = sessions.get(code);
-  if (!session || !session.members) return null;
+  if (!session) return null;
   const member = session.members.get(token);
   if (!member) return null;
   return { session, member };
 }
 
-/** Add a WS connection to a managed session member. */
+/** Add a WS connection to a session member (managed or anonymous with personal token). */
 export function addMemberConnection(session: Session, ws: WebSocket, member: Member): number | false {
   if (session.clients.size >= MAX_CLIENTS_PER_SESSION) return false;
 
@@ -743,7 +574,7 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   session.clients.add(ws);
   session.clientIds.set(ws, clientId);
   session.clientTypes.set(ws, 'unknown');
-  session.wsToInviteToken!.set(ws, member.inviteToken);
+  session.wsToInviteToken.set(ws, member.inviteToken);
   member.connections.add(ws);
   member.lastSeen = Date.now();
   session.emptySince = null;
@@ -757,26 +588,36 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   }
   ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
 
-  // Send identity
-  const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role };
+  // Send identity (both managed and anonymous members)
+  const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role, sessionCode: session.code };
   ws.send(JSON.stringify(identityMsg));
 
-  // Owner gets their token so the client can persist it for reconnection
-  if (member.role === 'owner' && session.ownerToken) {
-    const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken: session.ownerToken };
-    ws.send(JSON.stringify(enabledMsg));
-  }
+  if (session.managed) {
+    // Send allowViewers setting
+    if (session.allowViewers) {
+      ws.send(JSON.stringify({ type: 'allowViewers', allow: true } satisfies ServerMessage));
+    }
 
-  broadcastManagedClientCount(session);
-  broadcastMemberList(session);
-  broadcast(session, { type: 'memberJoined', name: member.name });
+    // Owner gets their token so the client can persist it for reconnection
+    if (member.role === 'owner' && session.ownerToken) {
+      const enabledMsg: ServerMessage = { type: 'managedEnabled', ownerToken: session.ownerToken };
+      ws.send(JSON.stringify(enabledMsg));
+    }
+
+    broadcastManagedClientCount(session);
+    broadcastMemberList(session);
+    broadcast(session, { type: 'memberJoined', name: member.name });
+  } else {
+    // Anonymous session: just update the client count
+    broadcastClientCount(session);
+  }
 
   return clientId;
 }
 
 /** Get the member role for a WS connection in a managed session, or null if not a member. */
 export function getMemberRole(session: Session, ws: WebSocket): MemberRole | null {
-  if (!session.managed || !session.wsToInviteToken || !session.members) return null;
+  if (!session.managed) return null;
   const token = session.wsToInviteToken.get(ws);
   if (!token) return null;
   const member = session.members.get(token);
@@ -800,6 +641,49 @@ export function isAdmin(session: Session, ws: WebSocket): boolean {
 /** Check if a WS is the owner. */
 export function isOwner(session: Session, ws: WebSocket): boolean {
   return getMemberRole(session, ws) === 'owner';
+}
+
+/**
+ * Generate a personal token for a client in any session (anonymous or managed).
+ * In anonymous sessions, this creates a lightweight member entry for dashboard↔scout linking.
+ * In managed sessions, returns the member's existing invite token.
+ */
+export function requestPersonalToken(session: Session, ws: WebSocket): ServerMessage {
+  // If this WS already has a token (member connection), return it
+  const existingToken = session.wsToInviteToken.get(ws);
+  if (existingToken) {
+    return { type: 'personalToken', token: existingToken };
+  }
+
+  // Managed sessions: must join via invite — can't generate a personal token as anonymous
+  if (session.managed) {
+    return { type: 'error', message: 'Join with an invite link to get your personal token.' };
+  }
+
+  // Anonymous session: create a lightweight member entry
+  const token = generateInviteToken();
+  const member: Member = {
+    name: 'Anonymous',
+    inviteToken: token,
+    role: 'scout',
+    banned: false,
+    connections: new Set([ws]),
+    currentWorld: null,
+    lastSeen: Date.now(),
+  };
+  session.members.set(token, member);
+  session.wsToInviteToken.set(ws, token);
+  inviteTokenIndex.set(token, session.code);
+
+  return { type: 'personalToken', token };
+}
+
+export function setAllowViewers(session: Session, ws: WebSocket, allow: boolean): ServerMessage | null {
+  if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+  session.allowViewers = allow;
+  broadcast(session, { type: 'allowViewers', allow });
+  return null;
 }
 
 export function createInvite(session: Session, ws: WebSocket, name: string, role?: 'scout' | 'viewer'): ServerMessage {
@@ -891,7 +775,7 @@ export function renameMember(session: Session, ws: WebSocket, inviteToken: strin
   // Notify the renamed member of their new identity
   for (const memberWs of member.connections) {
     if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'identity', name, role: member.role } satisfies ServerMessage));
+      memberWs.send(JSON.stringify({ type: 'identity', name, role: member.role, sessionCode: session.code } satisfies ServerMessage));
     }
   }
 
@@ -924,7 +808,7 @@ export function setMemberRole(session: Session, ws: WebSocket, inviteToken: stri
   // Notify the member of their new role
   for (const memberWs of member.connections) {
     if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'identity', name: member.name, role } satisfies ServerMessage));
+      memberWs.send(JSON.stringify({ type: 'identity', name: member.name, role, sessionCode: session.code } satisfies ServerMessage));
     }
   }
 
@@ -948,7 +832,7 @@ export function transferOwnership(session: Session, ws: WebSocket, inviteToken: 
       currentOwner.role = 'moderator';
       for (const ownerWs of currentOwner.connections) {
         if (ownerWs.readyState === 1) {
-          ownerWs.send(JSON.stringify({ type: 'identity', name: currentOwner.name, role: 'moderator' } satisfies ServerMessage));
+          ownerWs.send(JSON.stringify({ type: 'identity', name: currentOwner.name, role: 'moderator', sessionCode: session.code } satisfies ServerMessage));
         }
       }
     }
@@ -959,7 +843,7 @@ export function transferOwnership(session: Session, ws: WebSocket, inviteToken: 
   session.ownerToken = inviteToken;
   for (const newOwnerWs of newOwner.connections) {
     if (newOwnerWs.readyState === 1) {
-      newOwnerWs.send(JSON.stringify({ type: 'identity', name: newOwner.name, role: 'owner' } satisfies ServerMessage));
+      newOwnerWs.send(JSON.stringify({ type: 'identity', name: newOwner.name, role: 'owner', sessionCode: session.code } satisfies ServerMessage));
     }
   }
 
@@ -971,11 +855,6 @@ export function transferOwnership(session: Session, ws: WebSocket, inviteToken: 
 
 function destroySession(session: Session, closeReason: string) {
   clearInterval(session.transitionTimer);
-
-  // Clean up global pair token index for this session's tokens
-  for (const token of session.pairTokens.keys()) {
-    pairTokenIndex.delete(token);
-  }
 
   // Clean up global invite token index for this session's tokens
   if (session.members) {

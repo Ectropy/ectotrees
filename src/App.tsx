@@ -111,10 +111,13 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, requestPairToken, unpair, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
+
+  // Viewers in managed sessions cannot edit world state
+  const canEdit = !session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null);
 
   // Dev-only: expose trigger on window for manual testing
   const triggerLightningRef = useRef(triggerLightningEvent);
@@ -199,17 +202,18 @@ export default function App() {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
 
-  // Follow scout: when the paired scout changes worlds and followScout is enabled,
+  // Follow scout: when the linked scout changes worlds and followScout is enabled,
   // open the detail panel for that world.
   const prevScoutWorldRef = useRef<number | null>(null);
+  const currentScoutWorld = session.scoutWorld;
   useEffect(() => {
     if (!settings.followScout) return;
-    if (session.pairedScoutWorld == null) return;
-    if (session.pairedScoutWorld === prevScoutWorldRef.current) return;
-    prevScoutWorldRef.current = session.pairedScoutWorld;
-    setActiveView({ kind: 'detail', worldId: session.pairedScoutWorld });
+    if (currentScoutWorld == null) return;
+    if (currentScoutWorld === prevScoutWorldRef.current) return;
+    prevScoutWorldRef.current = currentScoutWorld;
+    setActiveView({ kind: 'detail', worldId: currentScoutWorld });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.pairedScoutWorld, settings.followScout]);
+  }, [currentScoutWorld, settings.followScout]);
 
   const sortedFilteredWorlds = useMemo(() => {
     // Filter
@@ -466,8 +470,6 @@ export default function App() {
         onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}
         onDismissError={dismissError}
-        onRequestPairToken={requestPairToken}
-        onUnpair={unpair}
         onForkToManaged={forkToManaged}
         onJoinManagedFork={joinManagedFork}
         onCreateInvite={createInvite}
@@ -475,6 +477,8 @@ export default function App() {
         onRenameMember={renameMember}
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
+        onSetAllowViewers={setAllowViewers}
+        onRequestPersonalToken={requestPersonalToken}
         onBack={handleBack}
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
@@ -585,6 +589,7 @@ export default function App() {
           onDismissLightning={() => dismissLightningEvent(worldId)}
           effectsLightning={settings.effectsLightning}
           effectsSparks={settings.effectsSparks}
+          canEdit={canEdit}
         />;
     }
     return null;
@@ -641,6 +646,7 @@ export default function App() {
           effectsSparks={settings.effectsSparks}
           isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
           isRecentOwnSubmission={session.recentOwnWorldId === world.id}
+          canEdit={canEdit}
         />
       ))}
     </div>
@@ -707,9 +713,8 @@ export default function App() {
           onRequestSessionJoin={handleRequestSessionJoin}
           onRejoinSession={rejoinSession}
           onDismissError={dismissError}
-          onRequestPairToken={requestPairToken}
-          onUnpair={unpair}
           onOpenSession={() => setActiveView({ kind: 'session' })}
+          onRequestPersonalToken={requestPersonalToken}
         />
 
         <SortFilterBar

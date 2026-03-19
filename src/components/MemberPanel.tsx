@@ -7,6 +7,7 @@ import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS } from '../constants/toolColors';
 interface MemberPanelProps {
   members: MemberInfo[];
   myRole: MemberRole | null;
+  myName: string | null;
   lastInvite: { inviteToken: string; name: string; link: string } | null;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
   onBanMember: (inviteToken: string) => void;
@@ -14,7 +15,7 @@ interface MemberPanelProps {
 }
 
 
-export function MemberPanel({ members, myRole, lastInvite, onCreateInvite, onBanMember, onSetMemberRole }: MemberPanelProps) {
+export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvite, onBanMember, onSetMemberRole }: MemberPanelProps) {
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'scout' | 'viewer'>('scout');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -72,7 +73,10 @@ export function MemberPanel({ members, myRole, lastInvite, onCreateInvite, onBan
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.online ? 'bg-green-500' : 'bg-gray-600'}`}
                     title={m.online ? 'Connected' : 'Disconnected'}
                   />
-                  <span className="truncate text-gray-200" title={m.name}>{m.name}</span>
+                  <span className="truncate text-gray-200" title={m.name}>
+                    {m.name}
+                    {m.name === myName && <span className="text-amber-400/70 ml-1 text-[10px]">(you)</span>}
+                  </span>
                 </span>
               </td>
               <td className="py-1 pr-2 whitespace-nowrap">

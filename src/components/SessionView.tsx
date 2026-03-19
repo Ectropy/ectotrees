@@ -19,15 +19,15 @@ interface SessionViewProps {
   onRejoinSession: (code: string) => void;
   onLeaveSession: () => void;
   onDismissError: () => void;
-  onRequestPairToken: () => void;
-  onUnpair: () => void;
   onForkToManaged: (name: string) => void;
-  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string) => Promise<void>;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string) => Promise<void>;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
   onBanMember: (inviteToken: string) => void;
   onRenameMember: (inviteToken: string, name: string) => void;
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (inviteToken: string) => void;
+  onSetAllowViewers: (allow: boolean) => void;
+  onRequestPersonalToken: () => void;
   onBack: () => void;
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
@@ -45,8 +45,9 @@ const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfi
 export function SessionView({
   session, activeLocalCount,
   onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
-  onDismissError, onRequestPairToken, onUnpair, onForkToManaged, onJoinManagedFork,
+  onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
+  onSetAllowViewers, onRequestPersonalToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const [joinCode, setJoinCode] = useState('');
@@ -54,7 +55,6 @@ export function SessionView({
   const { copied, copy: copyCode } = useCopyFeedback();
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
   const countdown = useCountdown(session.reconnectAt ?? null);
-  const tokenCountdown = useCountdown(session.pairTokenExpiresAt ?? null, 1000);
   const forkCountdown = useCountdown(session.forkInvite?.expiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
   const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
@@ -87,11 +87,6 @@ export function SessionView({
   async function handleCopyCode() {
     if (!session.code) return;
     await copyCode(buildSessionUrl(session.code));
-  }
-
-  async function handleCopyToken() {
-    if (!session.pairToken) return;
-    await copyToken(session.pairToken);
   }
 
   function getReconnectText(): string | null {
@@ -240,7 +235,7 @@ export function SessionView({
           </div>
         </div>
 
-        {/* Alt1 Pairing */}
+        {/* Alt1 Scout Link */}
         {isConnected && (
           <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -254,19 +249,24 @@ export function SessionView({
               </a>
             </div>
             <p className={`text-xs ${TEXT_COLOR.muted}`}>Scout currently allows auto-detection of world hops, and can automatically read the Spirit Trees's dialog box to gather timer and hint intel. Requires <a href='https://runeapps.org/alt1' className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>.</p>
-            {session.isPaired ? (
+            {session.personalToken ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className={`flex items-center gap-1.5 ${CONNECTION_COLOR.connectedText} text-sm`}>
-                    <Link2 className="w-4 h-4" /> Paired
-                  </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Your Alt1 code:</span>
+                  <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.personalToken}</span>
                   <button
-                    onClick={onUnpair}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    onClick={() => copyToken(session.personalToken!)}
+                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                   >
-                    Unpair
+                    {tokenCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
+                {session.scoutWorld !== null && (
+                  <div className="flex items-center gap-2">
+                    <Link2 className={`w-3.5 h-3.5 ${CONNECTION_COLOR.connectedText}`} />
+                    <span className={`text-xs ${CONNECTION_COLOR.connectedText}`}>Scout linked — world {session.scoutWorld}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className={`text-xs ${TEXT_COLOR.muted}`}>Follow scout's world</span>
                   <Switch
@@ -276,28 +276,12 @@ export function SessionView({
                   />
                 </div>
               </div>
-            ) : session.pairToken ? (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Pair code:</span>
-                  <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.pairToken}</span>
-                  <button
-                    onClick={handleCopyToken}
-                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                  >
-                    {tokenCopied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                {tokenCountdown !== null && (
-                  <p className="text-xs text-gray-500">Expires in {tokenCountdown}s</p>
-                )}
-              </div>
             ) : (
               <button
-                onClick={onRequestPairToken}
+                onClick={session.managed ? undefined : onRequestPersonalToken}
                 className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
               >
-                Generate pair code
+                {session.managed ? 'Your invite token is your Alt1 code' : 'Get Alt1 Code'}
               </button>
             )}
           </div>
@@ -316,14 +300,27 @@ export function SessionView({
             </div>
 
             {session.managed ? (
+              <>
               <MemberPanel
                 members={session.members}
                 myRole={session.memberRole}
+                myName={session.memberName}
                 lastInvite={session.lastInvite}
                 onCreateInvite={onCreateInvite}
                 onBanMember={onBanMember}
                 onSetMemberRole={onSetMemberRole}
               />
+              {(session.memberRole === 'owner' || session.memberRole === 'moderator') && (
+                <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Allow public viewers</span>
+                  <Switch
+                    checked={session.allowViewers}
+                    onCheckedChange={onSetAllowViewers}
+                    className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
+              )}
+              </>
             ) : session.forkInvite && (forkCountdown === null || forkCountdown > 0) ? (
               /* A fork invite is live — show join prompt */
               <div className="space-y-3">
@@ -347,7 +344,7 @@ export function SessionView({
                           if (!name) return;
                           setJoinForkStep('idle');
                           setJoinForkName('');
-                          await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!);
+                          await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.personalToken);
                         }}
                       >
                         <input

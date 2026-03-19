@@ -22,29 +22,25 @@ export type ClientMessage =
   | { type: 'contributeWorlds'; worlds: WorldStates; msgId?: number }
   | { type: 'initializeState'; worlds: WorldStates }
   | { type: 'identify'; clientType: 'scout' | 'dashboard' }
-  | { type: 'requestPairToken' }
-  | { type: 'resumePair'; pairId: string }
   | { type: 'reportWorld'; worldId: number | null }
-  | { type: 'unpair' }
   | { type: 'forkToManaged'; name: string }
   | { type: 'createInvite'; name: string; role?: 'scout' | 'viewer' }
   | { type: 'banMember'; inviteToken: string }
   | { type: 'renameMember'; inviteToken: string; name: string }
   | { type: 'setMemberRole'; inviteToken: string; role: 'moderator' | 'scout' | 'viewer' }
   | { type: 'transferOwnership'; inviteToken: string }
+  | { type: 'setAllowViewers'; allow: boolean }
+  | { type: 'requestPersonalToken' }
   | { type: 'ping' };
 
 export type ServerMessage =
   | { type: 'snapshot';       worlds: WorldStates }
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null; source?: string | { name: string; role: string } }
   | { type: 'clientCount';    count: number; scouts: number; dashboards: number }
-  | { type: 'pairToken';      token: string; expiresIn: number }
-  | { type: 'paired';         pairId: string; sessionCode: string }
-  | { type: 'unpaired';       reason: string }
   | { type: 'peerWorld';      worldId: number | null }
-  | { type: 'identity';       name: string; role: MemberRole }
+  | { type: 'identity';       name: string; role: MemberRole; sessionCode: string }
   | { type: 'managedEnabled'; ownerToken: string }
-  | { type: 'forkInvite';   managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string }
+  | { type: 'forkInvite';   managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string; personalToken?: string }
   | { type: 'forkInviteExpired' }
   | { type: 'forkCreated';  managedCode: string; ownerToken: string }
   | { type: 'inviteCreated';  inviteToken: string; name: string; link: string }
@@ -52,6 +48,9 @@ export type ServerMessage =
   | { type: 'memberLeft';     name: string }
   | { type: 'memberList';     members: MemberInfo[] }
   | { type: 'banned';         reason: string }
+  | { type: 'allowViewers';    allow: boolean }
+  | { type: 'personalToken';  token: string }
+  | { type: 'redirect';       code: string }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }
   | { type: 'error';          message: string; serverVersion?: string }

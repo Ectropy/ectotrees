@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2 } from 'lucide-react';
+import { Link2, Check, Copy } from 'lucide-react';
 import { Tooltip } from './ui/tooltip';
 import type { SessionStatus } from '../session';
 
@@ -16,11 +16,12 @@ interface SessionPanelProps {
   status: SessionStatus;
   code: string | null;
   clientCount: number;
-  isPaired: boolean;
+  inviteToken: string | null;
+  memberName: string | null;
+  memberRole: string | null;
   onJoin: (code: string) => boolean;
   onLeave: () => void;
-  onSubmitPairToken: (token: string) => void;
-  onUnpair: () => void;
+  onJoinWithToken: (tokenOrUrl: string) => boolean;
   onError: (msg: string) => void;
 }
 
@@ -28,51 +29,70 @@ export function SessionPanel({
   status,
   code,
   clientCount,
-  isPaired,
+  inviteToken,
+  memberName,
+  memberRole,
   onJoin,
   onLeave,
-  onSubmitPairToken,
-  onUnpair,
+  onJoinWithToken,
   onError,
 }: SessionPanelProps) {
   const [inputCode, setInputCode] = useState(code ?? '');
-  const [pairToken, setPairToken] = useState('');
+  const [tokenInput, setTokenInput] = useState('');
+  const [tokenCopied, setTokenCopied] = useState(false);
   const connected = status === 'connected';
   const connecting = status === 'connecting';
   const active = connected || connecting;
 
   function handleInput(raw: string) {
+    // Accept both 6-char session codes and 12-char invite tokens
+    const upper = raw.toUpperCase();
+    // Try extracting a session code from a URL
     const extracted = extractSessionCode(raw);
-    if (extracted.length > 6) {
-      setInputCode('');
-      onError('Not a valid code or link.');
-    } else if (extracted !== raw.toUpperCase()) {
+    if (extracted !== upper && extracted.length <= 12) {
       setInputCode(extracted);
     } else {
-      setInputCode(raw.toUpperCase());
+      setInputCode(upper);
     }
   }
 
   function handleJoin() {
-    const c = extractSessionCode(inputCode);
+    const raw = inputCode.trim();
+    // Try as 12-char invite token or URL with ?invite=
+    if (onJoinWithToken(raw)) {
+      setInputCode('');
+      return;
+    }
+    // Fall back to 6-char session code
+    const c = extractSessionCode(raw);
     if (!/^[A-Z2-9]{6}$/.test(c)) {
-      onError('Enter a valid 6-character session code.');
+      onError('Enter a 6-char session code or 12-char invite code.');
       return;
     }
     setInputCode(c);
     onJoin(c);
   }
 
-  function handlePairInput(raw: string) {
-    const cleaned = raw.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 4);
-    setPairToken(cleaned);
+  function handleTokenInput(raw: string) {
+    // Allow pasting full URLs or bare tokens
+    setTokenInput(raw);
   }
 
-  function handlePairSubmit() {
-    const t = pairToken.trim();
-    if (!/^[A-HJ-NP-Z2-9]{4}$/.test(t)) return;
-    onSubmitPairToken(t);
-    setPairToken('');
+  function handleTokenSubmit() {
+    const t = tokenInput.trim();
+    if (!t) return;
+    if (onJoinWithToken(t)) {
+      setTokenInput('');
+    }
+  }
+
+  async function handleCopyToken() {
+    if (!inviteToken) return;
+    try {
+      await navigator.clipboard.writeText(inviteToken);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch { /* ignore */ }
   }
 
   // Sync code from session into input when it changes externally
@@ -85,7 +105,7 @@ export function SessionPanel({
     status === 'connecting' ? 'bg-warning animate-[pulse-dot_1s_infinite]' :
     'bg-muted-foreground';
 
-  // ── Connected state: compact single row ─────────────────────────────────────
+  // ── Connected state ───────────────────────────────────────────────────────
   if (connected) {
     return (
       <section className="px-3 py-2">
@@ -95,19 +115,12 @@ export function SessionPanel({
             <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${statusDotClass}`} />
             <span className="truncate">
               {code}
-              {isPaired && <span className="text-warning ml-1">⚡</span>}
+              {memberName && <span className="text-foreground/70 ml-1">· {memberName}</span>}
+              {memberRole && memberRole !== 'scout' && <span className="text-warning ml-0.5">({memberRole})</span>}
               <span className="text-muted-foreground/60"> · {clientCount} member{clientCount !== 1 ? 's' : ''}</span>
             </span>
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
-            {isPaired && (
-              <button
-                onClick={onUnpair}
-                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Unpair
-              </button>
-            )}
             <button
               onClick={onLeave}
               className="bg-transparent text-muted-foreground text-xs font-semibold px-2 py-1 rounded border border-border hover:bg-secondary hover:text-foreground"
@@ -117,26 +130,45 @@ export function SessionPanel({
           </div>
         </div>
 
-        {/* Row 2: pair token input (only when not yet paired) */}
-        {!isPaired && (
+        {/* Row 2: invite token display or input */}
+        {inviteToken ? (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Link2 size={12} className="text-success shrink-0" />
+            <span className="text-[11px] text-muted-foreground">Code:</span>
+            <button
+              onClick={handleCopyToken}
+              className="font-mono font-bold text-warning text-xs tracking-widest hover:text-warning/80 transition-colors"
+              title="Copy your code"
+            >
+              {inviteToken}
+            </button>
+            {tokenCopied ? (
+              <Check size={12} className="text-success" />
+            ) : (
+              <button onClick={handleCopyToken} className="text-muted-foreground hover:text-foreground transition-colors" title="Copy">
+                <Copy size={12} />
+              </button>
+            )}
+          </div>
+        ) : (
           <form
             className="flex items-center gap-1.5 mt-1.5"
-            onSubmit={(e) => { e.preventDefault(); handlePairSubmit(); }}
+            onSubmit={(e) => { e.preventDefault(); handleTokenSubmit(); }}
           >
             <input
               type="text"
-              maxLength={4}
-              placeholder="Pair code"
+              maxLength={256}
+              placeholder="Enter your code"
               autoComplete="off"
               spellCheck={false}
-              value={pairToken}
-              onChange={(e) => handlePairInput(e.target.value)}
-              className="flex-1 max-w-[90px] bg-input border border-border rounded px-2 py-1 text-foreground text-sm font-semibold uppercase tracking-widest focus:outline-none focus:border-primary placeholder:text-muted-foreground placeholder:tracking-normal placeholder:font-normal"
+              value={tokenInput}
+              onChange={(e) => handleTokenInput(e.target.value)}
+              className="flex-1 bg-input border border-border rounded px-2 py-1 text-foreground text-sm font-semibold uppercase tracking-widest focus:outline-none focus:border-primary placeholder:text-muted-foreground placeholder:tracking-normal placeholder:font-normal"
             />
-            <Tooltip content="Enter the 4-char pair code shown on the dashboard" side="top">
+            <Tooltip content="Enter the code shown on the dashboard to link this scout" side="top">
               <button
                 type="submit"
-                disabled={!/^[A-HJ-NP-Z2-9]{4}$/.test(pairToken)}
+                disabled={!tokenInput.trim()}
                 className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-semibold px-2 py-1 rounded disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
               >
                 <Link2 size={12} />
@@ -156,13 +188,13 @@ export function SessionPanel({
         <input
           type="text"
           maxLength={256}
-          placeholder="Code"
+          placeholder="Session or invite code"
           autoComplete="off"
           spellCheck={false}
           value={inputCode}
           onChange={(e) => handleInput(e.target.value)}
           disabled={active}
-          className="flex-1 max-w-[120px] bg-input border border-border rounded px-2 py-1 text-foreground text-sm font-semibold uppercase tracking-wider focus:outline-none focus:border-primary placeholder:text-muted-foreground"
+          className="flex-1 bg-input border border-border rounded px-2 py-1 text-foreground text-sm font-semibold uppercase tracking-wider focus:outline-none focus:border-primary placeholder:text-muted-foreground placeholder:text-xs placeholder:tracking-normal placeholder:font-normal"
         />
         <button
           onClick={handleJoin}

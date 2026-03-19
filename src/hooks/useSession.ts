@@ -22,21 +22,19 @@ export interface SessionState {
   error: string | null;
   reconnectAttempt: number;
   reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
-  // Pairing
-  pairToken: string | null;
-  pairTokenExpiresAt: number | null;
-  pairId: string | null;
-  isPaired: boolean;
-  pairedScoutWorld: number | null;
   recentOwnWorldId: number | null;
+  // Personal token (unified identity for dashboard + scout linking)
+  personalToken: string | null;
+  scoutWorld: number | null;        // world the linked scout is currently on (via peerWorld)
   // Managed session
   managed: boolean;
   ownerToken: string | null;
+  allowViewers: boolean;
   memberName: string | null;
   memberRole: MemberRole | null;
   members: MemberInfo[];
   lastInvite: { inviteToken: string; name: string; link: string } | null;
-  forkInvite: { managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string } | null;
+  forkInvite: { managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string; personalToken?: string } | null;
 }
 
 const API_BASE = resolveApiBase();
@@ -47,18 +45,17 @@ const PING_ACK_TIMEOUT_MS = 8_000;  // force-close if pong not received within t
 export const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
-const PAIR_ID_STORAGE_KEY = 'evilTree_pairId';
 const INVITE_TOKEN_STORAGE_KEY = 'evilTree_inviteToken';
 
-const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.']);
+const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is a private session. You need an invite link to join.']);
 
 function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
   return {
     status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0,
     error: null, reconnectAttempt: 0, reconnectAt: null,
-    pairToken: null, pairTokenExpiresAt: null, pairId: null, isPaired: false,
-    pairedScoutWorld: null, recentOwnWorldId: null,
-    managed: false, ownerToken: null, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
+    recentOwnWorldId: null,
+    personalToken: null, scoutWorld: null,
+    managed: false, ownerToken: null, allowViewers: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
     ...overrides,
   };
 }
@@ -128,23 +125,6 @@ function persistSessionCode(code: string | null) {
   }
 }
 
-function loadPersistedPairId(): string | null {
-  try {
-    const raw = localStorage.getItem(PAIR_ID_STORAGE_KEY);
-    if (!raw) return null;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(raw) ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistPairId(id: string | null) {
-  try {
-    if (id) localStorage.setItem(PAIR_ID_STORAGE_KEY, id);
-    else localStorage.removeItem(PAIR_ID_STORAGE_KEY);
-  } catch { /* ignore */ }
-}
-
 function loadPersistedInviteToken(): string | null {
   try {
     return localStorage.getItem(INVITE_TOKEN_STORAGE_KEY) ?? null;
@@ -162,30 +142,7 @@ function persistInviteToken(token: string | null) {
 
 export function useSession(onSessionLost?: () => void) {
   const initialCode = loadPersistedSessionCode();
-  const initialPairId = loadPersistedPairId();
-  const [session, setSession] = useState<SessionState>({
-    status: 'disconnected',
-    code: initialCode,
-    clientCount: 0,
-    scouts: 0,
-    dashboards: 0,
-    error: null,
-    reconnectAttempt: 0,
-    reconnectAt: null,
-    pairToken: null,
-    pairTokenExpiresAt: null,
-    pairId: initialPairId,
-    isPaired: false,
-    pairedScoutWorld: null,
-    recentOwnWorldId: null,
-    managed: false,
-    ownerToken: null,
-    memberName: null,
-    memberRole: null,
-    members: [],
-    lastInvite: null,
-    forkInvite: null,
-  });
+  const [session, setSession] = useState<SessionState>(defaultSessionState({ code: initialCode }));
   const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -209,8 +166,8 @@ export function useSession(onSessionLost?: () => void) {
   const joinMergeStatesRef = useRef<WorldStates | null>(null);
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
-  const pairIdRef = useRef<string | null>(initialPairId);
   const inviteTokenRef = useRef<string | null>(loadPersistedInviteToken());
+  const personalTokenRef = useRef<string | null>(null);
   const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -303,11 +260,6 @@ export function useSession(onSessionLost?: () => void) {
       // Identify as a dashboard
       ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
 
-      // Resume pair if we have one
-      if (pairIdRef.current) {
-        ws.send(JSON.stringify({ type: 'resumePair', pairId: pairIdRef.current }));
-      }
-
       // Send local state to populate a newly created session
       if (initialStatesRef.current) {
         ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
@@ -382,8 +334,8 @@ export function useSession(onSessionLost?: () => void) {
         }
         case 'worldUpdate':
           handlersRef.current?.onWorldUpdate(msg.worldId, msg.state);
-          // Own submission: scout's mutation that arrives at our paired dashboard with source
-          if (msg.source && msg.source === pairIdRef.current) {
+          // Own submission: scout's mutation that arrives at our dashboard with source attribution
+          if (msg.source && msg.source === personalTokenRef.current) {
             if (recentOwnTimerRef.current) clearTimeout(recentOwnTimerRef.current);
             setSession(prev => ({ ...prev, recentOwnWorldId: msg.worldId }));
             recentOwnTimerRef.current = setTimeout(() => {
@@ -391,52 +343,23 @@ export function useSession(onSessionLost?: () => void) {
             }, 3000);
           }
           break;
-        case 'pairToken':
-          setSession(prev => ({
-            ...prev,
-            pairToken: msg.token,
-            pairTokenExpiresAt: Date.now() + msg.expiresIn * 1000,
-          }));
+        case 'peerWorld':
+          setSession(prev => ({ ...prev, scoutWorld: msg.worldId }));
           break;
-        case 'paired':
-          pairIdRef.current = msg.pairId;
-          persistPairId(msg.pairId);
-          setSession(prev => ({
-            ...prev,
-            pairId: msg.pairId,
-            isPaired: true,
-            pairToken: null,
-            pairTokenExpiresAt: null,
-          }));
-          break;
-        case 'unpaired': {
-          // Keep pairId when peer disconnected (allows Scout-initiated resumePair)
-          const keepPairId = msg.reason === 'Peer disconnected';
-          if (!keepPairId) {
-            pairIdRef.current = null;
-            persistPairId(null);
-          }
-          setSession(prev => ({
-            ...prev,
-            isPaired: false,
-            pairedScoutWorld: null,
-            ...(keepPairId ? {} : { pairId: null }),
-          }));
+        case 'identity': {
+          // In managed sessions, the invite token is the personal token
+          const pt = inviteTokenRef.current;
+          if (pt) personalTokenRef.current = pt;
+          setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role, personalToken: pt }));
           break;
         }
-        case 'peerWorld':
-          setSession(prev => ({ ...prev, pairedScoutWorld: msg.worldId }));
-          break;
-        case 'identity':
-          setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role }));
-          break;
         case 'managedEnabled':
           inviteTokenRef.current = msg.ownerToken;
           persistInviteToken(msg.ownerToken);
           setSession(prev => ({ ...prev, managed: true, ownerToken: msg.ownerToken }));
           break;
         case 'forkInvite':
-          setSession(prev => ({ ...prev, forkInvite: { managedCode: msg.managedCode, inviteLink: msg.inviteLink, initiatorName: msg.initiatorName, expiresAt: msg.expiresAt, selfRegisterToken: msg.selfRegisterToken } }));
+          setSession(prev => ({ ...prev, forkInvite: { managedCode: msg.managedCode, inviteLink: msg.inviteLink, initiatorName: msg.initiatorName, expiresAt: msg.expiresAt, selfRegisterToken: msg.selfRegisterToken, personalToken: msg.personalToken } }));
           break;
         case 'forkInviteExpired':
           setSession(prev => ({ ...prev, forkInvite: null }));
@@ -457,6 +380,24 @@ export function useSession(onSessionLost?: () => void) {
         case 'memberList':
           setSession(prev => ({ ...prev, members: msg.members }));
           break;
+        case 'allowViewers':
+          setSession(prev => ({ ...prev, allowViewers: msg.allow }));
+          break;
+        case 'personalToken':
+          personalTokenRef.current = msg.token;
+          setSession(prev => ({ ...prev, personalToken: msg.token }));
+          break;
+        case 'redirect': {
+          // Server is telling us to switch to a different session (fork migration)
+          const newCode = msg.code;
+          const token = inviteTokenRef.current ?? personalTokenRef.current;
+          codeRef.current = newCode;
+          persistSessionCode(newCode);
+          clearPending();
+          setSession(prev => ({ ...defaultSessionState(), code: newCode, status: prev.status }));
+          connectWs(newCode, token ?? undefined);
+          break;
+        }
         case 'memberJoined':
         case 'memberLeft':
           // These are informational — memberList broadcast follows and updates state
@@ -465,8 +406,6 @@ export function useSession(onSessionLost?: () => void) {
           intentionalCloseRef.current = true;
           cleanup();
           codeRef.current = null;
-          pairIdRef.current = null;
-          persistPairId(null);
           persistSessionCode(null);
           clearPending();
           setSession(defaultSessionState({ error: msg.reason }));
@@ -503,8 +442,6 @@ export function useSession(onSessionLost?: () => void) {
           onSessionLostRef.current?.();
           cleanup();
           codeRef.current = null;
-          pairIdRef.current = null;
-          persistPairId(null);
           clearPending();
           setSession(defaultSessionState({ error: msg.reason }));
           break;
@@ -638,8 +575,6 @@ export function useSession(onSessionLost?: () => void) {
     cleanup();
     codeRef.current = null;
     persistSessionCode(null);
-    pairIdRef.current = null;
-    persistPairId(null);
     inviteTokenRef.current = null;
     persistInviteToken(null);
     reconnectAttemptRef.current = 0;
@@ -781,35 +716,17 @@ export function useSession(onSessionLost?: () => void) {
     setSession(prev => ({ ...prev, error: null }));
   }, []);
 
-  const requestPairToken = useCallback(() => {
-    sendWsMessage({ type: 'requestPairToken' });
-  }, []);
-
-  const unpair = useCallback(() => {
-    sendWsMessage({ type: 'unpair' });
-    pairIdRef.current = null;
-    persistPairId(null);
-    setSession(prev => ({
-      ...prev,
-      isPaired: false,
-      pairId: null,
-      pairedScoutWorld: null,
-      pairToken: null,
-      pairTokenExpiresAt: null,
-    }));
-  }, []);
-
   const forkToManaged = useCallback((name: string) => {
     sendWsMessage({ type: 'forkToManaged', name });
   }, []);
 
-  const joinManagedFork = useCallback(async (managedCode: string, name: string, selfRegisterToken: string): Promise<void> => {
+  const joinManagedFork = useCallback(async (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string): Promise<void> => {
     setSession(prev => ({ ...prev, error: null }));
     try {
       const res = await fetch(`${API_BASE}/session/${managedCode}/self-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, selfRegisterToken }),
+        body: JSON.stringify({ name, selfRegisterToken, personalToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -849,19 +766,13 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'transferOwnership', inviteToken });
   }, []);
 
-  // Clear pair token from display when it expires
-  useEffect(() => {
-    if (!session.pairTokenExpiresAt) return;
-    const delay = session.pairTokenExpiresAt - Date.now();
-    if (delay <= 0) {
-      setSession(prev => ({ ...prev, pairToken: null, pairTokenExpiresAt: null }));
-      return;
-    }
-    const id = setTimeout(() => {
-      setSession(prev => ({ ...prev, pairToken: null, pairTokenExpiresAt: null }));
-    }, delay);
-    return () => clearTimeout(id);
-  }, [session.pairTokenExpiresAt]);
+  const setAllowViewersAction = useCallback((allow: boolean) => {
+    sendWsMessage({ type: 'setAllowViewers', allow });
+  }, []);
+
+  const requestPersonalTokenAction = useCallback(() => {
+    sendWsMessage({ type: 'requestPersonalToken' });
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -900,8 +811,6 @@ export function useSession(onSessionLost?: () => void) {
     confirmPreviewJoin,
     cancelPreview,
     dismissError,
-    requestPairToken,
-    unpair,
     forkToManaged,
     joinManagedFork,
     createInvite: createInviteAction,
@@ -909,5 +818,7 @@ export function useSession(onSessionLost?: () => void) {
     renameMember: renameMemberAction,
     setMemberRole: setMemberRoleAction,
     transferOwnership: transferOwnershipAction,
+    setAllowViewers: setAllowViewersAction,
+    requestPersonalToken: requestPersonalTokenAction,
   };
 }

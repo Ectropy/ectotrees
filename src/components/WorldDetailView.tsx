@@ -30,11 +30,12 @@ interface Props {
   onDismissLightning?: () => void;
   effectsLightning?: boolean;
   effectsSparks?: boolean;
+  canEdit?: boolean;
 }
 
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks }: Props) {
+export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, canEdit = true }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const { copied, copy: copyIntel } = useCopyFeedback(1500);
   const [editingField, setEditingField] = useState<EditingField>(null);
@@ -302,7 +303,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           )}
 
           {/* Health update (alive trees only) */}
-          {(state.treeStatus === 'alive' || state.treeStatus === 'mature') && (
+          {canEdit && (state.treeStatus === 'alive' || state.treeStatus === 'mature') && (
             <div className="bg-gray-800 border border-gray-700 rounded p-4">
               <p className={`text-xs ${TEXT_COLOR.muted} font-semibold mb-2`}>Update health</p>
               <HealthButtonGrid
@@ -342,26 +343,28 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
           )}
 
           {/* Quick tool actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => onOpenTool('spawn')}
-              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
-            >
-              <Timer className="h-3.5 w-3.5" /> Spawn Timer
-            </button>
-            <button
-              onClick={() => onOpenTool('tree')}
-              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
-            >
-              <TreeDeciduous className="h-3.5 w-3.5" /> Tree Info
-            </button>
-            <button
-              onClick={() => onOpenTool('dead')}
-              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
-            >
-              <Skull className="h-3.5 w-3.5" /> Mark Dead
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onOpenTool('spawn')}
+                className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              >
+                <Timer className="h-3.5 w-3.5" /> Spawn Timer
+              </button>
+              <button
+                onClick={() => onOpenTool('tree')}
+                className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              >
+                <TreeDeciduous className="h-3.5 w-3.5" /> Tree Info
+              </button>
+              <button
+                onClick={() => onOpenTool('dead')}
+                className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+              >
+                <Skull className="h-3.5 w-3.5" /> Mark Dead
+              </button>
+            </div>
+          )}
 
           {/* Close button */}
           <button
@@ -428,7 +431,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 </div>
               </div>
             );
-          })() : (
+          })() : canEdit ? (
             <div className="text-center">
               <button
                 onClick={() => setConfirmClear(true)}
@@ -439,7 +442,7 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
                 Clear world state
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
