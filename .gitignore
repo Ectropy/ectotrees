@@ -28,3 +28,4 @@ plan.md
 plans/*
 research.md
 research/*
+.claude/settings.local.json
