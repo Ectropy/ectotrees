@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search } from 'lucide-react';
 import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
@@ -203,6 +203,7 @@ export default function App() {
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
+  const [worldSearch, setWorldSearch] = useState('');
   const lastTrackedPanelKeyRef = useRef<string | null>(null);
 
   const getAnalyticsContext = useCallback((): { surface: UiSurface; sidebarSide: UiSidebarSide } => {
@@ -221,6 +222,34 @@ export default function App() {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && worldSearch) {
+        e.stopImmediatePropagation();
+        setWorldSearch('');
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [worldSearch]);
+
+  // Auto-open sidebar detail when search matches exactly one world
+  const searchMatchWorldId = useMemo(() => {
+    const s = worldSearch.trim();
+    if (!s) return null;
+    const match = worlds.find(w => String(w.id) === s);
+    return match ? match.id : null;
+  }, [worldSearch]);
+
+  useEffect(() => {
+    if (!settings.sidebarEnabled || isMobile) return;
+    if (searchMatchWorldId !== null) {
+      setActiveView(v =>
+        v.kind === 'grid' || v.kind === 'detail' ? { kind: 'detail', worldId: searchMatchWorldId } : v
+      );
+    }
+  }, [searchMatchWorldId, settings.sidebarEnabled, isMobile]);
+
   // Follow scout: when the linked scout changes worlds and followScout is enabled,
   // open the detail panel for that world.
   const prevScoutWorldRef = useRef<number | null>(null);
@@ -230,13 +259,18 @@ export default function App() {
     if (currentScoutWorld == null) return;
     if (currentScoutWorld === prevScoutWorldRef.current) return;
     prevScoutWorldRef.current = currentScoutWorld;
+    setWorldSearch('');
     setActiveView({ kind: 'detail', worldId: currentScoutWorld });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentScoutWorld, settings.followScout]);
 
   const sortedFilteredWorlds = useMemo(() => {
     // Filter
+    const searchTrimmed = worldSearch.trim();
     let result = worlds.filter(w => {
+      const matchesSearch = searchTrimmed && String(w.id) === searchTrimmed;
+      if (searchTrimmed && !matchesSearch) return false;
+      if (matchesSearch) return true;
       const state = worldStates[w.id] ?? { treeStatus: 'none' as const };
       const active = isActive(state);
 
@@ -388,7 +422,7 @@ export default function App() {
     });
 
     return result;
-  }, [worldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters]);
+  }, [worldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch]);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
     const { surface, sidebarSide } = getAnalyticsContext();
@@ -689,6 +723,27 @@ export default function App() {
             <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
           <div className="flex items-center gap-2">
+            <div className="relative flex items-center">
+              <Search className="absolute left-1.5 h-3 w-3 text-gray-500 pointer-events-none" />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={worldSearch}
+                onChange={e => setWorldSearch(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                placeholder="World"
+                className="w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 text-gray-200 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-500"
+                aria-label="Search worlds by number"
+              />
+              {worldSearch && (
+                <button
+                  onClick={() => setWorldSearch('')}
+                  className="absolute right-1 text-gray-400 hover:text-gray-200"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
             <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
