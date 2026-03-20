@@ -6,7 +6,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 19** + **TypeScript** + **Vite 7**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull` used in sidebar/fullscreen toolbars; `Settings`, `Star`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
 - **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
@@ -58,9 +58,12 @@ e2e/
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
-  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types; also exports TREE_TYPE_LABELS (full display names), TREE_TYPE_SHORT (abbreviated labels), and formatMs(ms) duration formatter
-  constants/toolColors.ts # Canonical UI color tokens (SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR)
+  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types; also exports TREE_TYPE_LABELS (full display names), TREE_TYPE_SHORT (abbreviated labels), formatMs(ms) duration formatter, and hint/location helpers (locationsForHint, resolveExactLocation, hintForLocation)
+  constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY)
+  constants/__tests__/
+    evilTree.test.ts     # Vitest unit tests for evilTree helpers
   types/index.ts         # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
+  types/global.d.ts      # Global type declarations (e.g. __triggerLightning)
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
@@ -78,8 +81,9 @@ src/
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
     useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
     useCopyFeedback.ts  # Returns { copied, copy(text) } — copy writes to clipboard, copied flips true for 2s
+    useHiddenWorlds.ts  # Hidden worlds persisted to localStorage (evilTree_hiddenWorlds); toggle per-world visibility
   components/
-    WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView)
+    WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden
     StatusSection.tsx    # Compact in-card status display with countdowns
     SpawnTimerTool.tsx   # Timer icon button — navigates to SpawnTimerView
     TreeInfoTool.tsx     # TreeDeciduous icon button — navigates to TreeInfoView
@@ -141,6 +145,8 @@ type ActiveView =
 ```
 Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, and invites. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data.
 
+**World search bar**: a `Search` icon input in the header filters the grid by world number. When the search matches exactly one world and sidebar mode is enabled, it auto-opens the detail view for that world. Escape clears the search.
+
 **Sidebar mode** (opt-in, available on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
 
 ### State Model (per world)
@@ -194,7 +200,7 @@ Sapling variants allow recording the expected species during the sapling phase. 
 The grid has a collapsible sort/filter bar. A toggle button collapses it to a summary line of active filter pills (collapsed state persisted to `localStorage`). When expanded, there are four sections:
 - **Sort buttons**: W#, Soonest/Latest, Favorite, Health (with asc/desc toggle; clicking an active button toggles direction)
   - `Soonest/Latest` sorts by the next relevant timestamp across urgency buckets: dead trees → alive/mature → saplings → spawn timers → inactive
-- **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive)
+- **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive), Hidden (tri-state: off = exclude hidden worlds, Show = include hidden, Only = show only hidden)
 - **Tree type filter chips**: Unknown, Sapling, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
 - **Info tri-state filter chips**: Intel, Hint, Location, Health — each cycles through three states: off → **Needs** (show only worlds missing that info) → **Has** (show only worlds that have it)
 

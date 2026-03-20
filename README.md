@@ -20,6 +20,9 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
   - Filter by favorites, P2P/F2P
   - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you want to cut
   - **Info filters** — tri-state chips (Intel, Hint, Location, Health) to show worlds that need a piece of information or already have it
+  - **Hidden worlds filter** — tri-state chip to exclude, include, or show only hidden worlds
+- **World search** — search by world number in the header; auto-opens the detail view when exactly one world matches (sidebar mode)
+- **Hidden worlds** — hide any world from the grid via the EyeOff button on cards or detail views; hidden worlds are excluded by default but can be revealed with the Hidden filter chip
 - **Visual effects** — lightning bolt animations on auto health transitions, ember spark particles on dead trees (can be toggled in settings)
 - **Sidebar panel** (opt-in, available on screens ≥ 640px) — tool views and the detail view can open in a resizable panel beside the grid instead of replacing it, so you never lose sight of all 137 worlds. Dock left or right; drag the handle to resize; width is remembered across sessions and preserved when swapping sides. Enable in Settings (⚙). A toolbar above every view shows four quick-jump buttons (View · Timer · Tree · Dead) to switch tools without returning to the grid, plus dock controls: when in fullscreen use the panel-left/right icons to enter sidebar mode directly; when in sidebar use the expand icon to pop back to fullscreen or Close to return to the grid
 - **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, and sidebar mode
