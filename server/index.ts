@@ -486,13 +486,13 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
   });
 
   ws.on('close', (_code, reasonBuffer) => {
+    const ext = wsExtensions.get(ws);
+    const sessionCode = ext?.session?.code ?? 'unknown';
+    const clientId = ext?.clientId ?? 'unknown';
     finalizeDisconnect();
     const rawReason = reasonBuffer.length > 0 ? reasonBuffer.toString('utf8') : '';
     const reason = rawReason || serverCloseReason || '';
     const suffix = reason ? ` — ${reason}` : '';
-    const ext = wsExtensions.get(ws);
-    const sessionCode = ext?.session?.code ?? 'unknown';
-    const clientId = ext?.clientId ?? 'unknown';
     log(`[disconnect] Client ${clientId} left ${sessionCode}${suffix}`);
   });
 

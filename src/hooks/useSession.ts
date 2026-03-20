@@ -665,6 +665,10 @@ export function useSession(onSessionLost?: () => void) {
           lastServerErrorRef.current = msg.message;
           setSession(prev => ({ ...prev, error: msg.message }));
           // onclose fires next and will resolve null
+        } else if (msg.type === 'authError') {
+          lastServerErrorRef.current = msg.reason;
+          setSession(prev => ({ ...prev, error: msg.reason }));
+          // Server closes the WS after authError; onclose will resolve null
         }
       };
 
@@ -681,12 +685,8 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const confirmPreviewJoin = useCallback((code: string, localStates?: WorldStates): void => {
-    // Close the preview WS (connectWs only cleans up wsRef, not previewWsRef)
     const previewWs = previewWsRef.current;
     previewWsRef.current = null;
-    if (previewWs && previewWs.readyState !== WebSocket.CLOSED) {
-      previewWs.close();
-    }
     previewResolveRef.current = null;
     setPreviewWorlds(null);
 
@@ -696,7 +696,16 @@ export function useSession(onSessionLost?: () => void) {
     persistSessionCode(code);
     clearPending();
     setSession(prev => ({ ...prev, code, reconnectAttempt: 0, error: null }));
-    connectWs(code);
+
+    // Wait for preview WS to close so the server frees the slot before we reconnect
+    if (previewWs && previewWs.readyState !== WebSocket.CLOSED) {
+      previewWs.onclose = () => { connectWs(code); };
+      previewWs.onmessage = null;
+      previewWs.onerror = null;
+      previewWs.close();
+    } else {
+      connectWs(code);
+    }
   }, []);
 
   const cancelPreview = useCallback((): void => {
@@ -716,7 +725,7 @@ export function useSession(onSessionLost?: () => void) {
     const id = msgIdCounterRef.current++;
     const msgWithId = { ...msg, msgId: id };
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN && snapshotReceivedRef.current) {
       ws.send(JSON.stringify(msgWithId));
       // Set ACK timeout — if server doesn't confirm, assume connection is dead
       const timer = setTimeout(() => {

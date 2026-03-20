@@ -170,7 +170,7 @@ export class EctoSession {
     const id = this.msgIdCounter++;
     const msgWithId = { ...msg, msgId: id };
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN && this.snapshotReceived) {
       ws.send(JSON.stringify(msgWithId));
       const timer = setTimeout(() => {
         if (this.ws === ws && ws.readyState === WebSocket.OPEN) {
