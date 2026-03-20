@@ -552,7 +552,7 @@ export function useSession(onSessionLost?: () => void) {
   const createSession = useCallback(async (initialStates?: WorldStates): Promise<string | null> => {
     setSession(prev => ({ ...prev, error: null }));
     try {
-      const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/session`, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } });
       const data = await res.json();
       if (!res.ok) {
         setSession(prev => ({ ...prev, error: data.error ?? 'Failed to create session.' }));
@@ -765,7 +765,7 @@ export function useSession(onSessionLost?: () => void) {
     try {
       const res = await fetch(`${API_BASE}/session/${managedCode}/self-invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         body: JSON.stringify({ name, selfRegisterToken, personalToken }),
       });
       const data = await res.json();

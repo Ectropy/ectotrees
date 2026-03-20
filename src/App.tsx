@@ -183,17 +183,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-join managed session from ?invite= query param on first load
+  // Auto-join managed session from #invite=TOKEN hash fragment on first load
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get('invite');
-    if (!raw) return;
-    const token = raw.trim().toUpperCase();
+    const hash = window.location.hash; // e.g. "#invite=ABC123DEF456"
+    const match = hash.match(/^#invite=([A-Za-z0-9]+)$/);
+    if (!match) return;
+    const token = match[1].trim().toUpperCase();
     if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
-    // Remove the param from the URL without a page reload
-    const url = new URL(window.location.href);
-    url.searchParams.delete('invite');
-    history.replaceState(null, '', url.toString());
+    // Remove the fragment from the URL without a page reload
+    history.replaceState(null, '', window.location.pathname + window.location.search);
     joinByInviteToken(token);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

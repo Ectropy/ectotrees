@@ -110,11 +110,9 @@ function checkRateLimit(ws: WebSocket): boolean {
   const extensions = wsExtensions.get(ws);
   if (!extensions) return false;
 
-  if (!extensions.rateLimitMessages || extensions.rateLimitMessages.length === 0 ||
-      now - extensions.rateLimitMessages[0] > RATE_LIMIT_WINDOW_MS) {
-    extensions.rateLimitMessages = [now];
-    return true;
-  }
+  // Sliding window: keep only timestamps within the current window
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  extensions.rateLimitMessages = extensions.rateLimitMessages.filter(t => t > cutoff);
   extensions.rateLimitMessages.push(now);
   return extensions.rateLimitMessages.length <= RATE_LIMIT_MAX;
 }
@@ -155,7 +153,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With');
   }
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
@@ -169,10 +167,22 @@ app.use((_req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
   next();
 });
 
-app.post('/api/session', httpRateLimitMiddleware, (_req, res) => {
+// CSRF protection: POST requests must include X-Requested-With header.
+// This forces a CORS preflight, blocking cross-origin form submissions.
+function csrfMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (req.method === 'POST' && !req.headers['x-requested-with']) {
+    res.status(403).json({ error: 'Missing X-Requested-With header.' });
+    return;
+  }
+  next();
+}
+
+app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) => {
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });
@@ -184,7 +194,7 @@ app.post('/api/session', httpRateLimitMiddleware, (_req, res) => {
 });
 
 
-app.post('/api/session/:code/self-invite', httpRateLimitMiddleware, (req, res) => {
+app.post('/api/session/:code/self-invite', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
   const code = validateSessionCode(req.params.code);
   if (!code) { res.status(400).json({ error: 'Invalid session code.' }); return; }
   const session = getSession(code);
@@ -482,7 +492,12 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
       return;
     }
 
-    handleMessage(ext.session, validated, ws, ext.clientId);
+    try {
+      handleMessage(ext.session, validated, ws, ext.clientId);
+    } catch (err) {
+      log(`[error] Unhandled error in message handler: ${err instanceof Error ? err.message : String(err)}`);
+      ws.send(JSON.stringify(errorMsg('Internal server error.')));
+    }
   });
 
   ws.on('close', (_code, reasonBuffer) => {

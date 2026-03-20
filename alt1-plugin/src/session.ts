@@ -42,25 +42,24 @@ type Listener<K extends EventKey> = (...args: EventMap[K]) => void;
 
 // ---------------------------------------------------------------------------
 
-function buildWsUrl(code: string, inviteToken?: string | null): string {
-  const base = WS_BASE
+function buildWsUrl(): string {
+  return WS_BASE
     ? `${WS_BASE}/ws`
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-  const params = new URLSearchParams();
-  if (inviteToken) {
-    params.set('invite', inviteToken);
-  } else {
-    params.set('code', code);
-  }
-  return `${base}?${params.toString()}`;
 }
 
 /** Extract a 12-char invite token from a raw string (URL or bare token). */
 function extractInviteToken(raw: string): string | null {
   const trimmed = raw.trim();
-  // Try as URL with ?invite= param
+  // Try as URL with #invite=TOKEN hash fragment or ?invite= query param
   try {
     const url = new URL(trimmed);
+    // Check hash fragment first (preferred: doesn't leak to server logs)
+    const hashMatch = url.hash.match(/^#invite=([A-Za-z0-9]+)$/);
+    if (hashMatch && /^[A-HJ-NP-Z2-9]{12}$/.test(hashMatch[1].toUpperCase())) {
+      return hashMatch[1].toUpperCase();
+    }
+    // Fall back to query param for backwards compatibility
     const param = url.searchParams.get('invite');
     if (param && /^[A-HJ-NP-Z2-9]{12}$/.test(param.toUpperCase())) {
       return param.toUpperCase();
@@ -327,7 +326,7 @@ export class EctoSession {
     this.setStatus('connecting');
     this.setError(null);
 
-    const ws = new WebSocket(buildWsUrl(code, this.inviteToken));
+    const ws = new WebSocket(buildWsUrl());
     this.ws = ws;
     this.setupWsHandlers(ws);
   }
@@ -342,10 +341,7 @@ export class EctoSession {
     this.setStatus('connecting');
     this.setError(null);
 
-    const base = WS_BASE
-      ? `${WS_BASE}/ws`
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-    const ws = new WebSocket(base);
+    const ws = new WebSocket(buildWsUrl());
     this.ws = ws;
     this.setupWsHandlers(ws);
   }
@@ -358,16 +354,11 @@ export class EctoSession {
       this.reconnectAt = null;
       this.setStatus('connected');
 
-      // Send auth message first
+      // Send auth message (server requires auth within 10s of WS open)
       if (this.inviteToken) {
         ws.send(JSON.stringify({ type: 'authInvite', token: this.inviteToken }));
       } else {
         ws.send(JSON.stringify({ type: 'authSession', code: this.code }));
-      }
-
-      if (this.initialStates) {
-        ws.send(JSON.stringify({ type: 'initializeState', worlds: this.initialStates }));
-        this.initialStates = null;
       }
     };
 

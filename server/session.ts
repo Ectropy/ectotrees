@@ -83,7 +83,10 @@ function generateInviteToken(): string {
       token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
     }
     attempts++;
-  } while (inviteTokenIndex.has(token) && attempts < 20);
+    if (attempts > 20) {
+      throw new Error('Failed to generate unique invite token after 20 attempts');
+    }
+  } while (inviteTokenIndex.has(token));
   return token;
 }
 
@@ -363,7 +366,7 @@ function broadcastMemberList(session: Session) {
       online: member.connections.size > 0,
       currentWorld: member.currentWorld,
       inviteToken: member.inviteToken,
-      link: `${APP_URL}/?invite=${member.inviteToken}`,
+      link: `${APP_URL}/#invite=${member.inviteToken}`,
     });
   }
 
@@ -775,7 +778,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   session.members.set(inviteToken, member);
   inviteTokenIndex.set(inviteToken, session.code);
 
-  const link = `${APP_URL}/?invite=${inviteToken}`;
+  const link = `${APP_URL}/#invite=${inviteToken}`;
   broadcastMemberList(session);
   return { type: 'inviteCreated', inviteToken, name, link };
 }
