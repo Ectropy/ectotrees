@@ -5,10 +5,13 @@ import { CHIP_COLOR } from '../constants/toolColors';
 
 export type SortMode = 'world' | 'soonest' | 'fav' | 'health';
 
+export type HiddenFilter = 'show' | 'only' | null;
+
 export interface Filters {
   favorites: boolean;
   p2p: boolean;
   f2p: boolean;
+  hidden: HiddenFilter;
   treeTypes: string[];
   hint: 'needs' | 'has' | null;
   location: 'needs' | 'has' | null;
@@ -20,6 +23,7 @@ export const DEFAULT_FILTERS: Filters = {
   favorites: false,
   p2p: false,
   f2p: false,
+  hidden: null,
   treeTypes: [],
   hint: null,
   location: null,
@@ -81,6 +85,12 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
     setFilters(next);
   };
 
+  const cycleHidden = () => {
+    const current = filters.hidden;
+    const next: HiddenFilter = current === null ? 'show' : current === 'show' ? 'only' : null;
+    setFilters({ ...filters, hidden: next });
+  };
+
   const cycleTriState = (key: 'hint' | 'location' | 'health' | 'intel') => {
     const current = filters[key];
     const next = current === null ? 'needs' : current === 'needs' ? 'has' : null;
@@ -100,6 +110,10 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
   const SortArrow = sortAsc ? ChevronUp : ChevronDown;
   const activeSummary: { label: string; className: string }[] = [];
 
+  if (filters.hidden) activeSummary.push({
+    label: filters.hidden === 'show' ? 'Show hidden' : 'Only hidden',
+    className: CHIP_COLOR.active,
+  });
   if (filters.favorites) activeSummary.push({ label: 'Favorite', className: CHIP_COLOR.active });
   if (filters.p2p) activeSummary.push({ label: 'P2P', className: CHIP_COLOR.active });
   if (filters.f2p) activeSummary.push({ label: 'F2P', className: CHIP_COLOR.active });
@@ -198,6 +212,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
           <FilterChip label="Favorite" active={filters.favorites} onClick={() => toggleFilter('favorites')} />
           <FilterChip label="P2P" active={filters.p2p} onClick={() => toggleFilter('p2p')} />
           <FilterChip label="F2P" active={filters.f2p} onClick={() => toggleFilter('f2p')} />
+          <HiddenChip state={filters.hidden} onClick={cycleHidden} />
         </div>
       </div>
 
@@ -254,6 +269,19 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
       }`}
     >
       {label}
+    </button>
+  );
+}
+
+function HiddenChip({ state, onClick }: { state: HiddenFilter; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center ${
+        state ? CHIP_COLOR.active : CHIP_COLOR.inactive
+      }`}
+    >
+      {state === 'show' ? 'Show ' : state === 'only' ? 'Only ' : ''}Hidden
     </button>
   );
 }

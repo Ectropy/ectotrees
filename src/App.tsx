@@ -6,6 +6,7 @@ import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
 import { useFavorites } from './hooks/useFavorites';
+import { useHiddenWorlds } from './hooks/useHiddenWorlds';
 import { useIsMobile } from './hooks/useIsMobile';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
@@ -70,6 +71,7 @@ function normalizeFilters(value: unknown): Filters {
     favorites: v.favorites as boolean,
     p2p: v.p2p as boolean,
     f2p: v.f2p as boolean,
+    hidden: (v.hidden === 'show' || v.hidden === 'only') ? v.hidden : null,
     treeTypes: v.treeTypes as string[],
     hint: v.hint as 'needs' | 'has' | null,
     location: v.location as 'needs' | 'has' | null,
@@ -129,6 +131,7 @@ export default function App() {
     return () => { delete (window as unknown as Record<string, unknown>).__triggerLightning; };
   }, []);
   const { favorites, toggleFavorite } = useFavorites();
+  const { hiddenWorlds, toggleHidden } = useHiddenWorlds();
   const { settings, updateSettings } = useSettings();
   const isMobile = useIsMobile();
 
@@ -236,6 +239,10 @@ export default function App() {
     let result = worlds.filter(w => {
       const state = worldStates[w.id] ?? { treeStatus: 'none' as const };
       const active = isActive(state);
+
+      // Hidden filter: off = exclude hidden, 'show' = include all, 'only' = only hidden
+      if (filters.hidden === null && hiddenWorlds.has(w.id)) return false;
+      if (filters.hidden === 'only' && !hiddenWorlds.has(w.id)) return false;
 
       if (filters.favorites && !favorites.has(w.id)) return false;
       if (filters.intel === 'needs' && active) return false;
@@ -381,7 +388,7 @@ export default function App() {
     });
 
     return result;
-  }, [worldStates, favorites, sortMode, sortAsc, filters]);
+  }, [worldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters]);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
     const { surface, sidebarSide } = getAnalyticsContext();
@@ -594,7 +601,9 @@ export default function App() {
           world={world}
           state={worldStates[worldId] ?? { treeStatus: 'none' }}
           isFavorite={favorites.has(worldId)}
+          isHidden={hiddenWorlds.has(worldId)}
           onToggleFavorite={() => toggleFavorite(worldId)}
+          onToggleHidden={() => toggleHidden(worldId)}
           onClear={() => { clearWorld(worldId); handleBack(); }}
           onUpdateHealth={(health) => updateHealth(worldId, health)}
           onReportLightning={(health) => reportLightning(worldId, health)}
@@ -653,7 +662,9 @@ export default function App() {
           world={world}
           state={worldStates[world.id] ?? { treeStatus: 'none' }}
           isFavorite={favorites.has(world.id)}
+          isHidden={hiddenWorlds.has(world.id)}
           onToggleFavorite={() => toggleFavorite(world.id)}
+          onToggleHidden={() => toggleHidden(world.id)}
           onCardClick={() => handleOpenCard(world.id)}
           onOpenTool={(tool) => handleOpenTool(world.id, tool)}
           lightningEvent={lightningEvents.get(world.id)}

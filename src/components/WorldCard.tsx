@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, EyeOff } from 'lucide-react';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
@@ -13,7 +13,9 @@ interface Props {
   world: WorldConfig;
   state: WorldState;
   isFavorite: boolean;
+  isHidden: boolean;
   onToggleFavorite: () => void;
+  onToggleHidden: () => void;
   onCardClick: () => void;
   onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
   lightningEvent?: { kind: string; seq: number };
@@ -25,7 +27,7 @@ interface Props {
   canEdit?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission, canEdit = true }: Props) {
+export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite, onToggleHidden, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission, canEdit = true }: Props) {
   const isP2P = world.type === 'P2P';
   const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
@@ -70,6 +72,14 @@ export function WorldCard({ world, state, isFavorite, onToggleFavorite, onCardCl
           >
             <Star className={`h-2.5 w-2.5${isFavorite ? ' fill-current' : ''}`} />
           </button>
+          {isHidden && (
+            <button
+              onClick={e => { e.stopPropagation(); onToggleHidden(); }}
+              className="text-[11px] leading-none text-red-400 hover:text-red-300 transition-colors"
+            >
+              <EyeOff className="h-2.5 w-2.5" />
+            </button>
+          )}
         </div>
         <span
           className={`text-[8px] font-semibold px-1 py-px rounded

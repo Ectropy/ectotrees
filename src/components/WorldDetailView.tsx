@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
+import { Star, EyeOff, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { buildWorldIntel } from '../lib/intelCopy';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
@@ -19,7 +20,9 @@ interface Props {
   world: WorldConfig;
   state: WorldState;
   isFavorite: boolean;
+  isHidden: boolean;
   onToggleFavorite: () => void;
+  onToggleHidden: () => void;
   onClear: () => void;
   onUpdateHealth: (health: number | undefined) => void;
   onReportLightning: (health: 50 | 25) => void;
@@ -35,12 +38,14 @@ interface Props {
 
 type EditingField = 'treeType' | 'treeHint' | 'treeExactLocation' | null;
 
-export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, canEdit = true }: Props) {
+export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFavorite, onToggleHidden, onClear, onUpdateHealth, onReportLightning, onUpdateFields, onBack, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, canEdit = true }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const { copied, copy: copyIntel } = useCopyFeedback(1500);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [editPendingValue, setEditPendingValue] = useState('');
   const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
+  const [showHideHint, setShowHideHint] = useState(false);
+  useEffect(() => { setShowHideHint(false); }, [world.id]);
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (pendingLightning !== null) confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -118,8 +123,35 @@ export function WorldDetailView({ world, state, isFavorite, onToggleFavorite, on
             >
               <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
             </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    trackUiEvent('ui_world_action', {
+                      panel: 'detail',
+                      world_id: world.id,
+                      action: 'toggle_hidden',
+                      result: 'success',
+                    });
+                    if (!isHidden) setShowHideHint(true);
+                    else setShowHideHint(false);
+                    onToggleHidden();
+                  }}
+                  className={`transition-colors ${isHidden ? 'text-red-400' : 'text-gray-600 hover:text-gray-400'}`}
+                >
+                  <EyeOff className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{isHidden ? 'Unhide world' : 'Hide world'}</TooltipContent>
+            </Tooltip>
           </ViewHeader>
         </div>
+
+        {showHideHint && (
+          <p className="text-xs text-gray-400 bg-gray-800/50 rounded px-3 py-2 mb-2">
+            This world is now hidden. It won't appear in the world grid. <br/>Use the <span className="text-gray-300 font-medium">Hidden</span> filter to reveal it in the future.
+          </p>
+        )}
 
         <div className="space-y-6">
           {/* Status info card */}

@@ -18,6 +18,7 @@ export type UiAction =
   | 'mark_dead'
   | 'clear_world'
   | 'toggle_favorite'
+  | 'toggle_hidden'
   | 'open_settings'
   | 'close_view';
 
