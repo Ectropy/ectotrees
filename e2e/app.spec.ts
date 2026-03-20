@@ -70,12 +70,16 @@ test('tree info: record an oak and card shows tree status', async ({ page }) => 
   await card.getByTitle('Set tree info').click();
   await expect(page.locator('h1')).toContainText('Tree Info');
 
-  // Select tree type: Oak (option value = 'oak')
-  await page.locator('select').first().selectOption('oak');
+  // Select tree type via combobox: type to filter, then click the option
+  const typeInput = page.getByPlaceholder('Select or type a tree type');
+  await typeInput.fill('oak');
+  await page.getByRole('option', { name: 'Oak' }).click();
 
-  // Select a location hint (required). This hint has exactly one location so
-  // exact location is auto-filled.
-  await page.locator('select').nth(1).selectOption('Close to a collection of yew trees (Seers)');
+  // Select a location hint via combobox (required). This hint has exactly one
+  // location so exact location is auto-filled.
+  const hintInput = page.getByPlaceholder('Select or type a location hint');
+  await hintInput.fill('yew trees');
+  await page.getByRole('option', { name: /yew trees/i }).click();
 
   await page.getByRole('button', { name: 'Confirm' }).click();
 
@@ -158,9 +162,15 @@ test('?join= invalid code: URL is unchanged, no WS connection made', async ({ pa
 });
 
 test('?join= session not found: URL is cleaned, error shown', async ({ page }) => {
-  await page.routeWebSocket(new RegExp(`\\/ws\\?code=${JOIN_CODE}`), ws => {
-    ws.send(JSON.stringify({ type: 'error', message: 'Session not found.' }));
-    ws.close();
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({ type: 'authError', reason: 'Session not found.', code: 'invalid' }));
+        }
+      } catch { /* ignore */ }
+    });
   });
 
   await page.goto(`/?join=${JOIN_CODE}`);
@@ -178,16 +188,17 @@ test('?join= valid code: session code appears in bar when WS connects', async ({
     ws.onMessage(raw => {
       try {
         const msg = JSON.parse(raw as string);
-        if (msg.type === 'ping') {
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code }));
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
+        } else if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));
         } else if (msg.msgId !== undefined) {
           ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
         }
       } catch { /* ignore malformed */ }
     });
-    // Simulate the server's initial snapshot + client count
-    ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
-    ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
   });
 
   await page.goto(`/?join=${JOIN_CODE}`);
@@ -248,6 +259,102 @@ test('join input: plain 6-char code is accepted without modification', async ({ 
 // World detail view
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// WebSocket race condition regressions
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('ws race: mutations are queued until snapshot arrives (no double-send)', async ({ page }) => {
+  // Pre-populate localStorage so the app has world state and auto-resumes a session
+  await page.addInitScript(() => {
+    localStorage.setItem('evilTree_sessionCode', 'ABCD23');
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      1: { treeStatus: 'alive', matureAt: Date.now() - 5 * 60 * 1000 },
+    }));
+  });
+
+  // Track all messages from the client; send authSuccess but withhold snapshot
+  const clientMessages: { type: string; msgId?: number }[] = [];
+  let sendSnapshot: (() => void) | null = null;
+
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        clientMessages.push(msg);
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code }));
+          // Deliberately do NOT send snapshot yet — expose the pre-snapshot window
+          sendSnapshot = () => {
+            ws.send(JSON.stringify({
+              type: 'snapshot',
+              worlds: { 1: { treeStatus: 'alive', matureAt: Date.now() - 5 * 60 * 1000 } },
+            }));
+          };
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore */ }
+    });
+  });
+
+  await page.goto('/');
+
+  // Wait for WS to connect and auth to complete (authSession should be in messages)
+  await expect.poll(() => clientMessages.some(m => m.type === 'authSession')).toBe(true);
+
+  // Trigger a mutation while snapshot hasn't arrived: mark world 1 dead
+  const card = page.getByTestId('world-card-1');
+  await card.getByTitle('Mark tree as dead').click();
+  await page.getByRole('button', { name: 'Confirm Dead' }).click();
+
+  // Give the client a moment to send the mutation (if it incorrectly did)
+  await page.waitForTimeout(200);
+
+  // The mutation should NOT have been sent yet — only auth messages
+  const preMutations = clientMessages.filter(m => m.type === 'markDead');
+  expect(preMutations).toHaveLength(0);
+
+  // Now send the snapshot — this should trigger replayPendingMutations
+  sendSnapshot!();
+
+  // The mutation should now arrive
+  await expect.poll(() => clientMessages.filter(m => m.type === 'markDead').length).toBe(1);
+});
+
+test('ws race: authError on join surfaces error message', async ({ page }) => {
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({
+            type: 'authError',
+            reason: 'This is a private session. You need an invite link to join.',
+            code: 'banned',
+          }));
+        }
+      } catch { /* ignore */ }
+    });
+  });
+
+  await page.goto('/');
+
+  // Open join input and submit a code
+  await page.getByRole('button', { name: 'Join Session' }).click();
+  const input = page.getByPlaceholder('CODE');
+  await input.fill(JOIN_CODE);
+  await page.getByRole('button', { name: 'Join' }).click();
+
+  // The authError reason should be visible in the session bar
+  await expect(page.locator('text=This is a private session')).toBeVisible();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// World detail view
+// ─────────────────────────────────────────────────────────────────────────────
+
 test('detail view: opens world status and back returns to grid', async ({ page }) => {
   await page.goto('/');
 
@@ -255,11 +362,11 @@ test('detail view: opens world status and back returns to grid', async ({ page }
   // card's onClick fires and opens WorldDetailView
   await page.getByTestId(`world-card-${W}`).getByText(`w${W}`).click();
 
-  // WorldDetailView heading is "W{id} Status"
-  await expect(page.locator('h1')).toContainText(`W${W} Status`);
+  // WorldDetailView heading is "World Status" (world ID is in the subtitle)
+  await expect(page.locator('h1')).toContainText('World Status');
 
-  // Navigate back
-  await page.getByRole('button', { name: '← Back' }).click();
+  // Navigate back (second "Close" button — the in-view one, not the toolbar X)
+  await page.getByRole('button', { name: 'Close' }).nth(1).click();
 
   // Grid is visible again
   await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
