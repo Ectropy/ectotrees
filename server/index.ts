@@ -679,8 +679,9 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       }
       const count = Object.keys(msg.worlds).length;
       log(`[session] ${session.code} ${c} initialized with data for ${count} worlds`);
-      session.worldStates = msg.worlds;
-      session.lastActivityAt = Date.now();
+      for (const [id, state] of Object.entries(msg.worlds)) {
+        updateWorldState(session, Number(id), state, ws);
+      }
       break;
     }
 

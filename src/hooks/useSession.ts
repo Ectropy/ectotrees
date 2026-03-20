@@ -279,12 +279,6 @@ export function useSession(onSessionLost?: () => void) {
           // Identify as a dashboard
           ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
 
-          // Send local state to populate a newly created session
-          if (initialStatesRef.current) {
-            ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
-            initialStatesRef.current = null;
-          }
-
           // Start ping interval with ACK timeout
           pingTimerRef.current = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -320,6 +314,8 @@ export function useSession(onSessionLost?: () => void) {
           if (initialStatesRef.current) {
             // Creating a session: seed with local state (local wins over empty snapshot)
             worlds = { ...msg.worlds, ...initialStatesRef.current };
+            // Send to server so other clients receive the initial state
+            ws.send(JSON.stringify({ type: 'initializeState', worlds: initialStatesRef.current }));
             initialStatesRef.current = null;
           } else if (joinMergeStatesRef.current) {
             // Joining with local data: server wins conflicts, local fills gaps

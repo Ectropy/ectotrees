@@ -26,28 +26,26 @@ function isLocalActive(state: WorldState): boolean {
   return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
 }
 
-function localStatusLabel(state: WorldState): string {
+function statusLabel(state: WorldState): string {
   if (state.nextSpawnTarget !== undefined && state.treeStatus === 'none') return 'Spawn timer';
+  // Show dead/alive status before tree type — a dead mature tree should say "Dead", not "Mature (unknown)"
+  if (state.treeStatus === 'dead') return 'Dead';
+  if (state.treeStatus === 'alive') return 'Alive';
   if (state.treeType) return TREE_TYPE_SHORT[state.treeType as TreeType] ?? state.treeStatus;
   switch (state.treeStatus) {
     case 'sapling': return 'Sapling';
     case 'mature':  return 'Mature';
-    case 'alive':   return 'Alive';
-    case 'dead':    return 'Dead';
     default:        return state.treeStatus;
   }
 }
 
-function serverStatusLabel(s: WorldState): string {
-  if (s.nextSpawnTarget !== undefined && s.treeStatus === 'none') return 'Spawn timer';
-  if (s.treeType) return TREE_TYPE_SHORT[s.treeType as TreeType] ?? s.treeStatus;
-  switch (s.treeStatus) {
-    case 'sapling': return 'Sapling';
-    case 'mature':  return 'Mature';
-    case 'alive':   return 'Alive';
-    case 'dead':    return 'Dead';
-    default:        return s.treeStatus;
-  }
+function worldStatesEqual(a: WorldState, b: WorldState): boolean {
+  return a.treeStatus === b.treeStatus
+    && a.nextSpawnTarget === b.nextSpawnTarget
+    && a.treeType === b.treeType
+    && a.treeHint === b.treeHint
+    && a.treeExactLocation === b.treeExactLocation
+    && a.treeHealth === b.treeHealth;
 }
 
 function WorldTypeBadge({ worldId }: { worldId: number }) {
@@ -72,11 +70,10 @@ interface SectionProps {
   count: number;
   description: string;
   accentClass: string;
-  empty: string;
   children: React.ReactNode;
 }
 
-function Section({ title, count, description, accentClass, empty, children }: SectionProps) {
+function Section({ title, count, description, accentClass, children }: SectionProps) {
   return (
     <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -84,26 +81,25 @@ function Section({ title, count, description, accentClass, empty, children }: Se
         <span className={`text-[11px] px-1.5 py-0.5 rounded-full bg-gray-700 ${TEXT_COLOR.muted}`}>{count}</span>
       </div>
       <p className={`text-[11px] ${TEXT_COLOR.muted} leading-snug`}>{description}</p>
-      {count === 0
-        ? <p className={`text-[11px] ${TEXT_COLOR.faint} italic`}>{empty}</p>
-        : children}
+      {children}
     </div>
   );
 }
 
 export function SessionJoinView({ code, localWorldStates, serverWorlds, onJoin, onCancel }: Props) {
-  const { toContribute, conflicts, serverGains } = useMemo(() => {
+  const { toContribute, conflicts, alreadySynced, serverGains } = useMemo(() => {
     const localActive = Object.entries(localWorldStates)
       .filter(([, s]) => isLocalActive(s))
       .map(([id, s]) => ({ id: Number(id), state: s }));
 
-    const toContribute = localActive.filter(({ id }) => !(id in serverWorlds));
-    const conflicts    = localActive.filter(({ id }) =>   id in serverWorlds);
-    const serverGains  = Object.entries(serverWorlds)
+    const toContribute  = localActive.filter(({ id }) => !(id in serverWorlds));
+    const conflicts     = localActive.filter(({ id, state }) => id in serverWorlds && !worldStatesEqual(state, serverWorlds[id]));
+    const alreadySynced = localActive.filter(({ id, state }) => id in serverWorlds && worldStatesEqual(state, serverWorlds[id]));
+    const serverGains   = Object.entries(serverWorlds)
       .map(([id, state]) => ({ id: Number(id), state }))
       .filter(({ id }) => !isLocalActive(localWorldStates[id] ?? { treeStatus: 'none' }));
 
-    return { toContribute, conflicts, serverGains };
+    return { toContribute, conflicts, alreadySynced, serverGains };
   }, [serverWorlds, localWorldStates]);
 
   function handleJoin(contribute: boolean) {
@@ -126,59 +122,80 @@ export function SessionJoinView({ code, localWorldStates, serverWorlds, onJoin, 
 
         {/* Comparison sections */}
         {/* Worlds to contribute */}
-        <Section
-          title="Your worlds to contribute"
-          count={toContribute.length}
-          description="Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute."
-          accentClass="text-green-400"
-          empty="None — you have nothing to add."
-        >
-          <WorldList items={toContribute.map(({ id, state }) => (
-            <li key={id} className="flex items-center gap-1.5 text-[11px]">
-              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-              <WorldTypeBadge worldId={id} />
-              <span className={TEXT_COLOR.muted}>{localStatusLabel(state)}</span>
-            </li>
-          ))} />
-        </Section>
+        {toContribute.length > 0 && (
+          <Section
+            title="Your worlds to contribute"
+            count={toContribute.length}
+            description="Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute."
+            accentClass="text-green-400"
+          >
+            <WorldList items={toContribute.map(({ id, state }) => (
+              <li key={id} className="flex items-center gap-1.5 text-[11px]">
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <WorldTypeBadge worldId={id} />
+                <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
+              </li>
+            ))} />
+          </Section>
+        )}
 
         {/* Conflicts */}
-        <Section
-          title="Your worlds the session overrides"
-          count={conflicts.length}
-          description="Both you and the session have data for these worlds. The session's version will be used; your local version is replaced."
-          accentClass="text-amber-400"
-          empty="None — no conflicts."
-        >
-          <WorldList items={conflicts.map(({ id, state }) => (
-            <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
-              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-              <WorldTypeBadge worldId={id} />
-              <span className={TEXT_COLOR.muted}>
-                <span className="line-through opacity-60">{localStatusLabel(state)}</span>
-                <span className="mx-1 opacity-50">→</span>
-                <span>{serverStatusLabel(serverWorlds[id])}</span>
-              </span>
-            </li>
-          ))} />
-        </Section>
+        {conflicts.length > 0 && (
+          <Section
+            title="Your worlds the session overrides"
+            count={conflicts.length}
+            description="Both you and the session have data for these worlds. The session's version will be used; your local version is replaced."
+            accentClass="text-amber-400"
+          >
+            <WorldList items={conflicts.map(({ id, state }) => (
+              <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <WorldTypeBadge worldId={id} />
+                <span className={TEXT_COLOR.muted}>
+                  <span className="line-through opacity-60">{statusLabel(state)}</span>
+                  <span className="mx-1 opacity-50">→</span>
+                  <span>{statusLabel(serverWorlds[id])}</span>
+                </span>
+              </li>
+            ))} />
+          </Section>
+        )}
+
+        {/* Already in sync */}
+        {alreadySynced.length > 0 && (
+          <Section
+            title="Already in sync"
+            count={alreadySynced.length}
+            description="Both you and the session have identical data for these worlds."
+            accentClass={TEXT_COLOR.muted}
+          >
+            <WorldList items={alreadySynced.map(({ id, state }) => (
+              <li key={id} className="flex items-center gap-1.5 text-[11px]">
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <WorldTypeBadge worldId={id} />
+                <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
+              </li>
+            ))} />
+          </Section>
+        )}
 
         {/* New worlds from server */}
-        <Section
-          title="New worlds you'll receive"
-          count={serverGains.length}
-          description="Active in the session but not in your local data. You gain this intel just by joining."
-          accentClass="text-blue-400"
-          empty="None — the session has no extra intel."
-        >
-          <WorldList items={serverGains.map(({ id, state }) => (
-            <li key={id} className="flex items-center gap-1.5 text-[11px]">
-              <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
-              <WorldTypeBadge worldId={id} />
-              <span className={TEXT_COLOR.muted}>{serverStatusLabel(state)}</span>
-            </li>
-          ))} />
-        </Section>
+        {serverGains.length > 0 && (
+          <Section
+            title="New worlds you'll receive"
+            count={serverGains.length}
+            description="Active in the session but not in your local data. You gain this intel just by joining."
+            accentClass="text-blue-400"
+          >
+            <WorldList items={serverGains.map(({ id, state }) => (
+              <li key={id} className="flex items-center gap-1.5 text-[11px]">
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <WorldTypeBadge worldId={id} />
+                <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
+              </li>
+            ))} />
+          </Section>
+        )}
 
         {/* Action buttons */}
         <div className="flex flex-col gap-2 pt-1">
