@@ -38,29 +38,30 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
-The **Session panel** (open via the session bar) shows full session controls, pairing, and — when in managed mode — the member list.
+The **Session panel** (open via the session bar) shows full session controls, scout linking, and — when in managed mode — the member list.
 
-Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session limits: max 1000 concurrent sessions, max 1000 clients per session. Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
+Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session limits: max 1000 concurrent sessions, max 1000 clients per session (500 in managed mode). Sessions expire after 24 hours of inactivity or 60 minutes with no connected clients.
 
 > **Tip:** If you already have local tracking data when you join a session, you'll be prompted to contribute it to the session — only worlds not already tracked in the session will be added.
 
 ### Managed sessions
 
-Any member can **fork** the current session into a new **managed (invite-only) session** from the Session panel. Forking creates a fresh managed session and notifies everyone in the current session with an invite link — each person clicks the link to self-register and migrate over. The fork invite window is open for 10 minutes.
+Any member can **fork** the current session into a new **managed (invite-only) session** from the Session panel. Forking creates a fresh managed session and notifies everyone in the current session with an invite link — each person clicks the link to self-register and migrate over. The fork invite window is open for 10 minutes, with a 1-hour cooldown between forks.
 
 - **Create invites** — give each member a name and a role: Scout (can submit updates) or Viewer (read-only)
 - **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites and ban members
 - **Member list** — see who is connected, their role, and (for admins) their invite token and link
 - **Admin controls** — change a member's role, rename them, ban them (disconnects + revokes token), or transfer ownership
+- **Allow viewers** toggle — admins can open the session to anonymous read-only viewers who join by session code
 - World updates in managed sessions show the submitter's name and role
 
 ## Alt1 Scout Plugin *(beta)*
 
 An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
 
-- **Session**: join by 6-character code (or paste a `?join=` link); session is remembered and auto-resumed on next launch
-- **Pairing**: enter the 4-character pair code shown on the main dashboard to link your scout to a specific dashboard — the dashboard then shows a live indicator of which world you are on as you hop
-- **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the paired dashboard is notified in real time
+- **Session**: join by 6-character code, paste a `?join=` link, or enter a 12-character invite token (or URL containing one) to join a managed session directly; session is remembered and auto-resumed on next launch
+- **Scout linking**: enter the personal token shown on the main dashboard's Session panel to link your scout — the dashboard then shows a live indicator of which world you are on as you hop. Alternatively, join a managed session with an invite token to be recognized by name
+- **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the linked dashboard is notified in real time
 - **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
 - **Auto-scan** (toggle) — watches for clicks inside RuneScape and automatically triggers a dialog scan 150–800 ms after each click, catching the dialog as soon as it opens
 - **Auto-submit** (toggle) — starts a 10-second countdown once world, time, and hint are all filled in; the submission payload is snapshotted at countdown start so a world hop during the countdown doesn't corrupt it; cancel by clicking the auto-submit button or clearing a field; manual submit is always available (hint not required)
