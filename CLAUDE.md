@@ -19,7 +19,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 ```bash
 npm run dev          # start Vite dev server (http://localhost:5173)
 npm run host         # dev server + alt1-plugin watch, exposed to network (concurrently)
-npm run build        # tsc -b && vite build + alt1-plugin build (concurrently)
+npm run build        # tsc -b && vite build && alt1-plugin build (sequential)
 npm run lint         # eslint
 npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
@@ -53,7 +53,7 @@ server/
     validation.test.ts  # Vitest unit tests for validateMessage, validateInitializeState
 
 e2e/
-  app.spec.ts           # Playwright E2E tests: grid render, spawn timer, tree info, mark dead, detail view
+  app.spec.ts           # Playwright E2E tests: grid render, spawn timer, tree info, mark dead, detail view, sort/filter, session join, WS race conditions
 
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
@@ -168,6 +168,7 @@ SpawnTimerView only allows setting a location **hint**, not an exact location. T
 - All three tools are **always enabled** — each serves as a correction path from any state.
 - Auto-transitions use exact timestamps for `deadAt` (e.g., `matureAt + 30min`), not `Date.now()`, to avoid drift from the poll interval.
 - `clearWorld(worldId)` deletes the key from state entirely; the grid fallback `?? { treeStatus: 'none' }` handles the missing key.
+- `applyUpdateTreeFields` clears `treeExactLocation` when `treeHint` changes (unless a new exact location is explicitly provided in the same update), because location options depend on the selected hint.
 
 ### Auto-Transitions
 Client checks every 1 second (for smooth countdown display), server checks every 10 seconds per session.
@@ -248,11 +249,14 @@ Security response headers applied to all HTTP responses:
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
 
 ### WebSocket Protocol
-Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/ws?pairToken=XXXX` (4-char token obtained from the dashboard's `requestPairToken` flow). The server validates the code or pair token on upgrade. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
+All clients connect to `ws://host/ws` (no query parameters). Authentication is message-based: immediately after the WebSocket opens, the client sends one of three auth messages (`authSession`, `authInvite`, or `authPersonal`). The server enforces a 10-second auth timeout — connections that don't authenticate are closed. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
 
 **Client → Server messages** (`ClientMessage`):
 | Type | Payload |
 |---|---|
+| `authSession` | `code: string` — authenticate by session code (anonymous join) |
+| `authInvite` | `token: string` — authenticate by 12-char invite token (managed session member) |
+| `authPersonal` | `token: string` — authenticate by personal token (scout/dashboard identity persistence) |
 | `setSpawnTimer` | `worldId`, `msFromNow`, optional `treeInfo: { treeHint? }`, optional `msgId` |
 | `setTreeInfo` | `worldId`, `info: TreeInfoPayload`, optional `msgId` |
 | `updateTreeFields` | `worldId`, `fields: TreeFieldsPayload`, optional `msgId` |
@@ -263,31 +267,30 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `initializeState` | `worlds: WorldStates` — seeds a fresh session with the creator's local state (no `msgId`) |
 | `reportLightning` | `worldId`, `health: 50 \| 25`, optional `msgId` — reports a client-observed lightning strike; server applies `applyReportLightning` and broadcasts |
 | `identify` | `clientType: 'scout' \| 'dashboard'` — declares this connection's role (no `msgId`) |
-| `requestPairToken` | (no payload, no `msgId`) — dashboard requests a short-lived 4-char pair token |
-| `resumePair` | `pairId: string` — re-associates a reconnected client with an existing pair group (no `msgId`) |
 | `reportWorld` | `worldId: number \| null` — scout reports which world it is currently scouting (no `msgId`) |
-| `unpair` | (no payload, no `msgId`) — voluntarily dissolves the current pair |
-| `forkToManaged` | `name: string` — initiates a fork of the current anonymous session to a new managed session; `name` is the initiator's display name; only works on non-managed sessions (replaces the old `enableManaged` message) |
+| `requestPersonalToken` | (no payload, no `msgId`) — requests a 12-char personal token for identity persistence across reconnects |
+| `forkToManaged` | `name: string` — initiates a fork of the current anonymous session to a new managed session; `name` is the initiator's display name; only works on non-managed sessions |
 | `createInvite` | `name: string; role?: 'scout' \| 'viewer'` — creates a 12-char invite token for a named member |
 | `banMember` | `inviteToken: string` — disconnects and permanently revokes a member's invite token |
 | `renameMember` | `inviteToken: string; name: string` — renames a member (admin only) |
 | `setMemberRole` | `inviteToken: string; role: 'moderator' \| 'scout' \| 'viewer'` — changes a member's role (admin only) |
 | `transferOwnership` | `inviteToken: string` — transfers owner role to another member |
+| `setAllowViewers` | `allow: boolean` — toggles whether anonymous viewers can join a managed session (admin only) |
 | `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):
 | Type | Payload |
 |---|---|
+| `authSuccess` | `sessionCode: string; personalToken?: string` — confirms authentication; includes personal token if the client authenticated via invite/personal token |
+| `authError` | `reason: string; code?: 'invalid' \| 'expired' \| 'full' \| 'banned' \| 'timeout'` — authentication failed; connection is closed after this |
 | `snapshot` | `worlds: WorldStates` — full state on connect |
-| `worldUpdate` | `worldId`, `state: WorldState \| null` (`null` = cleared), optional `source?: string` (pairId attribution for scout-sourced updates) |
+| `worldUpdate` | `worldId`, `state: WorldState \| null` (`null` = cleared), optional `source?: string \| { name, role }` (attribution — plain string in anonymous sessions, object in managed) |
 | `clientCount` | `count: number; scouts: number; dashboards: number` — broadcast on join/leave/type-change |
-| `pairToken` | `token: string; expiresIn: number` — response to `requestPairToken` |
-| `paired` | `pairId: string; sessionCode: string` — sent to both sides when pairing completes |
-| `unpaired` | `reason: string` — sent when a pair is dissolved (peer disconnect, re-pair, or voluntary unpair) |
-| `peerWorld` | `worldId: number \| null` — sent to dashboard when its paired scout changes worlds |
-| `identity` | `name: string; role: MemberRole` — sent to a connecting member after joining a managed session |
+| `peerWorld` | `worldId: number \| null` — sent to dashboard when its linked scout changes worlds |
+| `identity` | `name: string; role: MemberRole; sessionCode: string` — sent to a connecting member after joining a managed session |
+| `personalToken` | `token: string` — response to `requestPersonalToken`; 12-char token persisted by clients for reconnection |
 | `managedEnabled` | `ownerToken: string` — sent to the session creator when a directly-upgraded managed session activates |
-| `forkInvite` | `managedCode`, `inviteLink`, `initiatorName`, `expiresAt`, `selfRegisterToken?` — broadcast to all clients in an anonymous session when someone initiates a fork; `selfRegisterToken` is included so each client can self-register into the new managed session |
+| `forkInvite` | `managedCode`, `inviteLink`, `initiatorName`, `expiresAt`, `selfRegisterToken?`, `personalToken?` — broadcast to all clients in an anonymous session when someone initiates a fork; `selfRegisterToken` is included so each client can self-register into the new managed session; `personalToken` is the client's existing personal token (if any) for migration |
 | `forkInviteExpired` | (no payload) — broadcast when the fork invite window expires without completing |
 | `forkCreated` | `managedCode: string; ownerToken: string` — sent to the fork initiator when the managed session has been created and is ready |
 | `inviteCreated` | `inviteToken: string; name: string; link: string` — sent to the admin who created the invite |
@@ -295,6 +298,8 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 | `memberLeft` | `name: string` — broadcast when a member disconnects |
 | `memberList` | `members: MemberInfo[]` — full member list broadcast; admin recipients receive `inviteToken` on each entry, regular members do not |
 | `banned` | `reason: string` — sent to a client whose invite token has been revoked |
+| `allowViewers` | `allow: boolean` — broadcast when the allow-viewers setting changes |
+| `redirect` | `code: string` — tells a client to disconnect and reconnect to a different session (used during fork migration for clients with personal tokens) |
 | `ack` | `msgId: number` — confirms a mutation was applied |
 | `pong` | (no payload) — response to `ping` |
 | `error` | `message: string; serverVersion?: string` |
@@ -306,8 +311,8 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 - Server runs auto-transitions every 10 seconds per session, broadcasting only changed worlds
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
 - Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
-- **Pairing**: each session maintains `pairTokens` (4-char tokens, 60s TTL), `pairs` (pairId → `{ dashboard, scout, currentWorld }`), and `wsToPairId` maps. A dashboard requests a token via `requestPairToken`; a Scout connects with that token via `?pairToken=`; the server calls `consumeAndCompletePairing` and sends `paired` to both sides. `resumePair` lets reconnecting clients re-join an existing pair group. Pair token sweep runs on the 10s transition interval.
-- **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken`. Clients self-register via `POST /api/session/:code/self-invite` (returns an `inviteToken`) then reconnect to the managed session. The initiator receives `forkCreated` with their `ownerToken`. Fork invite window is 10 minutes (`FORK_INVITE_TTL_MS`); a 1-hour cooldown (`FORK_COOLDOWN_MS`) prevents rapid forks. Owner token is 12-char, persisted to client localStorage for reconnect. Members also join via `?invite=TOKEN` on the WS upgrade URL. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations. Admins (owner/moderator) receive `inviteToken` and `link` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous pairId string).
+- **Scout linking (personal tokens)**: a dashboard can request a personal token via `requestPersonalToken`; the server responds with a 12-char `personalToken` message. The scout connects using `authPersonal` with the same token, linking the two. The dashboard receives `peerWorld` messages when the scout reports world changes via `reportWorld`. Personal tokens persist across reconnects (stored in `localStorage` as `evilTree_inviteToken`).
+- **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken` and their `personalToken` (if any). Clients self-register via `POST /api/session/:code/self-invite` (returns an `inviteToken`) then reconnect to the managed session using `authInvite`. The initiator receives `forkCreated` with their `ownerToken`. Fork invite window is 10 minutes (`FORK_INVITE_TTL_MS`); a 1-hour cooldown (`FORK_COOLDOWN_MS`) prevents rapid forks. Owner token is 12-char, persisted to client localStorage for reconnect. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations (enforced by `canWrite()` check). `allowViewers` flag (toggled via `setAllowViewers`) admits anonymous `authSession` connections as read-only viewers. Admins (owner/moderator) receive `inviteToken` and `link` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous string).
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`
@@ -316,6 +321,7 @@ Dashboards connect to `ws://host/ws?code=XXXXXX`. Scouts connect via `ws://host/
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 
 ### Per-Connection Protections
+- Auth timeout: 10 seconds to send an auth message after WebSocket open
 - Max message size: 4 KB (64 KB for `initializeState` and `contributeWorlds`)
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s
@@ -374,13 +380,16 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - `renameMember(inviteToken, name)` — renames a member
 - `setMemberRole(inviteToken, role)` — changes a member's role
 - `transferOwnership(inviteToken)` — transfers owner role to another member
-- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload; active pair ID is stored in `localStorage` (`evilTree_pairId`) and auto-resumed via `resumePair` on reconnect
+- `joinByInviteToken(tokenOrUrl)` — extracts a 12-char invite token from a raw string or URL, persists it, and connects via `authInvite`
+- `requestPersonalToken()` — sends `requestPersonalToken` to the server; response arrives via `personalToken` message and is persisted to `localStorage` (`evilTree_inviteToken`)
+- `setAllowViewers(allow)` — toggles whether anonymous viewers can join a managed session
+- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload; invite/personal tokens are stored in `localStorage` (`evilTree_inviteToken`) and used for `authInvite`/`authPersonal` on reconnect
 - **`?join=CODE` URL parameter**: on page load, if a `?join=` query param is present with a valid 6-character code, the session is joined automatically and the param is removed from the URL history
-- **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely
+- **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely. On reconnect, if an invite token is stored it is used for `authInvite`, otherwise `authSession` with the session code.
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
 - Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
-- `SessionState` includes pairing fields (`pairToken`, `pairTokenExpiresAt`, `pairId`, `isPaired`, `pairedScoutWorld`, `recentOwnWorldId`) and managed session fields (`managed`, `ownerToken`, `memberName`, `memberRole`, `members`, `lastInvite`, `forkInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
+- `SessionState` includes personal token field (`personalToken`), scout linking fields (`scoutWorld`, `recentOwnWorldId`), and managed session fields (`managed`, `ownerToken`, `allowViewers`, `memberName`, `memberRole`, `members`, `lastInvite`, `forkInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
 
 ## Alt1 Scout Plugin (`alt1-plugin/`)
 
@@ -398,7 +407,7 @@ alt1-plugin/src/
     useScoutSession.ts  # React wrapper around EctoSession — exposes state + actions
     useAlt1.ts          # Alt1 API access: isAlt1, hasPixel, hasGameState, scanWorld(), scanDialog()
   components/
-    SessionPanel.tsx    # Session connect/join/create UI + 4-char pair code input
+    SessionPanel.tsx    # Session connect/join/create UI + invite token input
     WorldInput.tsx      # World number field with manual scan button + auto-world toggle
     ReportForm.tsx      # Spawn timer (hr/min) + hint field + scan/auto-scan/auto-submit controls
     DebugPanel.tsx      # Dev-only debug overlay (rendered in development mode only)
@@ -408,7 +417,7 @@ alt1-plugin/src/
 ### Plugin Features
 
 - **Session management**: join by 6-char code or `?join=` URL param; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
-- **Pairing**: enter the 4-char pair token generated by the dashboard to link scout ↔ dashboard; once paired, world hops are reported in real time (`reportWorld`); pair ID persisted to `localStorage` (`evilTree_pairId`) and auto-resumed via `resumePair`; Unpair button dissolves the link
+- **Invite token join**: join a managed session by entering or pasting a 12-char invite token (or URL containing one); token is persisted to `localStorage` (`evilTree_inviteToken`) and used for `authInvite` on reconnect; world hops are reported in real time (`reportWorld`)
 - **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `session.reportWorld(worldId)` to sync the dashboard's scout indicator
 - **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint
 - **Auto-scan** (toggleable, persisted as `scout_autoScan`): watches `alt1.rsLastActive` for RS clicks; retries scan every 300ms in the 150–800ms window after a click to catch the dialog as soon as it renders
@@ -419,10 +428,10 @@ alt1-plugin/src/
 
 Plain TypeScript class (no React) that mirrors `useSession.ts`. Key differences from the main app session:
 - Event-emitter API (`session.on(event, listener)`) instead of React state
-- Identifies as `clientType: 'scout'` on connect
-- `submitPairToken(token)` — connects via `?pairToken=` URL; on `paired` message, saves the resolved session code for reconnects
+- Uses message-based auth: sends `authInvite` (if invite token stored) or `authSession` (if session code stored) immediately after WS open; identifies as `clientType: 'scout'` after `authSuccess`
+- `joinWithToken(tokenOrUrl)` — extracts a 12-char invite token and connects via `authInvite`; token persisted to `localStorage` for reconnect
 - `reportWorld(worldId | null)` — sends `reportWorld` message; called by auto-world on each hop
-- `unpair()` — sends `unpair` and clears stored pair ID
+- Handles `redirect` messages (server-initiated session migration during fork) by reconnecting to the new session code
 - Same reconnect backoff, ping/pong, and ACK system as the main app
 
 ## Adding/Removing Worlds
