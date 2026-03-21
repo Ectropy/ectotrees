@@ -35,11 +35,16 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 ## Project Structure
 
 ```
+scripts/
+  update-docs.mjs           # preversion gate: shows commits since last tag, prompts for docs confirmation
+  generate-release-notes.mjs # CI script: calls Claude API to summarize commits, writes .release-notes.md
+
 shared/
   types.ts              # Single source of truth: TreeType, WorldState, timing constants
   protocol.ts           # WebSocket message types (ClientMessage, ServerMessage)
   mutations.ts          # Pure state mutation functions (used by both client and server)
   hints.ts              # Location hints database (17 hints → possible exact locations)
+  reconnect.ts          # Shared reconnection constants and formatReconnectMessage() helper
   __tests__/
     mutations.test.ts   # Vitest unit tests for all mutation functions
 
@@ -224,6 +229,7 @@ Pure TypeScript code shared between client and server — the single source of t
 - **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol
 - **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyReportLightning`, `applyTransitions`) that take a `WorldStates` map and return a new one
 - **`hints.ts`** — `LOCATION_HINTS` map: 17 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
+- **`reconnect.ts`** — `RECONNECT_DELAYS`, `MAX_RECONNECT_ATTEMPTS`, `formatReconnectMessage()` — shared reconnection constants and helper used by both the main app and alt1 plugin
 
 `src/types/index.ts` and `src/constants/evilTree.ts` re-export from `shared/types.ts`.
 
@@ -371,31 +377,15 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 
 ## Client Sync Layer (`useSession.ts`)
 
-- `createSession(initialStates?)` — POST to `/api/session`, connect WebSocket, then send `initializeState` with the caller's local world state to seed the fresh session
-- `joinSession(code)` — validate format client-side (synchronous), then connect WebSocket directly; errors (session not found, full) arrive asynchronously via the WS `error` message
-- `rejoinSession(code)` — same as `joinSession` but resets the reconnect counter (used by the UI's manual retry button)
-- `previewJoin(code)` — opens a separate preview WebSocket and returns a `Promise<WorldStates | null>` that resolves on the first `snapshot`; keeps the WS open so subsequent `worldUpdate` messages keep `previewWorlds` state live while the user reviews the join screen
-- `confirmPreviewJoin(code, localStates?)` — closes the preview WS, sets merge state, and calls `connectWs` for the real session connection; reuses existing snapshot merge + `contributeWorlds` logic
-- `cancelPreview()` — closes the preview WS without joining; clears `previewWorlds`
-- `leaveSession()` — close WebSocket cleanly
-- `dismissError()` — clear the current error state
-- `forkToManaged(name)` — initiates a fork of the current anonymous session to a new managed session; sends `forkToManaged` with the caller's display name; all clients receive a `forkInvite` notification
-- `joinManagedFork(managedCode, name, selfRegisterToken)` — calls `POST /api/session/:code/self-invite` to self-register using the token from `forkInvite`, then switches the WebSocket connection to the new managed session
-- `createInvite(name, role?)` — creates a named invite token; result arrives via `inviteCreated` → `session.lastInvite`
-- `banMember(inviteToken)` — revokes a member's token and disconnects them
-- `renameMember(inviteToken, name)` — renames a member
-- `setMemberRole(inviteToken, role)` — changes a member's role
-- `transferOwnership(inviteToken)` — transfers owner role to another member
-- `joinByInviteToken(tokenOrUrl)` — extracts a 12-char invite token from a raw string or URL, persists it, and connects via `authInvite`
-- `requestPersonalToken()` — sends `requestPersonalToken` to the server; response arrives via `personalToken` message and is persisted to `localStorage` (`evilTree_inviteToken`)
-- `setAllowViewers(allow)` — toggles whether anonymous viewers can join a managed session
-- **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload; invite/personal tokens are stored in `localStorage` (`evilTree_inviteToken`) and used for `authInvite`/`authPersonal` on reconnect
-- **`#join=CODE` URL fragment**: on page load, if a `#join=` hash fragment is present with a valid 6-character code, the session is joined automatically and the fragment is removed from the URL history. Similarly, `#invite=TOKEN` triggers an invite-based join.
-- **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely. On reconnect, if an invite token is stored it is used for `authInvite`, otherwise `authSession` with the session code.
-- **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
-- **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
-- Returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth. All mutations are sent to the server and applied optimistically on the client.
-- `SessionState` includes personal token field (`personalToken`), scout linking fields (`scoutWorld`, `recentOwnWorldId`), and managed session fields (`managed`, `ownerToken`, `allowViewers`, `memberName`, `memberRole`, `members`, `lastInvite`, `forkInvite`). `defaultSessionState()` helper resets all fields to defaults on leave/disconnect. `recentOwnWorldId` tracks the scout's most recently reported world; auto-cleared after 3 seconds.
+Exposes `createSession`, `joinSession`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowViewers`), and personal token ops (`requestPersonalToken`, `joinByInviteToken`).
+
+Key behaviors:
+- **localStorage**: session code → `evilTree_sessionCode`; invite/personal token → `evilTree_inviteToken`. Both are auto-resumed on page reload.
+- **URL fragments**: `#join=CODE` auto-joins on load; `#invite=TOKEN` triggers an invite-based join. Fragments are removed from history after use.
+- **Reconnection**: exponential backoff via `shared/reconnect.ts` (`[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts). Fatal errors (`Session is full.`, `Session not found.`) skip reconnection. On reconnect, invite token takes priority over session code for auth.
+- **Ping/pong**: ping every 30s; socket force-closed if no pong within 8s.
+- **ACK system**: every mutation tagged with `msgId`; socket force-closed if no `ack` within 5s. Pending mutations replayed in order on reconnect.
+- **SyncChannel**: the hook returns a `SyncChannel` passed into `useWorldStates` — when non-null, localStorage writes are skipped and the server is the source of truth; mutations are applied optimistically client-side.
 
 ## Alt1 Scout Plugin (`alt1-plugin/`)
 
@@ -406,12 +396,12 @@ A separate Vite app (served at `/alt1`) for scouts to submit spawn intel from in
 ```
 alt1-plugin/src/
   App.tsx               # Root component: orchestrates session, world, scan, and form state
-  session.ts            # EctoSession class — plain TS port of useSession (no React); event-emitter pattern
   scanner.ts            # Alt1 pixel scanning logic: reads spawn timer and location hint from dialog
   parser.ts             # Parses raw dialog text into { hours, minutes, hint }
   hooks/
-    useScoutSession.ts  # React wrapper around EctoSession — exposes state + actions
+    useScoutSession.ts  # WebSocket session management for the scout: create/join/leave, reconnection, mutations
     useAlt1.ts          # Alt1 API access: isAlt1, hasPixel, hasGameState, scanWorld(), scanDialog()
+    useCountdown.ts     # Countdown timer hook (local copy of main app's useCountdown)
   components/
     SessionPanel.tsx    # Session connect/join/create UI + invite token input
     WorldInput.tsx      # World number field with manual scan button + auto-world toggle
@@ -424,21 +414,12 @@ alt1-plugin/src/
 
 - **Session management**: join by 6-char code or `#join=` URL fragment; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
 - **Invite token join**: join a managed session by entering or pasting a 12-char invite token (or URL containing one); token is persisted to `localStorage` (`evilTree_inviteToken`) and used for `authInvite` on reconnect; world hops are reported in real time (`reportWorld`)
-- **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `session.reportWorld(worldId)` to sync the dashboard's scout indicator
+- **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `reportWorld(worldId)` to sync the dashboard's scout indicator
 - **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint
 - **Auto-scan** (toggleable, persisted as `scout_autoScan`): watches `alt1.rsLastActive` for RS clicks; retries scan every 300ms in the 150–800ms window after a click to catch the dialog as soon as it renders
 - **Auto-submit** (toggleable, persisted as `scout_autoSubmit`): starts a 10s countdown when world + timer + hint are all filled in; payload is snapshotted at countdown start so world hops during the countdown don't corrupt the submission; cancel by clicking the auto-submit button or clearing a field
 - **ACK-driven UX**: submit button shows "Submitting…" until server `ack` is received; disconnect before ack shows an error; fields auto-clear on successful ack (only if unchanged since submit)
 
-### EctoSession (alt1-plugin/src/session.ts)
-
-Plain TypeScript class (no React) that mirrors `useSession.ts`. Key differences from the main app session:
-- Event-emitter API (`session.on(event, listener)`) instead of React state
-- Uses message-based auth: sends `authInvite` (if invite token stored) or `authSession` (if session code stored) immediately after WS open; identifies as `clientType: 'scout'` after `authSuccess`
-- `joinWithToken(tokenOrUrl)` — extracts a 12-char invite token and connects via `authInvite`; token persisted to `localStorage` for reconnect
-- `reportWorld(worldId | null)` — sends `reportWorld` message; called by auto-world on each hop
-- Handles `redirect` messages (server-initiated session migration during fork) by reconnecting to the new session code
-- Same reconnect backoff, ping/pong, and ACK system as the main app
 
 ## Adding/Removing Worlds
 Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`

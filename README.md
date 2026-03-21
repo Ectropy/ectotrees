@@ -12,7 +12,7 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 - **Automatic health caps** reflecting lightning strikes mid-fight: health is capped to 50% at 10 minutes and 25% at 20 minutes, with animated lightning bolt effects on the affected card
 - Three tools on every card:
   - **Spawn timer** — set a countdown to the next expected spawn, with optional location hint
-  - **Tree info** — record tree type, location hint, and exact location
+  - **Tree info** — record tree type, health %, location hint, and exact location
   - **Mark dead** — mark a tree as dead with one click (with confirmation)
 - **Click any card** to open a detail view showing the complete status (tree type, full location, live countdowns). All three tools are accessible directly from the detail view, and a **clear world state** option lets you instantly reset a world if you recorded information on the wrong one
 - **Sort & filter bar** (collapsible) with multiple options:
