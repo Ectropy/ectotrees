@@ -5,6 +5,7 @@ import type { ClientMessage } from '@shared/protocol';
 export interface ScoutSessionState {
   status: SessionStatus;
   code: string | null;
+  inviteToken: string | null;
   error: string | null;
   memberName: string | null;
   memberRole: string | null;
@@ -20,6 +21,7 @@ export function useScoutSession() {
   const [state, setState] = useState<ScoutSessionState>({
     status: session.status,
     code: session.code,
+    inviteToken: session.inviteToken,
     error: session.error,
     memberName: session.memberName,
     memberRole: session.memberRole,
@@ -28,7 +30,7 @@ export function useScoutSession() {
   useEffect(() => {
     const unsubs = [
       session.on('statusChange', (status) => {
-        setState((prev) => ({ ...prev, status }));
+        setState((prev) => ({ ...prev, status, inviteToken: session.inviteToken }));
       }),
       session.on('codeChange', (code) => {
         setState((prev) => ({ ...prev, code }));
@@ -55,7 +57,7 @@ export function useScoutSession() {
 
   const leaveSession = useCallback(() => {
     session.leaveSession();
-    setState((prev) => ({ ...prev, memberName: null, memberRole: null }));
+    setState((prev) => ({ ...prev, memberName: null, memberRole: null, inviteToken: null }));
   }, [session]);
 
   const sendMutation = useCallback((msg: ClientMessage) => {

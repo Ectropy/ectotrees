@@ -1,21 +1,12 @@
 import { useState } from 'react';
 import type { SessionStatus } from '../session';
 
-function extractSessionCode(raw: string): string {
-  try {
-    const url = new URL(raw.trim());
-    const hashMatch = url.hash.match(/^#join=(.+)$/);
-    if (hashMatch) return hashMatch[1].toUpperCase();
-  } catch { /* not a URL */ }
-  return raw.toUpperCase();
-}
-
 interface SessionPanelProps {
   status: SessionStatus;
   code: string | null;
+  inviteToken: string | null;
   memberName: string | null;
   memberRole: string | null;
-  onJoin: (code: string) => boolean;
   onLeave: () => void;
   onJoinWithToken: (tokenOrUrl: string) => boolean;
   onError: (msg: string) => void;
@@ -23,25 +14,25 @@ interface SessionPanelProps {
 
 export function SessionPanel({
   status,
-  code,
+  inviteToken,
   memberName,
   memberRole,
-  onJoin,
   onLeave,
   onJoinWithToken,
   onError,
 }: SessionPanelProps) {
-  const [inputCode, setInputCode] = useState(code ?? '');
+  const [inputCode, setInputCode] = useState('');
   const connected = status === 'connected';
   const connecting = status === 'connecting';
   const active = connected || connecting;
+  const hasDroppedToken = status === 'disconnected' && inviteToken !== null;
 
   function handleInput(raw: string) {
-    // If the input is a URL with any recognized fragment (#join=, #invite=, etc.),
-    // extract just the code/token from it rather than showing the whole URL.
+    // If the input is a URL with a recognized fragment (#invite=, #personal=),
+    // extract just the token from it rather than showing the whole URL.
     try {
       const url = new URL(raw.trim());
-      const hashMatch = url.hash.match(/^#(?:join|invite|personal)=([A-Za-z0-9]+)$/);
+      const hashMatch = url.hash.match(/^#(?:invite|personal)=([A-Za-z0-9]+)$/);
       if (hashMatch) {
         setInputCode(hashMatch[1].toUpperCase());
         return;
@@ -52,24 +43,16 @@ export function SessionPanel({
 
   function handleJoin() {
     const raw = inputCode.trim();
-    // Try as 12-char invite token or URL with #invite=
-    if (onJoinWithToken(raw)) {
-      setInputCode('');
+    if (!onJoinWithToken(raw)) {
+      onError('Enter a valid 12-char invite code or invite URL.');
       return;
     }
-    // Fall back to 6-char session code
-    const c = extractSessionCode(raw);
-    if (!/^[A-Z2-9]{6}$/.test(c)) {
-      onError('Enter a 6-char session code or 12-char invite code.');
-      return;
-    }
-    setInputCode(c);
-    onJoin(c);
+    setInputCode('');
   }
 
-  // Sync code from session into input when it changes externally
-  if (code && !inputCode) {
-    setInputCode(code);
+  function handleLeave() {
+    setInputCode('');
+    onLeave();
   }
 
   const statusDotClass =
@@ -92,12 +75,44 @@ export function SessionPanel({
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
-              onClick={onLeave}
+              onClick={handleLeave}
               className="bg-transparent text-muted-foreground text-xs font-semibold px-2 py-1 rounded border border-border hover:bg-secondary hover:text-foreground"
             >
               Leave
             </button>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ── Disconnected with a dropped invite token (reconnect UI) ───────────────
+  if (hasDroppedToken) {
+    const redacted = '••••••••' + inviteToken!.slice(-4);
+    return (
+      <section className="px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <span className="flex-1 bg-input border border-border rounded px-2 py-1 text-muted-foreground text-sm font-mono tracking-wider select-none">
+            {redacted}
+          </span>
+          <button
+            onClick={() => onJoinWithToken(inviteToken!)}
+            className="bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 rounded hover:opacity-90"
+          >
+            Reconnect
+          </button>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${statusDotClass}`} />
+            <span>Disconnected</span>
+          </span>
+          <button
+            onClick={handleLeave}
+            className="bg-transparent text-muted-foreground text-[11px] px-1 hover:text-foreground"
+          >
+            Clear
+          </button>
         </div>
       </section>
     );
@@ -110,7 +125,7 @@ export function SessionPanel({
         <input
           type="text"
           maxLength={256}
-          placeholder="Session or invite code"
+          placeholder="Invite code"
           autoComplete="off"
           spellCheck={false}
           value={inputCode}
@@ -133,7 +148,7 @@ export function SessionPanel({
         </span>
         {connecting && (
           <button
-            onClick={onLeave}
+            onClick={handleLeave}
             className="bg-transparent text-muted-foreground text-xs font-semibold px-2.5 py-1 rounded border border-border hover:bg-secondary hover:text-foreground"
           >
             Cancel
