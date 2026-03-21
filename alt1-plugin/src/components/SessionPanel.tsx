@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SessionStatus } from '../session';
+import type { SessionStatus } from '../hooks/useScoutSession';
 import { useCountdown } from '../hooks/useCountdown';
 import { formatReconnectMessage } from '@shared/reconnect';
 

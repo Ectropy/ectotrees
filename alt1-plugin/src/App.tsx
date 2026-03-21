@@ -25,8 +25,8 @@ export function App() {
     status, code, inviteToken, error,
     memberName, memberRole,
     reconnectAttempt, reconnectAt,
-    session, leaveSession, sendMutation, dismissError,
-    joinWithToken,
+    ackCount, leaveSession, sendMutation, dismissError,
+    joinWithToken, reportWorld,
   } = useScoutSession();
 
   // Form state
@@ -36,6 +36,8 @@ export function App() {
   const [hint, setHint] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  type SubmittedValues = { world: string; hours: string; minutes: string; hint: string };
+  const submittedValuesRef = useRef<SubmittedValues | null>(null);
 
   // Auto-submit state
   const [autoSubmit, setAutoSubmit] = useState(() => localStorage.getItem('scout_autoSubmit') === 'true');
@@ -90,6 +92,37 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
+  // Handle server ACK — clears fields and shows success after a confirmed submission
+  useEffect(() => {
+    if (!submittingRef.current) return;
+    const sv = submittedValuesRef.current;
+    submittedValuesRef.current = null;
+    setSubmitting(false);
+    submittingRef.current = false;
+    showStatus('Submitted!', 'ok');
+    if (sv) {
+      setWorld(w => (w.trim() === sv.world ? '' : w));
+      setHours(v => (v === sv.hours ? '' : v));
+      setMinutes(v => (v === sv.minutes ? '' : v));
+      setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
+    }
+    if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
+    setCloudCheck(true);
+    cloudCheckTimerRef.current = setTimeout(() => setCloudCheck(false), 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ackCount]);
+
+  // Handle disconnect while a submission is in flight
+  useEffect(() => {
+    if (status === 'disconnected' && submittingRef.current) {
+      submittedValuesRef.current = null;
+      setSubmitting(false);
+      submittingRef.current = false;
+      showStatus('Disconnected before submit was confirmed.', 'error');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   // Auto-world: poll every 5s, detect world hops via lastWorldHop timestamp
   useEffect(() => {
     if (!autoWorld || !hasGameState) return;
@@ -109,9 +142,9 @@ export function App() {
           if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
           worldScanTimerRef.current = setTimeout(() => setIsWorldScanning(false), 1500);
           showStatus(`World hop detected → W${w}`, 'ok');
-          session.reportWorld(w);
+          reportWorld(w);
         } else {
-          session.reportWorld(null);
+          reportWorld(null);
         }
       }
     }, 5000);
@@ -338,36 +371,14 @@ export function App() {
     submittingRef.current = true;
     showStatus('Submitting...');
 
-    const submittedWorld = String(worldId);
     const h = Math.floor(msFromNow / 3_600_000);
     const m = Math.floor((msFromNow % 3_600_000) / 60_000);
-    const submittedHours = h > 0 ? String(h) : '';
-    const submittedMinutes = m > 0 ? String(m) : '';
-
-    const unsubAck = session.on('ack', () => {
-      unsubAck();
-      unsubStatus();
-      setSubmitting(false);
-      submittingRef.current = false;
-      showStatus('Submitted!', 'ok');
-      setWorld(w => (w.trim() === submittedWorld ? '' : w));
-      setHours(v => (v === submittedHours ? '' : v));
-      setMinutes(v => (v === submittedMinutes ? '' : v));
-      setHint(v => (v.trim().slice(0, 200) === hintText ? '' : v));
-      if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
-      setCloudCheck(true);
-      cloudCheckTimerRef.current = setTimeout(() => setCloudCheck(false), 1500);
-    });
-
-    const unsubStatus = session.on('statusChange', (s) => {
-      if (s === 'disconnected' && submittingRef.current) {
-        unsubStatus();
-        unsubAck();
-        setSubmitting(false);
-        submittingRef.current = false;
-        showStatus('Disconnected before submit was confirmed.', 'error');
-      }
-    });
+    submittedValuesRef.current = {
+      world: String(worldId),
+      hours: h > 0 ? String(h) : '',
+      minutes: m > 0 ? String(m) : '',
+      hint: hintText,
+    };
 
     sendMutation({
       type: 'setSpawnTimer',
