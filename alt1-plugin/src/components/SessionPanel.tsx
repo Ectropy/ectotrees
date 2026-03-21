@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { SessionStatus } from '../session';
+import { useCountdown } from '../hooks/useCountdown';
+import { formatReconnectMessage } from '@shared/reconnect';
 
 interface SessionPanelProps {
   status: SessionStatus;
@@ -7,6 +9,8 @@ interface SessionPanelProps {
   inviteToken: string | null;
   memberName: string | null;
   memberRole: string | null;
+  reconnectAttempt: number;
+  reconnectAt: number | null;
   onLeave: () => void;
   onJoinWithToken: (tokenOrUrl: string) => boolean;
   onError: (msg: string) => void;
@@ -17,10 +21,13 @@ export function SessionPanel({
   inviteToken,
   memberName,
   memberRole,
+  reconnectAttempt,
+  reconnectAt,
   onLeave,
   onJoinWithToken,
   onError,
 }: SessionPanelProps) {
+  const countdown = useCountdown(reconnectAt);
   const [inputCode, setInputCode] = useState('');
   const connected = status === 'connected';
   const connecting = status === 'connecting';
@@ -144,7 +151,7 @@ export function SessionPanel({
       <div className="flex items-center justify-between mt-1">
         <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
           <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${statusDotClass}`} />
-          <span>{connecting ? 'Connecting...' : 'Disconnected'}</span>
+          <span>{(connecting && formatReconnectMessage(reconnectAttempt, countdown)) || (connecting ? 'Connecting…' : 'Disconnected')}</span>
         </span>
         {connecting && (
           <button

@@ -24,6 +24,7 @@ export function App() {
   const {
     status, code, inviteToken, error,
     memberName, memberRole,
+    reconnectAttempt, reconnectAt,
     session, leaveSession, sendMutation, dismissError,
     joinWithToken,
   } = useScoutSession();
@@ -409,6 +410,8 @@ export function App() {
           inviteToken={inviteToken}
           memberName={memberName}
           memberRole={memberRole}
+          reconnectAttempt={reconnectAttempt}
+          reconnectAt={reconnectAt}
           onLeave={leaveSession}
           onJoinWithToken={joinWithToken}
           onError={(msg) => showStatus(msg, 'error')}

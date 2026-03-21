@@ -4,7 +4,7 @@ import type { SessionState } from '../hooks/useSession';
 import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
-import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
+import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS } from '../constants/toolColors';
 
 interface SessionBarProps {
@@ -73,11 +73,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   }
 
   function getReconnectText(): string | null {
-    if (session.status !== 'connecting' || session.reconnectAttempt === 0) return null;
-    const remaining = MAX_RECONNECT_ATTEMPTS - session.reconnectAttempt;
-    const suffix = remaining === 0 ? 'Last try' : `${remaining} ${remaining === 1 ? 'try' : 'tries'} left`;
-    if (countdown && countdown > 0) return `Connection lost. Retrying in ${countdown}s · ${suffix}`;
-    return `Connection lost. Attempting to reconnect… · ${suffix}`;
+    if (session.status !== 'connecting') return null;
+    return formatReconnectMessage(session.reconnectAttempt, countdown);
   }
 
   const canRejoin = session.status === 'disconnected' && session.code !== null;

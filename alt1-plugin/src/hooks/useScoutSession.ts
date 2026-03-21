@@ -9,6 +9,8 @@ export interface ScoutSessionState {
   error: string | null;
   memberName: string | null;
   memberRole: string | null;
+  reconnectAttempt: number;
+  reconnectAt: number | null;
 }
 
 export function useScoutSession() {
@@ -25,12 +27,17 @@ export function useScoutSession() {
     error: session.error,
     memberName: session.memberName,
     memberRole: session.memberRole,
+    reconnectAttempt: session.reconnectAttempt,
+    reconnectAt: session.reconnectAt,
   });
 
   useEffect(() => {
     const unsubs = [
       session.on('statusChange', (status) => {
-        setState((prev) => ({ ...prev, status, inviteToken: session.inviteToken }));
+        setState((prev) => ({ ...prev, status, inviteToken: session.inviteToken, reconnectAttempt: session.reconnectAttempt, reconnectAt: session.reconnectAt }));
+      }),
+      session.on('reconnectChange', (reconnectAttempt, reconnectAt) => {
+        setState((prev) => ({ ...prev, reconnectAttempt, reconnectAt }));
       }),
       session.on('codeChange', (code) => {
         setState((prev) => ({ ...prev, code }));

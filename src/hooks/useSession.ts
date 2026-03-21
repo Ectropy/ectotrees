@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
 import type { ClientMessage, ServerMessage, MemberInfo, MemberRole } from '../../shared/protocol.ts';
 import { validateSessionCode } from '../lib/sessionUrl';
+import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '../../shared/reconnect.ts';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -39,10 +40,9 @@ export interface SessionState {
 
 const API_BASE = resolveApiBase();
 const WS_BASE = resolveWsBase();
-const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;  // force-close if pong not received within this window after a ping
-export const MAX_RECONNECT_ATTEMPTS = 10;
+export { MAX_RECONNECT_ATTEMPTS };
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 const INVITE_TOKEN_STORAGE_KEY = 'evilTree_inviteToken';

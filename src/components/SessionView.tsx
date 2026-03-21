@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
-import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
+import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -90,11 +90,8 @@ export function SessionView({
   }
 
   function getReconnectText(): string | null {
-    if (session.status !== 'connecting' || session.reconnectAttempt === 0) return null;
-    const remaining = MAX_RECONNECT_ATTEMPTS - session.reconnectAttempt;
-    const suffix = remaining === 0 ? 'Last try' : `${remaining} ${remaining === 1 ? 'try' : 'tries'} left`;
-    if (countdown && countdown > 0) return `Retrying in ${countdown}s · ${suffix}`;
-    return `Attempting to reconnect… · ${suffix}`;
+    if (session.status !== 'connecting') return null;
+    return formatReconnectMessage(session.reconnectAttempt, countdown);
   }
 
   const isConnected = session.status === 'connected';

@@ -5,15 +5,14 @@
 
 import type { WorldStates, WorldState } from '@shared/types';
 import type { ClientMessage, ServerMessage } from '@shared/protocol';
+import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@shared/reconnect';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
 const API_BASE: string = import.meta.env.VITE_API_BASE ?? '/api';
 const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? '';
-const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;
-const MAX_RECONNECT_ATTEMPTS = 10;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_KEY = 'evilTree_sessionCode';
 const INVITE_TOKEN_KEY = 'evilTree_inviteToken';
@@ -26,6 +25,7 @@ interface PendingMutation {
 
 type EventMap = {
   statusChange: [status: SessionStatus];
+  reconnectChange: [attempt: number, reconnectAt: number | null];
   codeChange: [code: string | null];
   clientCount: [count: number];
   error: [message: string | null];
@@ -539,9 +539,11 @@ export class EctoSession {
       this.reconnectAttempt = attempt + 1;
       this.reconnectAt = Date.now() + delay;
       this.setStatus('connecting');
+      this.emit('reconnectChange', this.reconnectAttempt, this.reconnectAt);
 
       this.reconnectTimer = setTimeout(() => {
         this.reconnectAt = null;
+        this.emit('reconnectChange', this.reconnectAttempt, null);
         if (this.inviteToken) this.connectWithInviteToken(this.inviteToken);
         else if (this.code) this.connectWs(this.code);
       }, delay);
