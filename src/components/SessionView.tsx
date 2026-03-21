@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
-import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
+import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -255,7 +255,7 @@ export function SessionView({
                   <span className={`text-xs ${TEXT_COLOR.muted}`}>Your Alt1 code:</span>
                   <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.personalToken}</span>
                   <button
-                    onClick={() => copyToken(session.personalToken!)}
+                    onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
                     className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                   >
                     {tokenCopied ? 'Copied!' : 'Copy'}

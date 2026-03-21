@@ -209,7 +209,7 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     const { managedCode, initiatorName, expiresAt, wsTokens } = session.pendingFork;
     const selfRegisterToken = wsTokens.get(ws);
     if (selfRegisterToken) {
-      const inviteLink = `${APP_URL}/?join=${managedCode}`;
+      const inviteLink = `${APP_URL}/#join=${managedCode}`;
       const personalToken = session.wsToInviteToken.get(ws);
       const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken, personalToken };
       ws.send(JSON.stringify(forkInviteMsg));
@@ -426,7 +426,7 @@ function setupManagedOwner(session: Session, name: string, existingToken?: strin
     inviteToken: ownerToken,
     role: 'owner',
     banned: false,
-    connections: new Set(),   // no WS yet — owner joins via ?invite= on the new session
+    connections: new Set(),   // no WS yet — owner joins via #invite= on the new session
     currentWorld: null,
     lastSeen: Date.now(),
   };
@@ -519,7 +519,7 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   childSession.selfRegisterTokens = selfRegisterTokens;
 
   // Send each client their personalized fork invite (with their unique self-register token + personal token if they have one)
-  const inviteLink = `${APP_URL}/?join=${childResult.code}`;
+  const inviteLink = `${APP_URL}/#join=${childResult.code}`;
   for (const ws of session.clients) {
     if (ws.readyState !== 1) continue;
     const selfRegisterToken = wsTokens.get(ws);

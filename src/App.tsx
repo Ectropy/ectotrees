@@ -168,31 +168,27 @@ export default function App() {
     leaveSession();
   }, [saveToLocalStorage, leaveSession]);
 
-  // Auto-join from ?join= query param on first load
+  // Auto-join from hash fragment on first load: #join=CODE or #invite=TOKEN
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get('join');
-    if (!raw) return;
-    const code = raw.trim().toUpperCase();
-    if (!validateSessionCode(code)) return;
-    // Remove the param from the URL without a page reload
-    const url = new URL(window.location.href);
-    url.searchParams.delete('join');
-    history.replaceState(null, '', url.toString());
-    handleJoinSession(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const hash = window.location.hash;
+    if (!hash) return;
 
-  // Auto-join managed session from #invite=TOKEN hash fragment on first load
-  useEffect(() => {
-    const hash = window.location.hash; // e.g. "#invite=ABC123DEF456"
-    const match = hash.match(/^#invite=([A-Za-z0-9]+)$/);
-    if (!match) return;
-    const token = match[1].trim().toUpperCase();
-    if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
-    // Remove the fragment from the URL without a page reload
-    history.replaceState(null, '', window.location.pathname + window.location.search);
-    joinByInviteToken(token);
+    const joinMatch = hash.match(/^#join=([A-Za-z0-9]+)$/);
+    if (joinMatch) {
+      const code = joinMatch[1].trim().toUpperCase();
+      if (!validateSessionCode(code)) return;
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      handleJoinSession(code);
+      return;
+    }
+
+    const inviteMatch = hash.match(/^#invite=([A-Za-z0-9]+)$/);
+    if (inviteMatch) {
+      const token = inviteMatch[1].trim().toUpperCase();
+      if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      joinByInviteToken(token);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

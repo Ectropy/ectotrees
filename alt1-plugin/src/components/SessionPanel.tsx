@@ -4,8 +4,8 @@ import type { SessionStatus } from '../session';
 function extractSessionCode(raw: string): string {
   try {
     const url = new URL(raw.trim());
-    const param = url.searchParams.get('join');
-    if (param) return param.toUpperCase();
+    const hashMatch = url.hash.match(/^#join=(.+)$/);
+    if (hashMatch) return hashMatch[1].toUpperCase();
   } catch { /* not a URL */ }
   return raw.toUpperCase();
 }
@@ -37,20 +37,22 @@ export function SessionPanel({
   const active = connected || connecting;
 
   function handleInput(raw: string) {
-    // Accept both 6-char session codes and 12-char invite tokens
-    const upper = raw.toUpperCase();
-    // Try extracting a session code from a URL
-    const extracted = extractSessionCode(raw);
-    if (extracted !== upper && extracted.length <= 12) {
-      setInputCode(extracted);
-    } else {
-      setInputCode(upper);
-    }
+    // If the input is a URL with any recognized fragment (#join=, #invite=, etc.),
+    // extract just the code/token from it rather than showing the whole URL.
+    try {
+      const url = new URL(raw.trim());
+      const hashMatch = url.hash.match(/^#(?:join|invite|personal)=([A-Za-z0-9]+)$/);
+      if (hashMatch) {
+        setInputCode(hashMatch[1].toUpperCase());
+        return;
+      }
+    } catch { /* not a URL */ }
+    setInputCode(raw.toUpperCase());
   }
 
   function handleJoin() {
     const raw = inputCode.trim();
-    // Try as 12-char invite token or URL with ?invite=
+    // Try as 12-char invite token or URL with #invite=
     if (onJoinWithToken(raw)) {
       setInputCode('');
       return;

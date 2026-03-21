@@ -137,31 +137,31 @@ test('perf: all 137 worlds dead — grid renders and stays responsive', async ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Session join via ?join= query param
+// Session join via #join= hash fragment
 // ─────────────────────────────────────────────────────────────────────────────
 
 const JOIN_CODE = 'ABCD23';
 
-test('?join= valid code: strips param from URL on load', async ({ page }) => {
+test('#join= valid code: strips fragment from URL on load', async ({ page }) => {
   // URL stripping happens client-side before any WS connection — no mock needed
-  await page.goto(`/?join=${JOIN_CODE}`);
+  await page.goto(`/#join=${JOIN_CODE}`);
 
   // URL must be cleaned regardless of whether the WS connection succeeds
   await expect(page).not.toHaveURL(/join=/);
 });
 
-test('?join= invalid code: URL is unchanged, no WS connection made', async ({ page }) => {
+test('#join= invalid code: URL is unchanged, no WS connection made', async ({ page }) => {
   let wsCalled = false;
   await page.routeWebSocket(/\/ws/, () => { wsCalled = true; });
 
-  await page.goto('/?join=TOOLONG');
+  await page.goto('/#join=TOOLONG');
 
   // Invalid codes are silently ignored — URL left as-is, no WS attempted
   await expect(page).toHaveURL(/join=TOOLONG/);
   expect(wsCalled).toBe(false);
 });
 
-test('?join= session not found: URL is cleaned, error shown', async ({ page }) => {
+test('#join= session not found: URL is cleaned, error shown', async ({ page }) => {
   await page.routeWebSocket(/\/ws/, ws => {
     ws.onMessage(raw => {
       try {
@@ -173,7 +173,7 @@ test('?join= session not found: URL is cleaned, error shown', async ({ page }) =
     });
   });
 
-  await page.goto(`/?join=${JOIN_CODE}`);
+  await page.goto(`/#join=${JOIN_CODE}`);
 
   // URL is cleaned even when the session is not found
   await expect(page).not.toHaveURL(/join=/);
@@ -182,7 +182,7 @@ test('?join= session not found: URL is cleaned, error shown', async ({ page }) =
   await expect(page.locator('text=Session not found.')).toBeVisible();
 });
 
-test('?join= valid code: session code appears in bar when WS connects', async ({ page }) => {
+test('#join= valid code: session code appears in bar when WS connects', async ({ page }) => {
   await page.routeWebSocket(/\/ws/, ws => {
     // Respond to client messages (ping → pong, mutations → ack)
     ws.onMessage(raw => {
@@ -201,7 +201,7 @@ test('?join= valid code: session code appears in bar when WS connects', async ({
     });
   });
 
-  await page.goto(`/?join=${JOIN_CODE}`);
+  await page.goto(`/#join=${JOIN_CODE}`);
 
   // The session bar button showing the code confirms a successful join
   await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
@@ -211,7 +211,7 @@ test('?join= valid code: session code appears in bar when WS connects', async ({
 // Join input: paste validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('join input: URL with no ?join= clears the field and shows error', async ({ page }) => {
+test('join input: URL with no #join= clears the field and shows error', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join Session' }).click();
   const input = page.getByPlaceholder('CODE');
@@ -233,12 +233,12 @@ test('join input: string longer than 6 chars clears the field and shows error', 
   await expect(page.locator('text=Not a valid code or link')).toBeVisible();
 });
 
-test('join input: full URL with valid ?join= extracts the code', async ({ page }) => {
+test('join input: full URL with valid #join= extracts the code', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join Session' }).click();
   const input = page.getByPlaceholder('CODE');
 
-  await input.fill('http://localhost:5173/?join=ABCD23');
+  await input.fill('http://localhost:5173/#join=ABCD23');
 
   await expect(input).toHaveValue('ABCD23');
   await expect(page.locator('text=Not a valid code or link')).not.toBeVisible();

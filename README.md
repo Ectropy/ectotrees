@@ -37,7 +37,7 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 
 1. One player clicks **Create Session** in the session bar at the top of the grid
 2. A 6-character session code is generated (e.g. `A3KW7N`) — your current local state is shared into the new session automatically
-3. Share the code (or a `?join=A3KW7N` link) with friends — they click **Join Session** and type it in, or open the link to join automatically
+3. Share the code (or a `#join=A3KW7N` link) with friends — they click **Join Session** and type it in, or open the link to join automatically
 4. All connected users see world updates in real time
 5. Click **Leave** to disconnect and return to local-only mode (your last-seen state is saved to `localStorage`)
 
@@ -62,7 +62,7 @@ Any member can **fork** the current session into a new **managed (invite-only) s
 
 An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
 
-- **Session**: join by 6-character code, paste a `?join=` link, or enter a 12-character invite token (or URL containing one) to join a managed session directly; session is remembered and auto-resumed on next launch
+- **Session**: join by 6-character code, paste a `#join=` link, or enter a 12-character invite token (or URL containing one) to join a managed session directly; session is remembered and auto-resumed on next launch
 - **Scout linking**: enter the personal token shown on the main dashboard's Session panel to link your scout — the dashboard then shows a live indicator of which world you are on as you hop. Alternatively, join a managed session with an invite token to be recognized by name
 - **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the linked dashboard is notified in real time
 - **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click

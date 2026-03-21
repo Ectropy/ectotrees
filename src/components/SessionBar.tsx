@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import { extractSessionCode, buildSessionUrl, validateSessionCode } from '../lib/sessionUrl';
+import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { MAX_RECONNECT_ATTEMPTS } from '../hooks/useSession';
@@ -136,9 +136,9 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
                 <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
                 <span className="text-gray-400 text-xs">Alt1 code:</span>
                 <button
-                  onClick={() => copyToken(session.personalToken!)}
+                  onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
                   className="font-mono font-bold text-amber-300 tracking-widest transition-colors hover:text-amber-200"
-                  title="Copy Alt1 code"
+                  title="Copy Alt1 link"
                 >
                   {session.personalToken}
                 </button>

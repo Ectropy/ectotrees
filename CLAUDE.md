@@ -67,7 +67,7 @@ src/
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
-    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — ?join=CODE URL param parsing, cleanup, generation, and validation
+    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), buildInviteUrl(token), validateSessionCode(code) — #join=CODE and #invite=TOKEN fragment URL parsing, generation, and validation
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
@@ -390,7 +390,7 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 - `requestPersonalToken()` — sends `requestPersonalToken` to the server; response arrives via `personalToken` message and is persisted to `localStorage` (`evilTree_inviteToken`)
 - `setAllowViewers(allow)` — toggles whether anonymous viewers can join a managed session
 - **Session code persistence**: active session code is stored in `localStorage` (`evilTree_sessionCode`) and auto-resumed on page reload; invite/personal tokens are stored in `localStorage` (`evilTree_inviteToken`) and used for `authInvite`/`authPersonal` on reconnect
-- **`?join=CODE` URL parameter**: on page load, if a `?join=` query param is present with a valid 6-character code, the session is joined automatically and the param is removed from the URL history
+- **`#join=CODE` URL fragment**: on page load, if a `#join=` hash fragment is present with a valid 6-character code, the session is joined automatically and the fragment is removed from the URL history. Similarly, `#invite=TOKEN` triggers an invite-based join.
 - **Reconnection**: exponential backoff `[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts before giving up; fatal errors (`Session is full.`, `Session not found.`) skip reconnection entirely. On reconnect, if an invite token is stored it is used for `authInvite`, otherwise `authSession` with the session code.
 - **Ping/pong**: ping sent every 30s; if `pong` is not received within 8s the socket is force-closed
 - **ACK system**: every mutation is tagged with a `msgId`; server replies with `ack`; if no ACK is received within 5s the socket is force-closed. Pending (unACKed) mutations are replayed in order on reconnect.
@@ -422,7 +422,7 @@ alt1-plugin/src/
 
 ### Plugin Features
 
-- **Session management**: join by 6-char code or `?join=` URL param; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
+- **Session management**: join by 6-char code or `#join=` URL fragment; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
 - **Invite token join**: join a managed session by entering or pasting a 12-char invite token (or URL containing one); token is persisted to `localStorage` (`evilTree_inviteToken`) and used for `authInvite` on reconnect; world hops are reported in real time (`reportWorld`)
 - **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `session.reportWorld(worldId)` to sync the dashboard's scout indicator
 - **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint

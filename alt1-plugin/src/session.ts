@@ -51,18 +51,12 @@ function buildWsUrl(): string {
 /** Extract a 12-char invite token from a raw string (URL or bare token). */
 function extractInviteToken(raw: string): string | null {
   const trimmed = raw.trim();
-  // Try as URL with #invite=TOKEN hash fragment or ?invite= query param
+  // Try as URL with #invite=TOKEN hash fragment
   try {
     const url = new URL(trimmed);
-    // Check hash fragment first (preferred: doesn't leak to server logs)
     const hashMatch = url.hash.match(/^#invite=([A-Za-z0-9]+)$/);
     if (hashMatch && /^[A-HJ-NP-Z2-9]{12}$/.test(hashMatch[1].toUpperCase())) {
       return hashMatch[1].toUpperCase();
-    }
-    // Fall back to query param for backwards compatibility
-    const param = url.searchParams.get('invite');
-    if (param && /^[A-HJ-NP-Z2-9]{12}$/.test(param.toUpperCase())) {
-      return param.toUpperCase();
     }
   } catch { /* not a URL */ }
   // Try as bare 12-char token

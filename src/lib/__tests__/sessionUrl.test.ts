@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSessionCode } from '../sessionUrl';
+import { extractSessionCode, buildInviteUrl } from '../sessionUrl';
 
 describe('extractSessionCode', () => {
   // ── Plain codes ────────────────────────────────────────────────────────────
@@ -24,32 +24,27 @@ describe('extractSessionCode', () => {
     expect(extractSessionCode('toolong')).toBe('TOOLONG');
   });
 
-  // ── URLs with ?join= param ─────────────────────────────────────────────────
+  // ── URLs with #join= fragment ─────────────────────────────────────────────
 
-  it('extracts code from a full https join URL', () => {
-    expect(extractSessionCode('https://ectotrees.app/?join=ABC123')).toBe('ABC123');
+  it('extracts code from a full https join URL with fragment', () => {
+    expect(extractSessionCode('https://ectotrees.app/#join=ABC123')).toBe('ABC123');
   });
 
-  it('uppercases the extracted code from a URL', () => {
-    expect(extractSessionCode('https://ectotrees.app/?join=abc123')).toBe('ABC123');
+  it('uppercases the extracted code from a fragment URL', () => {
+    expect(extractSessionCode('https://ectotrees.app/#join=abc123')).toBe('ABC123');
   });
 
-  it('extracts code from a localhost URL', () => {
-    expect(extractSessionCode('http://localhost:5173/?join=XY23AB')).toBe('XY23AB');
+  it('extracts code from a localhost URL with fragment', () => {
+    expect(extractSessionCode('http://localhost:5173/#join=XY23AB')).toBe('XY23AB');
   });
 
-  it('extracts code when URL has additional query params', () => {
-    expect(extractSessionCode('https://ectotrees.app/?foo=bar&join=DEF456')).toBe('DEF456');
-  });
-
-  it('ignores unrelated query params (no join param)', () => {
-    // Falls back to returning the raw URL string uppercased — callers must validate
-    const result = extractSessionCode('https://ectotrees.app/?other=ABC123');
+  it('ignores unrelated hash fragments', () => {
+    const result = extractSessionCode('https://ectotrees.app/#other=ABC123');
     expect(result).not.toBe('ABC123');
   });
 
-  it('returns empty string when join param is empty', () => {
-    expect(extractSessionCode('https://ectotrees.app/?join=')).toBe('');
+  it('returns empty string when join fragment value is empty', () => {
+    expect(extractSessionCode('https://ectotrees.app/#join=')).toBe('');
   });
 
   // ── Whitespace handling ────────────────────────────────────────────────────
@@ -59,13 +54,35 @@ describe('extractSessionCode', () => {
   });
 
   it('trims whitespace from a pasted URL', () => {
-    expect(extractSessionCode('  https://ectotrees.app/?join=ABC123  ')).toBe('ABC123');
+    expect(extractSessionCode('  https://ectotrees.app/#join=ABC123  ')).toBe('ABC123');
   });
 
   // ── Non-URL strings that look URL-like ────────────────────────────────────
 
-  it('treats a bare ?join=CODE string as a plain code (not a URL)', () => {
-    // new URL('?join=ABC123') throws — falls back to raw uppercase
-    expect(extractSessionCode('?join=ABC123')).toBe('?JOIN=ABC123');
+  it('treats a bare #join=CODE string as a plain code (not a URL)', () => {
+    // new URL('#join=ABC123') throws — falls back to raw uppercase
+    expect(extractSessionCode('#join=ABC123')).toBe('#JOIN=ABC123');
+  });
+});
+
+describe('buildInviteUrl', () => {
+  it('builds a fragment-based invite URL', () => {
+    // Provide a minimal window.location for the test environment
+    const origLocation = globalThis.window?.location;
+    Object.defineProperty(globalThis, 'window', {
+      value: { location: { origin: 'https://ectotrees.app', pathname: '/' } },
+      writable: true,
+      configurable: true,
+    });
+    try {
+      const url = buildInviteUrl('ABCD1234EF56');
+      expect(url).toBe('https://ectotrees.app/#invite=ABCD1234EF56');
+    } finally {
+      if (origLocation) {
+        Object.defineProperty(globalThis.window, 'location', { value: origLocation, writable: true, configurable: true });
+      } else {
+        delete (globalThis as Record<string, unknown>).window;
+      }
+    }
   });
 });
