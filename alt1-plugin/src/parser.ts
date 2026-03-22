@@ -27,6 +27,7 @@ import { LOCATION_HINTS } from '@shared/hints';
  *   "approximately 2 hours"                → 120 * 60_000
  *   "approximately 1 hour"                 → 60 * 60_000
  *   "approximately 45 minutes"             → 45 * 60_000
+ *   "approximately 0 minutes"              → 60 * 60_000  (game quirk: 0 min means 60 min)
  */
 export function parseSpawnTime(text: string): number | null {
   // "X hours and Y minutes" (most common format)
@@ -42,9 +43,11 @@ export function parseSpawnTime(text: string): number | null {
   }
 
   // "Y minutes" only
+  // Edge case: "approximately 0 minutes" is a game quirk meaning 60 minutes.
   const minsOnly = text.match(/approximately\s+(\d+)\s+minutes?/i);
   if (minsOnly) {
-    return parseInt(minsOnly[1], 10) * 60_000;
+    const mins = parseInt(minsOnly[1], 10);
+    return (mins === 0 ? 60 : mins) * 60_000;
   }
 
   return null;
