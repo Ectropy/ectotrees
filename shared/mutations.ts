@@ -130,6 +130,14 @@ export function applySetTreeInfo(
   const current = states[worldId] ?? { treeStatus: 'none' as const };
   const isSapling = info.treeType === 'sapling' || info.treeType.startsWith('sapling-');
   const isMatureUnknown = info.treeType === 'mature';
+  const matureAt = isSapling
+    ? now + SAPLING_MATURE_MS
+    : info.lightningPreset === 50
+      ? now - LIGHTNING_1_MS
+      : info.lightningPreset === 25
+        ? now - LIGHTNING_2_MS
+        : now;
+  const treeHealth = isSapling ? undefined : (info.lightningPreset ?? info.treeHealth);
   return {
     ...states,
     [worldId]: {
@@ -137,9 +145,9 @@ export function applySetTreeInfo(
       treeType: info.treeType,
       treeHint: info.treeHint,
       treeExactLocation: info.treeExactLocation,
-      treeHealth: info.treeHealth,
+      treeHealth,
       treeSetAt: now,
-      matureAt: isSapling ? now + SAPLING_MATURE_MS : now,
+      matureAt,
       treeStatus: isSapling ? 'sapling' : isMatureUnknown ? 'mature' : 'alive',
       deadAt: undefined,
       nextSpawnTarget: undefined,
@@ -157,21 +165,24 @@ export function applyUpdateTreeFields(
   const current = states[worldId];
   if (!current) return states;
 
+  // lightningPreset is a UI-only payload field — strip it before spreading into world state
+  const { lightningPreset, ...restFields } = fields;
+
   let nextStatus = current.treeStatus;
   let matureAtOverride: number | undefined;
 
-  if (fields.treeType !== undefined) {
+  if (restFields.treeType !== undefined) {
     if (current.treeStatus === 'sapling') {
       // Manually advancing a sapling to a mature/alive type: reset matureAt to now
-      if (ALIVE_TREE_TYPES.has(fields.treeType)) {
+      if (ALIVE_TREE_TYPES.has(restFields.treeType)) {
         nextStatus = 'alive';
         matureAtOverride = now;
-      } else if (fields.treeType === 'mature') {
+      } else if (restFields.treeType === 'mature') {
         nextStatus = 'mature';
         matureAtOverride = now;
       }
     } else if (
-      ALIVE_TREE_TYPES.has(fields.treeType) &&
+      ALIVE_TREE_TYPES.has(restFields.treeType) &&
       current.treeStatus === 'mature'
     ) {
       // mature → alive: preserve matureAt (set correctly by auto-transition)
@@ -179,17 +190,23 @@ export function applyUpdateTreeFields(
     }
   }
 
+  // Lightning preset backdates matureAt for mature/alive trees (including promotions from sapling)
+  if (lightningPreset && (nextStatus === 'mature' || nextStatus === 'alive')) {
+    matureAtOverride = now - (lightningPreset === 50 ? LIGHTNING_1_MS : LIGHTNING_2_MS);
+  }
+
   // When treeHint changes, clear treeExactLocation unless a new one is explicitly provided
   const shouldClearExactLocation =
-    fields.treeHint !== undefined && fields.treeExactLocation === undefined;
+    restFields.treeHint !== undefined && restFields.treeExactLocation === undefined;
 
   return {
     ...states,
     [worldId]: {
       ...current,
       ...(shouldClearExactLocation ? { treeExactLocation: undefined } : {}),
-      ...fields,
+      ...restFields,
       ...(matureAtOverride !== undefined ? { matureAt: matureAtOverride } : {}),
+      ...(lightningPreset && (nextStatus === 'mature' || nextStatus === 'alive') ? { treeHealth: lightningPreset } : {}),
       treeStatus: nextStatus,
     },
   };

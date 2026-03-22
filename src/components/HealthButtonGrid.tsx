@@ -4,6 +4,7 @@ interface Props {
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   onLightning?: (value: 50 | 25) => void;
+  selectedLightning?: 50 | 25;
 }
 
 const HEALTH_VALUES = Array.from({ length: 20 }, (_, i) => 100 - i * 5);
@@ -11,9 +12,11 @@ const HEALTH_VALUES = Array.from({ length: 20 }, (_, i) => 100 - i * 5);
 // Tailwind classes must be full literals for the JIT compiler to detect them.
 // Each button always shows its health color; selected button goes black.
 const LIGHTNING_COLORS: Record<50 | 25, string> = {
-  50: 'bg-amber-500 hover:bg-amber-600 text-gray-900',
-  25: 'bg-red-500 hover:bg-red-600 text-white',
+  50: 'bg-transparent border border-amber-500 text-amber-500 hover:bg-amber-500/20',
+  25: 'bg-transparent border border-red-500 text-red-500 hover:bg-red-500/20',
 };
+
+const LIGHTNING_SELECTED = 'bg-gray-950 text-white ring-2 ring-white/60';
 
 const HEALTH_COLORS: Record<number, string> = {
   100: 'bg-green-600 text-white',
@@ -40,7 +43,7 @@ const HEALTH_COLORS: Record<number, string> = {
 
 type GridItem = number | { lightning: 50 | 25 };
 
-export function HealthButtonGrid({ value, onChange, onLightning }: Props) {
+export function HealthButtonGrid({ value, onChange, onLightning, selectedLightning }: Props) {
   const items: GridItem[] = [];
   for (const pct of HEALTH_VALUES) {
     if (onLightning && (pct === 50 || pct === 25)) {
@@ -59,7 +62,7 @@ export function HealthButtonGrid({ value, onChange, onLightning }: Props) {
               key={`lightning-${pct}`}
               type="button"
               onClick={() => onLightning!(pct)}
-              className={`col-span-5 text-xs py-2 px-3 rounded transition-colors flex items-center justify-center gap-1.5 ${LIGHTNING_COLORS[pct]}`}
+              className={`col-span-5 text-xs py-2 px-3 rounded transition-colors flex items-center justify-center gap-1.5 ${selectedLightning === pct ? LIGHTNING_SELECTED : LIGHTNING_COLORS[pct]}`}
             >
               <Zap className="h-3.5 w-3.5 flex-shrink-0" />
               Report {pct}% lightning strike

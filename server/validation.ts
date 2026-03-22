@@ -269,6 +269,14 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
         treeHealth = info.treeHealth;
       }
 
+      let lightningPreset: 50 | 25 | undefined;
+      if (info.lightningPreset !== undefined) {
+        if (info.lightningPreset !== 50 && info.lightningPreset !== 25) {
+          return { error: 'Invalid lightningPreset.' };
+        }
+        lightningPreset = info.lightningPreset as 50 | 25;
+      }
+
       return {
         type: 'setTreeInfo',
         worldId,
@@ -277,6 +285,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
           treeHint,
           treeExactLocation,
           treeHealth,
+          lightningPreset,
         },
         msgId,
       };
@@ -311,6 +320,13 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
           return { error: 'Invalid treeHealth.' };
         }
         result.treeHealth = fields.treeHealth;
+      }
+
+      if (fields.lightningPreset !== undefined) {
+        if (fields.lightningPreset !== 50 && fields.lightningPreset !== 25) {
+          return { error: 'Invalid lightningPreset.' };
+        }
+        result.lightningPreset = fields.lightningPreset;
       }
 
       return {

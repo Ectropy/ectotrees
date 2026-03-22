@@ -345,6 +345,41 @@ describe('applySetTreeInfo', () => {
     expect(result[1].treeExactLocation).toBe('Lumbridge swamp');
     expect(result[1].treeHealth).toBe(75);
   });
+
+  it('lightningPreset 50: backdates matureAt by LIGHTNING_1_MS and sets treeHealth to 50', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: '', lightningPreset: 50 }, T);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(50);
+  });
+
+  it('lightningPreset 25: backdates matureAt by LIGHTNING_2_MS and sets treeHealth to 25', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: '', lightningPreset: 25 }, T);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_2_MS);
+    expect(result[1].treeHealth).toBe(25);
+  });
+
+  it('lightningPreset 50 gives a death time ~20 minutes from now', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: '', lightningPreset: 50 }, T);
+    const diesAt = result[1].matureAt! + (30 * 60 * 1000);
+    expect(diesAt).toBe(T + 20 * 60 * 1000);
+  });
+
+  it('lightningPreset 25 gives a death time ~10 minutes from now', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: '', lightningPreset: 25 }, T);
+    const diesAt = result[1].matureAt! + (30 * 60 * 1000);
+    expect(diesAt).toBe(T + 10 * 60 * 1000);
+  });
+
+  it('lightningPreset overrides a manually provided treeHealth', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: '', treeHealth: 40, lightningPreset: 50 }, T);
+    expect(result[1].treeHealth).toBe(50);
+  });
+
+  it('lightningPreset is ignored for sapling types (matureAt stays in the future)', () => {
+    const result = applySetTreeInfo({}, 1, { treeType: 'sapling-oak', treeHint: '', lightningPreset: 50 }, T);
+    expect(result[1].matureAt).toBe(T + SAPLING_MATURE_MS);
+    expect(result[1].treeHealth).toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -426,6 +461,34 @@ describe('applyUpdateTreeFields', () => {
     const result = applyUpdateTreeFields(states, 1, { treeType: 'yew' }, T);
     expect(result[1].treeStatus).toBe('alive');
     expect(result[1].matureAt).toBe(matureAt);
+  });
+
+  it('lightningPreset 50 on a mature tree backdates matureAt and sets treeHealth to 50', () => {
+    const states = { 1: { treeStatus: 'mature' as const, matureAt: T } };
+    const result = applyUpdateTreeFields(states, 1, { lightningPreset: 50 }, T);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_1_MS);
+    expect(result[1].treeHealth).toBe(50);
+  });
+
+  it('lightningPreset 25 on an alive tree backdates matureAt and sets treeHealth to 25', () => {
+    const states = { 1: { treeStatus: 'alive' as const, matureAt: T } };
+    const result = applyUpdateTreeFields(states, 1, { lightningPreset: 25 }, T);
+    expect(result[1].matureAt).toBe(T - LIGHTNING_2_MS);
+    expect(result[1].treeHealth).toBe(25);
+  });
+
+  it('lightningPreset does not leak into world state as a field', () => {
+    const states = { 1: { treeStatus: 'alive' as const } };
+    const result = applyUpdateTreeFields(states, 1, { lightningPreset: 50 }, T);
+    expect('lightningPreset' in result[1]).toBe(false);
+  });
+
+  it('lightningPreset is ignored for sapling trees (no status change)', () => {
+    const states = { 1: { treeStatus: 'sapling' as const, matureAt: T + SAPLING_MATURE_MS } };
+    const result = applyUpdateTreeFields(states, 1, { lightningPreset: 50 }, T);
+    // matureAt should remain unchanged — sapling is not mature/alive
+    expect(result[1].matureAt).toBe(T + SAPLING_MATURE_MS);
+    expect(result[1].treeHealth).toBeUndefined();
   });
 });
 

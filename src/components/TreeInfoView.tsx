@@ -3,7 +3,9 @@ import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation, hintForLocation } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useSettings } from '../hooks/useSettings';
 import { ToolView } from './ToolView';
+import { LightningEffect } from './LightningEffect';
 import type { TreeType } from '../constants/evilTree';
 import type { WorldConfig, WorldState, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HealthButtonGrid } from './HealthButtonGrid';
@@ -26,10 +28,14 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const isUpdateMode = existingState !== undefined &&
     (existingState.treeStatus === 'sapling' || existingState.treeStatus === 'mature' || existingState.treeStatus === 'alive');
 
+  const { settings } = useSettings();
+
   const [treeType, setTreeType] = useState<TreeType | null>(existingState?.treeType ?? null);
   const [hint, setHint] = useState(existingState?.treeHint ?? '');
   const [exactLocation, setExactLocation] = useState(existingState?.treeExactLocation ?? '');
   const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
+  const [lightningPreset, setLightningPreset] = useState<50 | 25 | undefined>(undefined);
+  const [lightningSeq, setLightningSeq] = useState(0);
   const [confirmOverride, setConfirmOverride] = useState(false);
 
   useEscapeKey(onBack);
@@ -67,6 +73,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
       treeHint: hint,
       treeExactLocation: exactLocation || undefined,
       treeHealth: isStrangeSapling ? undefined : (health ?? undefined),
+      lightningPreset: isStrangeSapling ? undefined : lightningPreset,
     };
     if (isUpdateMode) {
       onUpdate(payload);
@@ -77,6 +84,9 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
   return (
     <ToolView icon={<TreeDeciduous className="h-5 w-5" />} title="Tree Info" world={world}>
+      {lightningSeq > 0 && settings.effectsLightning && (
+        <LightningEffect key={lightningSeq} onComplete={() => {}} />
+      )}
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
           {/* Help text */}
@@ -90,7 +100,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           {/* Tree type */}
           <div>
-            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>Tree Type</label>
+            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>Tree Type <span className="text-red-400">*</span></label>
             <SelectCombobox
               items={TREE_TYPE_GROUPS}
               itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
@@ -171,10 +181,12 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
               </label>
               <HealthButtonGrid
                 value={health ?? undefined}
-                onChange={v => setHealth(v ?? null)}
+                onChange={v => { setHealth(v ?? null); setLightningPreset(undefined); }}
+                onLightning={v => { setHealth(v); setLightningPreset(v); setLightningSeq(s => s + 1); }}
+                selectedLightning={lightningPreset}
               />
               <p className="text-xs text-gray-500 mt-2">
-                Approximate health of the tree, if known. Tap again to deselect.
+                Approximate health of the tree, if known. Selecting a lightning strike also back-dates the timer. Tap again to deselect.
               </p>
             </div>
           )}
@@ -217,6 +229,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                         treeHint: hint,
                         treeExactLocation: exactLocation || undefined,
                         treeHealth: isStrangeSapling ? undefined : (health ?? undefined),
+                        lightningPreset: isStrangeSapling ? undefined : lightningPreset,
                       }, 'override');
                     }}
                     className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed
