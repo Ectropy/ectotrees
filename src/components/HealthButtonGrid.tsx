@@ -12,33 +12,33 @@ const HEALTH_VALUES = Array.from({ length: 20 }, (_, i) => 100 - i * 5);
 // Tailwind classes must be full literals for the JIT compiler to detect them.
 // Each button always shows its health color; selected button goes black.
 const LIGHTNING_COLORS: Record<50 | 25, string> = {
-  50: 'bg-transparent border border-amber-500 text-amber-500 hover:bg-amber-500/20',
-  25: 'bg-transparent border border-red-500 text-red-500 hover:bg-red-500/20',
+  50: 'bg-transparent border border-amber-500 text-white hover:bg-amber-500/20',
+  25: 'bg-transparent border border-red-500 text-white hover:bg-red-500/20',
 };
 
 const LIGHTNING_SELECTED = 'bg-gray-950 text-white ring-2 ring-white/60';
 
 const HEALTH_COLORS: Record<number, string> = {
-  100: 'bg-green-600 text-white',
-  95:  'bg-green-500 text-white',
-  90:  'bg-green-500/80 text-white',
-  85:  'bg-emerald-500 text-white',
-  80:  'bg-emerald-500/80 text-white',
-  75:  'bg-lime-600 text-white',
-  70:  'bg-lime-600/80 text-white',
-  65:  'bg-yellow-500 text-gray-900',
-  60:  'bg-yellow-500/80 text-gray-900',
-  55:  'bg-yellow-600 text-white',
-  50:  'bg-amber-500 text-gray-900',
-  45:  'bg-amber-600 text-white',
-  40:  'bg-orange-500 text-white',
-  35:  'bg-orange-600 text-white',
-  30:  'bg-orange-700 text-white',
-  25:  'bg-red-500 text-white',
-  20:  'bg-red-600 text-white',
-  15:  'bg-red-700 text-white',
-  10:  'bg-red-800 text-white',
-  5:   'bg-red-900 text-white',
+  100: 'bg-transparent border border-green-600 text-white hover:bg-green-600/20',
+  95:  'bg-transparent border border-green-500 text-white hover:bg-green-500/20',
+  90:  'bg-transparent border border-green-400 text-white hover:bg-green-400/20',
+  85:  'bg-transparent border border-emerald-500 text-white hover:bg-emerald-500/20',
+  80:  'bg-transparent border border-emerald-400 text-white hover:bg-emerald-400/20',
+  75:  'bg-transparent border border-lime-600 text-white hover:bg-lime-600/20',
+  70:  'bg-transparent border border-lime-500 text-white hover:bg-lime-500/20',
+  65:  'bg-transparent border border-yellow-500 text-white hover:bg-yellow-500/20',
+  60:  'bg-transparent border border-yellow-400 text-white hover:bg-yellow-400/20',
+  55:  'bg-transparent border border-yellow-600 text-white hover:bg-yellow-600/20',
+  50:  'bg-transparent border border-amber-500 text-white hover:bg-amber-500/20',
+  45:  'bg-transparent border border-amber-600 text-white hover:bg-amber-600/20',
+  40:  'bg-transparent border border-orange-500 text-white hover:bg-orange-500/20',
+  35:  'bg-transparent border border-orange-600 text-white hover:bg-orange-600/20',
+  30:  'bg-transparent border border-orange-700 text-white hover:bg-orange-700/20',
+  25:  'bg-transparent border border-red-500 text-white hover:bg-red-500/20',
+  20:  'bg-transparent border border-red-600 text-white hover:bg-red-600/20',
+  15:  'bg-transparent border border-red-700 text-white hover:bg-red-700/20',
+  10:  'bg-transparent border border-red-800 text-white hover:bg-red-800/20',
+  5:   'bg-transparent border border-red-900 text-white hover:bg-red-900/20',
 };
 
 type GridItem = number | { lightning: 50 | 25 };
