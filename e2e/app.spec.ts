@@ -352,6 +352,96 @@ test('ws race: authError on join surfaces error message', async ({ page }) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tree info: lightning preset
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('tree info: 50% lightning button stays highlighted after clicking', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId(`world-card-${W}`).getByTitle('Set tree info').click();
+  await expect(page.locator('h1')).toContainText('Tree Info');
+
+  const lightningBtn = page.getByRole('button', { name: /Report 50% lightning strike/i });
+  await lightningBtn.click();
+
+  // Button must remain highlighted (gets ring-2 class when selectedLightning matches)
+  await expect(lightningBtn).toHaveClass(/ring-2/);
+});
+
+test('tree info: submitting 50% lightning preset records 50% health and backdates the timer', async ({ page }) => {
+  await page.goto('/');
+  const card = page.getByTestId(`world-card-${W}`);
+
+  await card.getByTitle('Set tree info').click();
+
+  const typeInput = page.getByPlaceholder('Select or type a tree type');
+  await typeInput.fill('oak');
+  await page.getByRole('option', { name: 'Oak' }).click();
+
+  const hintInput = page.getByPlaceholder('Select or type a location hint');
+  await hintInput.fill('yew trees');
+  await page.getByRole('option', { name: /yew trees/i }).click();
+
+  await page.getByRole('button', { name: /Report 50% lightning strike/i }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+
+  // Card must show 50% health and a backdated timer (well under the base 30 min)
+  await expect(card).toContainText('50%');
+  await expect(card).not.toContainText('~30m or less');
+});
+
+test('tree info: submitting 25% lightning preset records 25% health and backdates the timer', async ({ page }) => {
+  await page.goto('/');
+  const card = page.getByTestId(`world-card-${W}`);
+
+  await card.getByTitle('Set tree info').click();
+
+  const typeInput = page.getByPlaceholder('Select or type a tree type');
+  await typeInput.fill('oak');
+  await page.getByRole('option', { name: 'Oak' }).click();
+
+  const hintInput = page.getByPlaceholder('Select or type a location hint');
+  await hintInput.fill('yew trees');
+  await page.getByRole('option', { name: /yew trees/i }).click();
+
+  await page.getByRole('button', { name: /Report 25% lightning strike/i }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+
+  // Card must show 25% health and a backdated timer (well under the base 30 min)
+  await expect(card).toContainText('25%');
+  await expect(card).not.toContainText('~30m or less');
+});
+
+test('lightning preset state: 50% health shows ~20 min death timer', async ({ page }) => {
+  await page.addInitScript(() => {
+    const LIGHTNING_1_MS = 10 * 60 * 1000;
+    // 30-second buffer keeps the minute counter stable throughout test execution
+    const matureAt = Date.now() - LIGHTNING_1_MS + 30_000;
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      1: { treeStatus: 'alive', matureAt, treeHealth: 50 },
+    }));
+  });
+  await page.goto('/');
+  const card = page.getByTestId('world-card-1');
+  await expect(card).toContainText('50%');
+  await expect(card).toContainText('~20m or less');
+});
+
+test('lightning preset state: 25% health shows ~10 min death timer', async ({ page }) => {
+  await page.addInitScript(() => {
+    const LIGHTNING_2_MS = 20 * 60 * 1000;
+    // 30-second buffer keeps the minute counter stable throughout test execution
+    const matureAt = Date.now() - LIGHTNING_2_MS + 30_000;
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      1: { treeStatus: 'alive', matureAt, treeHealth: 25 },
+    }));
+  });
+  await page.goto('/');
+  const card = page.getByTestId('world-card-1');
+  await expect(card).toContainText('25%');
+  await expect(card).toContainText('~10m or less');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // World detail view
 // ─────────────────────────────────────────────────────────────────────────────
 
