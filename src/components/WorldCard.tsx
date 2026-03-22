@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Star, EyeOff } from 'lucide-react';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
@@ -50,15 +50,38 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
     }
   }, [isActiveWorld]);
 
+  // Recent submission flash: black → gray-800 over 120 seconds
+  const [flashPhase, setFlashPhase] = useState<'idle' | 'black' | 'fade'>('idle');
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isRecentOwnSubmission) return;
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    setFlashPhase('black');
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setFlashPhase('fade');
+        flashTimerRef.current = setTimeout(() => setFlashPhase('idle'), 120000);
+      });
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [isRecentOwnSubmission]);
+
+  const flashStyle: CSSProperties =
+    flashPhase === 'black'
+      ? { backgroundColor: '#000000' }
+      : flashPhase === 'fade'
+        ? { backgroundColor: '#1f2937', transition: 'background-color 120s ease-out' }
+        : {};
+
   // Selection / pairing highlights
-  const pairRing = isActiveWorld ? 'ring-2 ring-white ring-inset' : isRecentOwnSubmission ? 'ring-2 ring-green-400 ring-inset' : '';
+  const pairRing = isActiveWorld ? 'ring-2 ring-white ring-inset' : '';
 
   return (
     <div
       ref={cardRef}
       data-testid={`world-card-${world.id}`}
       className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer ${pairRing}`}
-      style={{ height: '85px', position: 'relative', isolation: 'isolate' }}
+      style={{ height: '85px', position: 'relative', isolation: 'isolate', ...flashStyle }}
       onClick={onCardClick}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
