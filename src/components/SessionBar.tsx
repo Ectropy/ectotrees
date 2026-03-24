@@ -99,16 +99,20 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
 
         <span className={`${STATUS_TEXT_COLORS[session.status]} opacity-60`}>Session:</span>
 
-        {/* Code — clickable to copy in anon mode, plain in managed mode */}
+        {/* Code — clickable to copy + open session panel */}
         {session.managed ? (
-          <span className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]}`}>
+          <button
+            onClick={onOpenSession}
+            className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
+            title="Open session panel"
+          >
             {session.code}
-          </span>
+          </button>
         ) : (
           <button
-            onClick={handleCopyCode}
+            onClick={() => { handleCopyCode(); onOpenSession(); }}
             className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
-            title="Copy session link"
+            title="Copy session link & open session panel"
           >
             {session.code}
           </button>
@@ -135,7 +139,13 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
               <span className="flex items-center gap-1.5">
                 <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
                 <span className="text-gray-400 text-xs">Alt1 code:</span>
-                <span className="font-mono font-bold text-amber-300 tracking-widest">{session.personalToken}</span>
+                <button
+                  onClick={() => { copyToken(buildInviteUrl(session.personalToken!)); onOpenSession(); }}
+                  className="font-mono font-bold text-amber-300 tracking-widest hover:opacity-80 transition-opacity"
+                  title="Copy Alt1 link & open session panel"
+                >
+                  {session.personalToken}
+                </button>
                 <button
                   onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
                   className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
