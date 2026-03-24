@@ -19,7 +19,6 @@ import {
 import {
   createSession,
   getSession,
-  getSessionEntries,
   addClient,
   removeClient,
   setClientType,
@@ -44,7 +43,7 @@ import {
   authenticateByPersonalToken,
   MAX_CLIENTS_PER_SESSION,
 } from './session.ts';
-import { validateMessage, validateSessionCode, validateAuthMessage } from './validation.ts';
+import { validateMessage, validateAuthMessage } from './validation.ts';
 import type { Session, Member } from './session.ts';
 import { log } from './log.ts';
 
@@ -194,36 +193,6 @@ app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) =>
 });
 
 
-app.post('/api/session/:code/self-invite', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
-  const code = validateSessionCode(req.params.code);
-  if (!code) { res.status(400).json({ error: 'Invalid session code.' }); return; }
-  const session = getSession(code);
-  if (!session) { res.status(404).json({ error: 'Session not found.' }); return; }
-  const rawName = typeof req.body?.name === 'string' ? req.body.name : '';
-  const name = rawName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 30);
-  if (!name) { res.status(400).json({ error: 'Name is required.' }); return; }
-  const selfRegisterToken = typeof req.body?.selfRegisterToken === 'string' ? req.body.selfRegisterToken : '';
-  if (!selfRegisterToken) { res.status(400).json({ error: 'Self-registration token is required.' }); return; }
-  const personalToken = typeof req.body?.personalToken === 'string' ? req.body.personalToken : undefined;
-  const result = selfRegisterMember(session, name, selfRegisterToken, personalToken);
-  if ('error' in result) { res.status(400).json({ error: result.error }); return; }
-  log(`[self-invite] ${code} — "${name}" self-registered`);
-
-  // If a personal token was migrated, redirect scout connections in the anonymous session
-  if (personalToken && result.inviteToken === personalToken) {
-    // Find the anonymous session that owns this token and redirect its connections
-    for (const [, s] of Array.from(getSessionEntries())) {
-      if (s.managed) continue;
-      for (const [ws, tok] of s.wsToInviteToken) {
-        if (tok === personalToken && ws.readyState === 1) {
-          ws.send(JSON.stringify({ type: 'redirect', code } as import('../shared/protocol.ts').ServerMessage));
-        }
-      }
-    }
-  }
-
-  res.json({ inviteToken: result.inviteToken });
-});
 
 app.get('/api/health', (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
@@ -573,6 +542,41 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
+    case 'selfRegister': {
+      if (session.managed) {
+        ws.send(JSON.stringify(errorMsg('Already in a managed session.')));
+        break;
+      }
+      if (!session.pendingFork) {
+        ws.send(JSON.stringify(errorMsg('No active fork invite.')));
+        break;
+      }
+      const managedSession = getSession(session.pendingFork.managedCode);
+      if (!managedSession) {
+        ws.send(JSON.stringify(errorMsg('Managed session not found.')));
+        break;
+      }
+      const srResult = selfRegisterMember(managedSession, msg.name, msg.selfRegisterToken, msg.personalToken);
+      if ('error' in srResult) {
+        ws.send(JSON.stringify(errorMsg(srResult.error)));
+        break;
+      }
+      log(`[self-invite] ${managedSession.code} — "${msg.name}" self-registered via WS`);
+      const selfRegisteredMsg: ServerMessage = { type: 'selfRegistered', inviteToken: srResult.inviteToken };
+      ws.send(JSON.stringify(selfRegisteredMsg));
+      // If a personal token was provided and migrated, redirect any scout connections in this session
+      if (msg.personalToken) {
+        for (const clientWs of session.clients) {
+          if (clientWs === ws) continue;
+          const tok = session.wsToInviteToken.get(clientWs);
+          if (tok === msg.personalToken && clientWs.readyState === 1) {
+            clientWs.send(JSON.stringify({ type: 'redirect', code: managedSession.code } as ServerMessage));
+          }
+        }
+      }
+      break;
+    }
+
     case 'createInvite': {
       const result = createInvite(session, ws, msg.name, msg.role);
       if (result.type === 'error') {
@@ -714,7 +718,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

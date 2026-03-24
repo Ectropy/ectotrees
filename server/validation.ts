@@ -147,6 +147,20 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'forkToManaged', name };
   }
 
+  if (type === 'selfRegister') {
+    const name = sanitizeString(raw.name);
+    if (!name) return { error: 'Name is required.' };
+    const selfRegisterToken = sanitizeString(raw.selfRegisterToken);
+    if (!selfRegisterToken) return { error: 'Self-registration token is required.' };
+    let personalToken: string | undefined;
+    if (raw.personalToken !== undefined) {
+      const pt = validateInviteToken(raw.personalToken);
+      if (!pt) return { error: 'Invalid personalToken.' };
+      personalToken = pt;
+    }
+    return { type: 'selfRegister', name, selfRegisterToken, personalToken };
+  }
+
   if (type === 'createInvite') {
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };

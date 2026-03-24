@@ -33,6 +33,7 @@ export type ClientMessage =
   | { type: 'setMemberRole'; inviteToken: string; role: 'moderator' | 'scout' | 'viewer' }
   | { type: 'transferOwnership'; inviteToken: string }
   | { type: 'setAllowViewers'; allow: boolean }
+  | { type: 'selfRegister'; name: string; selfRegisterToken: string; personalToken?: string }
   | { type: 'requestPersonalToken' }
   | { type: 'ping' };
 
@@ -55,6 +56,7 @@ export type ServerMessage =
   | { type: 'banned';         reason: string }
   | { type: 'allowViewers';    allow: boolean }
   | { type: 'personalToken';  token: string }
+  | { type: 'selfRegistered'; inviteToken: string }
   | { type: 'redirect';       code: string }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }

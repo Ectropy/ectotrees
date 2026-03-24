@@ -170,6 +170,7 @@ export function useSession(onSessionLost?: () => void) {
   const personalTokenRef = useRef<string | null>(null);
   const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestTokenAfterConnectRef = useRef(false);
+  const selfRegisterResolveRef = useRef<{ resolve: (token: string) => void; reject: (err: Error) => void } | null>(null);
 
   useEffect(() => {
     onSessionLostRef.current = onSessionLost;
@@ -415,6 +416,13 @@ export function useSession(onSessionLost?: () => void) {
           personalTokenRef.current = msg.token;
           setSession(prev => ({ ...prev, personalToken: msg.token }));
           break;
+        case 'selfRegistered':
+          if (selfRegisterResolveRef.current) {
+            const { resolve } = selfRegisterResolveRef.current;
+            selfRegisterResolveRef.current = null;
+            resolve(msg.inviteToken);
+          }
+          break;
         case 'redirect': {
           // Server is telling us to switch to a different session (fork migration)
           const newCode = msg.code;
@@ -456,6 +464,11 @@ export function useSession(onSessionLost?: () => void) {
           break;
         }
         case 'error':
+          if (selfRegisterResolveRef.current) {
+            const { reject } = selfRegisterResolveRef.current;
+            selfRegisterResolveRef.current = null;
+            reject(new Error(msg.message));
+          }
           if (msg.serverVersion && msg.serverVersion !== __APP_VERSION__) {
             console.warn(
               `[ectotrees] Version mismatch — client: ${__APP_VERSION__}, server: ${msg.serverVersion}\n` +
@@ -777,17 +790,17 @@ export function useSession(onSessionLost?: () => void) {
   const joinManagedFork = useCallback(async (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string): Promise<void> => {
     setSession(prev => ({ ...prev, error: null }));
     try {
-      const res = await fetch(`${API_BASE}/session/${managedCode}/self-invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
-        body: JSON.stringify({ name, selfRegisterToken, personalToken }),
+      const inviteToken = await new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          selfRegisterResolveRef.current = null;
+          reject(new Error('Self-registration timed out.'));
+        }, 10_000);
+        selfRegisterResolveRef.current = {
+          resolve: (token) => { clearTimeout(timer); resolve(token); },
+          reject: (err) => { clearTimeout(timer); reject(err); },
+        };
+        sendWsMessage({ type: 'selfRegister', name, selfRegisterToken, personalToken });
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setSession(prev => ({ ...prev, error: data.error ?? 'Failed to join managed session.' }));
-        return;
-      }
-      const inviteToken = data.inviteToken as string;
       inviteTokenRef.current = inviteToken;
       persistInviteToken(inviteToken);
       codeRef.current = managedCode;
@@ -795,8 +808,8 @@ export function useSession(onSessionLost?: () => void) {
       clearPending();
       setSession(prev => ({ ...defaultSessionState(), code: managedCode, status: prev.status }));
       connectWs(managedCode, inviteToken);
-    } catch {
-      setSession(prev => ({ ...prev, error: 'Network error joining managed session.' }));
+    } catch (err) {
+      setSession(prev => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to join managed session.' }));
     }
   }, []);
 
