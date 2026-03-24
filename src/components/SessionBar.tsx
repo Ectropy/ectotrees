@@ -17,6 +17,7 @@ interface SessionBarProps {
   onDismissError: () => void;
   onOpenSession: () => void;
   onRequestPersonalToken: () => void;
+  onLinkWithAlt1: () => Promise<string | null>;
 }
 
 
@@ -32,7 +33,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken, onLinkWithAlt1 }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -132,41 +133,40 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           </button>
         )}
 
-        {/* Alt1 Scout link — only when connected */}
-        {isConnected && !canRejoin && (
-          <>
-            {session.personalToken ? (
-              <span className="flex items-center gap-1.5">
-                <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
-                <span className="text-gray-400 text-xs">Alt1 code:</span>
-                <button
-                  onClick={() => { copyToken(buildInviteUrl(session.personalToken!)); onOpenSession(); }}
-                  className="font-mono font-bold text-amber-300 tracking-widest hover:opacity-80 transition-opacity"
-                  title="Copy Alt1 link & open session panel"
-                >
-                  {session.personalToken}
-                </button>
-                <button
-                  onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
-                  className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
-                  title="Copy Alt1 link"
-                >
-                  {tokenCopied
-                    ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                    : <><Copy className="w-3 h-3" /><span>Copy</span></>
-                  }
-                </button>
-              </span>
-            ) : (
-              <button
-                onClick={session.managed ? undefined : onRequestPersonalToken}
-                className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                title="Get a code to link your Ectotrees Scout Alt1 plugin"
-              >
-                Get Alt1 Code
-              </button>
-            )}
-          </>
+        {/* Alt1 Scout link — token display when connected and have token */}
+        {isConnected && !canRejoin && session.personalToken && (
+          <span className="flex items-center gap-1.5">
+            <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
+            <span className="text-gray-400 text-xs">Alt1 code:</span>
+            <button
+              onClick={() => { copyToken(buildInviteUrl(session.personalToken!)); onOpenSession(); }}
+              className="font-mono font-bold text-amber-300 tracking-widest hover:opacity-80 transition-opacity"
+              title="Copy Alt1 link & open session panel"
+            >
+              {session.personalToken}
+            </button>
+            <button
+              onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
+              className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
+              title="Copy Alt1 link"
+            >
+              {tokenCopied
+                ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                : <><Copy className="w-3 h-3" /><span>Copy</span></>
+              }
+            </button>
+          </span>
+        )}
+
+        {/* Link with Alt1 button — when no personal token and not in managed mode */}
+        {!session.personalToken && !session.managed && (
+          <button
+            onClick={isConnected ? onRequestPersonalToken : onLinkWithAlt1}
+            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Get a code to link your Ectotrees Scout Alt1 plugin"
+          >
+            Link with Alt1
+          </button>
         )}
 
         {canRejoin && (
@@ -274,6 +274,14 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           Join Session
         </button>
       )}
+
+      <button
+        onClick={onLinkWithAlt1}
+        className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        title="Create a session and get a code to link your Ectotrees Scout Alt1 plugin"
+      >
+        Link with Alt1
+      </button>
 
       {session.error && (
         <DismissableError message={session.error} onDismiss={onDismissError} />

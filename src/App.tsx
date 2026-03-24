@@ -113,7 +113,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -141,6 +141,10 @@ export default function App() {
   const handleCreateSession = useCallback(() => {
     return createSession(worldStatesRef.current);
   }, [createSession]);
+
+  const handleLinkWithAlt1 = useCallback(() => {
+    return createSessionAndRequestToken(worldStatesRef.current);
+  }, [createSessionAndRequestToken]);
 
   const handleJoinSession = useCallback((code: string): boolean => {
     return joinSession(code);
@@ -530,6 +534,7 @@ export default function App() {
         onTransferOwnership={transferOwnership}
         onSetAllowViewers={setAllowViewers}
         onRequestPersonalToken={requestPersonalToken}
+        onLinkWithAlt1={handleLinkWithAlt1}
         onBack={handleBack}
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
@@ -792,6 +797,7 @@ export default function App() {
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
           onRequestPersonalToken={requestPersonalToken}
+        onLinkWithAlt1={handleLinkWithAlt1}
         />
 
         <SortFilterBar

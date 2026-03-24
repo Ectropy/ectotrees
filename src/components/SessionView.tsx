@@ -281,7 +281,7 @@ export function SessionView({
                 onClick={session.managed ? undefined : onRequestPersonalToken}
                 className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
               >
-                {session.managed ? 'Your invite token is your Alt1 code' : 'Get Alt1 Code'}
+                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1'}
               </button>
             )}
           </div>

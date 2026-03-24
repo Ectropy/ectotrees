@@ -169,6 +169,7 @@ export function useSession(onSessionLost?: () => void) {
   const inviteTokenRef = useRef<string | null>(loadPersistedInviteToken());
   const personalTokenRef = useRef<string | null>(null);
   const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestTokenAfterConnectRef = useRef(false);
 
   useEffect(() => {
     onSessionLostRef.current = onSessionLost;
@@ -256,6 +257,12 @@ export function useSession(onSessionLost?: () => void) {
         ws.send(JSON.stringify({ type: 'authInvite', token: inviteToken }));
       } else if (code) {
         ws.send(JSON.stringify({ type: 'authSession', code }));
+      }
+
+      // Auto-request personal token if flagged (e.g. "Link with Alt1" flow)
+      if (requestTokenAfterConnectRef.current) {
+        requestTokenAfterConnectRef.current = false;
+        ws.send(JSON.stringify({ type: 'requestPersonalToken' }));
       }
     };
 
@@ -572,6 +579,13 @@ export function useSession(onSessionLost?: () => void) {
     }
   }, []);
 
+  const createSessionAndRequestToken = useCallback(async (initialStates?: WorldStates): Promise<string | null> => {
+    requestTokenAfterConnectRef.current = true;
+    const code = await createSession(initialStates);
+    if (!code) requestTokenAfterConnectRef.current = false;
+    return code;
+  }, [createSession]);
+
   const joinSession = useCallback((code: string, localStates?: WorldStates): boolean => {
     if (!validateSessionCode(code)) {
       setSession(prev => ({ ...prev, error: 'Invalid session code.' }));
@@ -844,6 +858,7 @@ export function useSession(onSessionLost?: () => void) {
     previewWorlds,
     syncChannel,
     createSession,
+    createSessionAndRequestToken,
     joinSession,
     joinByInviteToken,
     rejoinSession,
