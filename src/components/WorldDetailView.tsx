@@ -104,7 +104,10 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                       }}
                       className={`flex items-center gap-1 text-sm ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                     >
-                      Copy intel {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied
+                        ? <><Check className="h-3.5 w-3.5 text-green-400" /><span className="text-green-400">Copied!</span></>
+                        : <><Copy className="h-3.5 w-3.5" /><span>Copy intel</span></>
+                      }
                     </button>
                   ) : null
                 );

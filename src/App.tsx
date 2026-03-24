@@ -28,7 +28,7 @@ import { validateSessionCode } from './lib/sessionUrl';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from './constants/evilTree';
 import { useSettings } from './hooks/useSettings';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
-import { copyToClipboard } from './lib/utils';
+import { useCopyFeedback } from './hooks/useCopyFeedback';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 
@@ -193,7 +193,7 @@ export default function App() {
   }, []);
 
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
-  const [copied, setCopied] = useState(false);
+  const { copied: discordCopied, copy: copyDiscord } = useCopyFeedback(1500);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
@@ -750,15 +750,16 @@ export default function App() {
                   disabled={!hasIntel}
                   onClick={() => {
                     const msg = buildDiscordMessage(intelWorlds, worldStates);
-                    copyToClipboard(msg).then(ok => {
-                      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
-                    });
+                    copyDiscord(msg);
                   }}
-                  className={`transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}
+                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}
                   title="Copy intel to clipboard in Discord-friendly format"
                   aria-label="Copy intel to clipboard"
                 >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {discordCopied
+                    ? <><Check className="h-4 w-4 text-green-400" /><span className="text-green-400 text-xs">Copied!</span></>
+                    : <><Copy className="h-4 w-4" /><span className="text-xs">Copy visible intel</span></>
+                  }
                 </button>
               );
             })()}

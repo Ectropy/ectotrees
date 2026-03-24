@@ -52,8 +52,8 @@ export function SessionView({
 }: SessionViewProps) {
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const { copied, copy: copyCode } = useCopyFeedback();
-  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
+  const { copied, copy: copyCode } = useCopyFeedback(1500);
+  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const countdown = useCountdown(session.reconnectAt ?? null);
   const forkCountdown = useCountdown(session.forkInvite?.expiresAt ?? null, 1000);
   const [badPaste, setBadPaste] = useState(false);
@@ -253,9 +253,12 @@ export function SessionView({
                   <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.personalToken}</span>
                   <button
                     onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
-                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                    className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
                   >
-                    {tokenCopied ? 'Copied!' : 'Copy'}
+                    {tokenCopied
+                      ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                      : <><Copy className="w-3 h-3" /><span>Copy</span></>
+                    }
                   </button>
                 </div>
                 {session.scoutWorld !== null && (
@@ -368,23 +371,12 @@ export function SessionView({
                         </button>
                       </form>
                     ) : (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setJoinForkStep('naming')}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded transition-colors"
-                        >
-                          Join managed session →
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(session.forkInvite!.inviteLink).catch(() => {});
-                          }}
-                          className={`px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors flex items-center gap-1`}
-                          title="Copy join link"
-                        >
-                          <Copy className="w-3 h-3" /> Copy link
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setJoinForkStep('naming')}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded transition-colors"
+                      >
+                        Join managed session →
+                      </button>
                     )
                   ) : (
                     <p className={`text-xs ${TEXT_COLOR.muted}`}>

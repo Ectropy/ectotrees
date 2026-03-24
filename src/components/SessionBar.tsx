@@ -36,8 +36,8 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { copied, copy: copyCode } = useCopyFeedback();
-  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback();
+  const { copied, copy: copyCode } = useCopyFeedback(1500);
+  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const countdown = useCountdown(session.reconnectAt ?? null);
   const [badPaste, setBadPaste] = useState(false);
 
@@ -118,10 +118,13 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {!session.managed && (
           <button
             onClick={handleCopyCode}
-            className="text-gray-500 hover:text-gray-300 transition-colors"
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
             title="Copy session link"
           >
-            {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+            {copied
+              ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+              : <><Copy className="w-3 h-3" /><span>Copy</span></>
+            }
           </button>
         )}
 
@@ -132,14 +135,17 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
               <span className="flex items-center gap-1.5">
                 <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
                 <span className="text-gray-400 text-xs">Alt1 code:</span>
+                <span className="font-mono font-bold text-amber-300 tracking-widest">{session.personalToken}</span>
                 <button
                   onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
-                  className="font-mono font-bold text-amber-300 tracking-widest transition-colors hover:text-amber-200"
+                  className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
                   title="Copy Alt1 link"
                 >
-                  {session.personalToken}
+                  {tokenCopied
+                    ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                    : <><Copy className="w-3 h-3" /><span>Copy</span></>
+                  }
                 </button>
-                {tokenCopied && <span className="text-green-400 text-xs">Copied!</span>}
               </span>
             ) : (
               <button
