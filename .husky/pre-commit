@@ -1,2 +1,3 @@
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/typescript/bin/tsc --noEmit -p server/tsconfig.json
+node node_modules/eslint/bin/eslint.js .
