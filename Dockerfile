@@ -2,7 +2,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 # Install main app deps
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 
 # Install alt1 plugin deps (before copying source so this layer is cached)
@@ -21,7 +21,7 @@ FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV PORT=3001
 
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --include=dev
 
 COPY --from=build /app/dist ./dist
