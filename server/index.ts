@@ -121,7 +121,7 @@ const httpRateLimits = new Map<string, RateState>();
 
 function checkHttpRateLimit(ip: string): boolean {
   const now = Date.now();
-  let state = httpRateLimits.get(ip);
+  const state = httpRateLimits.get(ip);
   if (!state || now - state.windowStart > HTTP_RATE_LIMIT_WINDOW_MS) {
     httpRateLimits.set(ip, { count: 1, windowStart: now });
     return true;
@@ -223,6 +223,7 @@ if (fs.existsSync(DIST_DIR)) {
 
 // Catches errors thrown by middleware (e.g. body-parser's 413) and returns
 // a consistent JSON response instead of Express's default HTML error page.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err.status === 413 || err.type === 'entity.too.large') {
     res.status(413).json({ error: 'Request body too large.' });
@@ -371,6 +372,7 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authInvi
   ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, personalToken }));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 wss.on('connection', (ws: WebSocket, _req: unknown) => {
   const extensions = wsExtensions.get(ws);
   if (!extensions) {

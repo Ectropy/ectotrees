@@ -22,6 +22,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 function sanitizeString(s: unknown): string | null {
   if (typeof s !== 'string') return null;
   // Strip control characters
+  // eslint-disable-next-line no-control-regex
   const clean = s.replace(/[\x00-\x1F\x7F]/g, '').trim();
   if (clean.length > MAX_STRING_LEN) return null;
   return clean;

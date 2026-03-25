@@ -4,7 +4,6 @@ import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@shared/reconnect';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
-const API_BASE: string = import.meta.env.VITE_API_BASE ?? '/api';
 const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? '';
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;

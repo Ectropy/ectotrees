@@ -259,7 +259,6 @@ export default function App() {
     prevScoutWorldRef.current = currentScoutWorld;
     setWorldSearch('');
     setActiveView({ kind: 'detail', worldId: currentScoutWorld });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentScoutWorld, settings.followScout]);
 
   const sortedFilteredWorlds = useMemo(() => {

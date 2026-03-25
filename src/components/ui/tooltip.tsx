@@ -7,7 +7,7 @@ function TooltipProvider({
   skipDelayDuration = 100,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return <TooltipPrimitive.Provider delayDuration={delayDuration} {...props} />;
+  return <TooltipPrimitive.Provider delayDuration={delayDuration} skipDelayDuration={skipDelayDuration} {...props} />;
 }
 
 function Tooltip(props: React.ComponentProps<typeof TooltipPrimitive.Root>) {
