@@ -1,0 +1,10 @@
+node_modules/
+alt1-plugin/node_modules/
+dist/
+.git/
+e2e/
+*.md
+.github/
+.husky/
+.vscode/
+.claude/
