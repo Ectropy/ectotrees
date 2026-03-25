@@ -629,6 +629,7 @@ export default function App() {
         />;
       if (activeView.kind === 'detail')
         return <WorldDetailView
+          key={worldId}
           world={world}
           state={worldStates[worldId] ?? { treeStatus: 'none' }}
           isFavorite={favorites.has(worldId)}

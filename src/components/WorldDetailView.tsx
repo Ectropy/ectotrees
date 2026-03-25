@@ -15,6 +15,7 @@ import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
 import { SelectCombobox } from './ui/select-combobox';
 import { trackUiEvent } from '../lib/analytics';
+import { useNow } from '../hooks/useNow';
 
 interface Props {
   world: WorldConfig;
@@ -45,7 +46,6 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
   const [editPendingValue, setEditPendingValue] = useState('');
   const [pendingLightning, setPendingLightning] = useState<50 | 25 | null>(null);
   const [showHideHint, setShowHideHint] = useState(false);
-  useEffect(() => { setShowHideHint(false); }, [world.id]);
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (pendingLightning !== null) confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -82,7 +82,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
       commitField({ treeExactLocation: editPendingValue || undefined });
     }
   }
-  const now = Date.now();
+  const now = useNow();
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6" style={{ position: 'relative', isolation: 'isolate' }}>

@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
  */
 export function useEscapeKey(onEscape: () => void) {
   const callbackRef = useRef(onEscape);
-  callbackRef.current = onEscape;
+  useEffect(() => { callbackRef.current = onEscape; }, [onEscape]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

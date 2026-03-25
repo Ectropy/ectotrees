@@ -45,7 +45,7 @@ interface Bolt {
 export function LightningEffect({ onComplete }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

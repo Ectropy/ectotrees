@@ -32,14 +32,13 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
   const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
   useEffect(() => {
-    if (state.treeStatus !== 'dead') { setSparkReady(false); return; }
+    if (state.treeStatus !== 'dead') return;
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(() => setSparkReady(true));
-      return () => window.cancelIdleCallback?.(id);
+      return () => { window.cancelIdleCallback?.(id); setSparkReady(false); };
     }
-
     const timeoutId = window.setTimeout(() => setSparkReady(true), 0);
-    return () => window.clearTimeout(timeoutId);
+    return () => { window.clearTimeout(timeoutId); setSparkReady(false); };
   }, [state.treeStatus]);
   const borderColor = isP2P ? P2P_COLOR.border : F2P_COLOR.border;
 
@@ -56,14 +55,16 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
   useEffect(() => {
     if (!isRecentOwnSubmission) return;
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    setFlashPhase('black');
-    const raf1 = requestAnimationFrame(() => {
+    const raf0 = requestAnimationFrame(() => {
+      setFlashPhase('black');
       requestAnimationFrame(() => {
-        setFlashPhase('fade');
-        flashTimerRef.current = setTimeout(() => setFlashPhase('idle'), 120000);
+        requestAnimationFrame(() => {
+          setFlashPhase('fade');
+          flashTimerRef.current = setTimeout(() => setFlashPhase('idle'), 120000);
+        });
       });
     });
-    return () => cancelAnimationFrame(raf1);
+    return () => cancelAnimationFrame(raf0);
   }, [isRecentOwnSubmission]);
 
   const flashStyle: CSSProperties =

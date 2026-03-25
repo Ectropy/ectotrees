@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
@@ -22,12 +22,11 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
   const [confirmBan, setConfirmBan] = useState<string | null>(null);
   const isAdmin = myRole === 'owner' || myRole === 'moderator';
 
-  // Clear pending ban confirmation if that member leaves/is removed
-  useEffect(() => {
-    if (confirmBan && !members.some(m => m.inviteToken === confirmBan)) {
-      setConfirmBan(null);
-    }
-  }, [members, confirmBan]);
+  // Derive validity: if the member being confirmed for ban has left, treat as null
+  const validConfirmBan = useMemo(
+    () => confirmBan && members.some(m => m.inviteToken === confirmBan) ? confirmBan : null,
+    [confirmBan, members]
+  );
 
   function handleCreateInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -112,7 +111,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                       </select>
 
                       {/* Ban with confirmation */}
-                      {confirmBan === m.inviteToken ? (
+                      {validConfirmBan === m.inviteToken ? (
                         <>
                           <span className="text-red-400 text-[10px]">Ban?</span>
                           <button

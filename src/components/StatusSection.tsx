@@ -1,6 +1,7 @@
 import type { WorldState } from '../types';
 import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { useNow } from '../hooks/useNow';
 
 interface Props {
   state: WorldState;
@@ -19,7 +20,7 @@ function abbreviateHint(hint: string): string {
 }
 
 export function StatusSection({ state }: Props) {
-  const now = Date.now();
+  const now = useNow();
   const locationLabel = state.treeExactLocation ?? (state.treeHint ? abbreviateHint(state.treeHint) : undefined);
 
   if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
