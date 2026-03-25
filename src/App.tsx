@@ -534,7 +534,6 @@ export default function App() {
         onTransferOwnership={transferOwnership}
         onSetAllowViewers={setAllowViewers}
         onRequestPersonalToken={requestPersonalToken}
-        onLinkWithAlt1={handleLinkWithAlt1}
         onBack={handleBack}
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
