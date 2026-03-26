@@ -22,7 +22,7 @@ WORKDIR /app
 ENV PORT=3001
 
 COPY package*.json .npmrc ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
