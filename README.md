@@ -197,7 +197,7 @@ When `ECTOTREES_API` is set, the WebSocket URL is derived from it automatically 
 
 ## Tech stack
 
-- React 19 + TypeScript + Vite 7
+- React 19 + TypeScript + Vite 8
 - Tailwind CSS v3
 - Express 5 + ws (WebSocket server)
 - GSAP for particle animations

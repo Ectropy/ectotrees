@@ -4,7 +4,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 ## Tech Stack
 
-- **React 19** + **TypeScript** + **Vite 7**
+- **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS v3** (not v4)
 - **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
@@ -24,6 +24,7 @@ npm run lint         # eslint
 npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
 npm run server:check # type-check server only (npx tsc --noEmit -p server/tsconfig.json)
+npm run typecheck    # type-check client + server (both in sequence)
 npm test             # run vitest unit tests (mutations + validation)
 npm run test:watch   # vitest in watch mode
 npm run test:e2e     # run Playwright E2E tests (auto-starts dev server)
@@ -87,6 +88,9 @@ src/
     useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
     useCopyFeedback.ts  # Returns { copied, copy(text) } — copy writes to clipboard, copied flips true for 2s
     useHiddenWorlds.ts  # Hidden worlds persisted to localStorage (evilTree_hiddenWorlds); toggle per-world visibility
+    useStoredSet.ts     # Generic localStorage-backed Set<number> hook (used by useFavorites, useHiddenWorlds)
+    useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
+    useNow.ts           # Reactive timestamp primitive (returns Date.now() as state, re-ticks every interval ms)
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -228,7 +232,7 @@ Pure TypeScript code shared between client and server — the single source of t
 - **`types.ts`** — `TreeType`, `WorldState`, `WorldStates`, timing constants (`SAPLING_MATURE_MS`, `ALIVE_DEAD_MS`, `DEAD_CLEAR_MS`, `LIGHTNING_1_MS`, `LIGHTNING_2_MS`, `HEALTH_LIGHTNING_1`, `HEALTH_LIGHTNING_2`), payload interfaces
 - **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol
 - **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyReportLightning`, `applyTransitions`) that take a `WorldStates` map and return a new one
-- **`hints.ts`** — `LOCATION_HINTS` map: 17 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
+- **`hints.ts`** — `LOCATION_HINTS` map: 18 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
 - **`reconnect.ts`** — `RECONNECT_DELAYS`, `MAX_RECONNECT_ATTEMPTS`, `formatReconnectMessage()` — shared reconnection constants and helper used by both the main app and alt1 plugin
 
 `src/types/index.ts` and `src/constants/evilTree.ts` re-export from `shared/types.ts`.
@@ -288,6 +292,7 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `setMemberRole` | `inviteToken: string; role: 'moderator' \| 'scout' \| 'viewer'` — changes a member's role (admin only) |
 | `transferOwnership` | `inviteToken: string` — transfers owner role to another member |
 | `setAllowViewers` | `allow: boolean` — toggles whether anonymous viewers can join a managed session (admin only) |
+| `selfRegister` | `name: string; selfRegisterToken: string; personalToken?: string` — WebSocket-based self-registration into a managed session during fork invite window |
 | `ping` | (no payload, no `msgId`) |
 
 **Server → Client messages** (`ServerMessage`):
@@ -311,6 +316,7 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `memberList` | `members: MemberInfo[]` — full member list broadcast; admin recipients receive `inviteToken` on each entry, regular members do not |
 | `banned` | `reason: string` — sent to a client whose invite token has been revoked |
 | `allowViewers` | `allow: boolean` — broadcast when the allow-viewers setting changes |
+| `selfRegistered` | `inviteToken: string` — confirms WebSocket-based self-registration succeeded; client uses token for `authInvite` on reconnect |
 | `redirect` | `code: string` — tells a client to disconnect and reconnect to a different session (used during fork migration for clients with personal tokens) |
 | `ack` | `msgId: number` — confirms a mutation was applied |
 | `pong` | (no payload) — response to `ping` |
