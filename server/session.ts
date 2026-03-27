@@ -64,30 +64,21 @@ const sessions = new Map<string, Session>();
 // Global index: invite token → session code for O(1) lookup during WS upgrade
 const inviteTokenIndex = new Map<string, string>();
 
-function generateCode(): string {
-  const bytes = crypto.randomBytes(6);
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += CODE_CHARS[bytes[i] % CODE_CHARS.length];
+function generateToken(length: number): string {
+  const bytes = crypto.randomBytes(length);
+  let token = '';
+  for (let i = 0; i < length; i++) {
+    token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
   }
-  return code;
+  return token;
 }
 
-function generateInviteToken(): string {
-  let token: string;
-  let attempts = 0;
-  do {
-    const bytes = crypto.randomBytes(12);
-    token = '';
-    for (let i = 0; i < 12; i++) {
-      token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
-    }
-    attempts++;
-    if (attempts > 20) {
-      throw new Error('Failed to generate unique invite token after 20 attempts');
-    }
-  } while (inviteTokenIndex.has(token));
-  return token;
+function generateUniqueInviteToken(): string {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const token = generateToken(12);
+    if (!inviteTokenIndex.has(token)) return token;
+  }
+  throw new Error('Failed to generate unique invite token after 20 attempts');
 }
 
 function broadcast(session: Session, msg: ServerMessage) {
@@ -119,7 +110,7 @@ export function createSession(): { code: string } | { error: string } {
   let code: string;
   let attempts = 0;
   do {
-    code = generateCode();
+    code = generateToken(6);
     attempts++;
   } while (sessions.has(code) && attempts < 10);
 
@@ -417,7 +408,7 @@ function broadcastManagedClientCount(session: Session) {
 function setupManagedOwner(session: Session, name: string, existingToken?: string): string | { error: string } {
   if (session.managed) return { error: 'Session is already managed.' };
 
-  const ownerToken = existingToken ?? generateInviteToken();
+  const ownerToken = existingToken ?? generateUniqueInviteToken();
   session.managed = true;
   session.ownerToken = ownerToken;
 
@@ -570,10 +561,10 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
         oldSession.members.delete(personalToken);
       }
     } else {
-      inviteToken = generateInviteToken();
+      inviteToken = generateUniqueInviteToken();
     }
   } else {
-    inviteToken = generateInviteToken();
+    inviteToken = generateUniqueInviteToken();
   }
 
   const member: Member = {
@@ -730,7 +721,7 @@ export function requestPersonalToken(session: Session, ws: WebSocket): ServerMes
   }
 
   // Anonymous session: create a lightweight member entry
-  const token = generateInviteToken();
+  const token = generateUniqueInviteToken();
   const member: Member = {
     name: 'Anonymous',
     inviteToken: token,
@@ -765,7 +756,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
     if (m.name === name) return { type: 'error', message: 'Name already taken.' };
   }
 
-  const inviteToken = generateInviteToken();
+  const inviteToken = generateUniqueInviteToken();
   const member: Member = {
     name,
     inviteToken,
