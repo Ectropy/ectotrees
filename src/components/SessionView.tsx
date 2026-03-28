@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
-import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
+import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
@@ -12,10 +12,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface SessionViewProps {
   session: SessionState;
-  activeLocalCount: number;
-  onCreateSession: () => Promise<string | null>;
-  onJoinSession: (code: string) => boolean;
-  onRequestSessionJoin: (code: string) => Promise<void>;
   onRejoinSession: (code: string) => void;
   onLeaveSession: () => void;
   onDismissError: () => void;
@@ -44,20 +40,17 @@ const STATUS_LABELS: Record<SessionState['status'], string> = {
 const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfig.json`;
 
 export function SessionView({
-  session, activeLocalCount,
-  onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
+  session,
+  onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
   onSetAllowViewers, onUpdateSessionSettings, onRequestPersonalToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
-  const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState(false);
   const { copied, copy: copyCode } = useCopyFeedback(1500);
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const countdown = useCountdown(session.reconnectAt ?? null);
   const forkCountdown = useCountdown(session.forkInvite?.expiresAt ?? null, 1000);
-  const [badPaste, setBadPaste] = useState(false);
   const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
   const [managedName, setManagedName] = useState('');
   const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
@@ -74,28 +67,6 @@ export function SessionView({
     setSessionListedInput(session.sessionListed);
   }
 
-  async function handleCreate() {
-    setLoading(true);
-    await onCreateSession();
-    setLoading(false);
-  }
-
-  async function handleJoin() {
-    const code = joinCode.trim().toUpperCase();
-    if (!validateSessionCode(code)) return;
-    if (activeLocalCount > 0) {
-      setJoinCode('');
-      setLoading(true);
-      await onRequestSessionJoin(code);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const ok = onJoinSession(code);
-    setLoading(false);
-    if (ok) setJoinCode('');
-  }
-
   async function handleCopyCode() {
     if (!session.code) return;
     await copyCode(buildSessionUrl(session.code));
@@ -109,84 +80,8 @@ export function SessionView({
   const isConnected = session.status === 'connected';
   const canRejoin = session.status === 'disconnected' && session.code !== null;
 
-  // ─── No active session ───
-  if (!session.code) {
-    return (
-      <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-        <div className="max-w-lg mx-auto">
-          <div className="mb-6">
-            <h1 className={`text-2xl font-bold ${TEXT_COLOR.prominent} flex items-center gap-2`}>
-              <Users className="h-5 w-5" /> Session
-            </h1>
-            <p className={`text-sm ${TEXT_COLOR.muted} mt-1`}>Create or join a sync session to share world data in real time.</p>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleCreate}
-              disabled={loading}
-              className="w-full px-4 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium rounded transition-colors"
-            >
-              {loading ? 'Creating…' : 'Create Session'}
-            </button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700" /></div>
-              <div className="relative flex justify-center"><span className="bg-gray-900 px-3 text-xs text-gray-500">or</span></div>
-            </div>
-
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
-            >
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => {
-                  const x = extractSessionCode(e.target.value);
-                  if (x.length > 6) {
-                    setJoinCode('');
-                    setBadPaste(true);
-                    setTimeout(() => setBadPaste(false), 2500);
-                  } else {
-                    setJoinCode(x);
-                    setBadPaste(false);
-                  }
-                }}
-                placeholder="Enter code or paste link"
-                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 text-white rounded font-mono text-center uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <button
-                type="submit"
-                disabled={loading || !validateSessionCode(joinCode.trim())}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded transition-colors"
-              >
-                {loading ? '…' : 'Join'}
-              </button>
-            </form>
-            {badPaste && <p className="text-xs text-red-400">Not a valid code or link</p>}
-          </div>
-
-          {session.error && (
-            <button
-              onClick={onDismissError}
-              className="mt-4 text-red-400 text-xs hover:text-red-300 transition-colors"
-              title={`${session.error} (click to dismiss)`}
-            >
-              {session.error}
-            </button>
-          )}
-
-          <button
-            onClick={onBack}
-            className={`mt-6 w-full ${BUTTON_SECONDARY} py-2.5`}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // No active session — should not reach here; App.tsx routes to SessionBrowserView
+  if (!session.code) return null;
 
   // ─── Active session ───
   const reconnectText = getReconnectText();

@@ -309,20 +309,31 @@ export default function App() {
 
     if (activeView.kind === 'browse')
       return <SessionBrowserView
-        onJoinSession={handleJoinSession}
-        onRequestSessionJoin={handleRequestSessionJoin}
-        showOnStartup={settings.showBrowseOnStartup}
-        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
-        onBack={handleBack}
-      />;
-
-    if (activeView.kind === 'session')
-      return <SessionView
         session={session}
         activeLocalCount={activeLocalCount}
         onCreateSession={handleCreateSession}
         onJoinSession={handleJoinSession}
         onRequestSessionJoin={handleRequestSessionJoin}
+        onDismissError={dismissError}
+        showOnStartup={settings.showBrowseOnStartup}
+        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
+        onBack={handleBack}
+      />;
+
+    if (activeView.kind === 'session') {
+      if (!session.code) return <SessionBrowserView
+        session={session}
+        activeLocalCount={activeLocalCount}
+        onCreateSession={handleCreateSession}
+        onJoinSession={handleJoinSession}
+        onRequestSessionJoin={handleRequestSessionJoin}
+        onDismissError={dismissError}
+        showOnStartup={settings.showBrowseOnStartup}
+        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
+        onBack={handleBack}
+      />;
+      return <SessionView
+        session={session}
         onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}
         onDismissError={dismissError}
@@ -340,6 +351,7 @@ export default function App() {
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
       />;
+    }
 
     if (activeView.kind === 'session-join')
       return <SessionJoinView
@@ -591,10 +603,7 @@ export default function App() {
 
         <SessionBar
           session={session}
-          activeLocalCount={activeLocalCount}
           onCreateSession={handleCreateSession}
-          onJoinSession={handleJoinSession}
-          onRequestSessionJoin={handleRequestSessionJoin}
           onRejoinSession={rejoinSession}
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
