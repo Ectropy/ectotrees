@@ -11,6 +11,18 @@ export interface MemberInfo {
   link?: string;         // included only for admin recipients — full invite URL
 }
 
+export interface SessionSummary {
+  code: string;
+  name: string;
+  description?: string;
+  managed: boolean;
+  clientCount: number;
+  memberCount: number;
+  activeWorldCount: number;
+  createdAt: number;
+  lastActivityAt: number;
+}
+
 export type ClientMessage =
   | { type: 'authSession';     code: string }
   | { type: 'authInvite';      token: string }
@@ -35,6 +47,7 @@ export type ClientMessage =
   | { type: 'setAllowViewers'; allow: boolean }
   | { type: 'selfRegister'; name: string; selfRegisterToken: string; personalToken?: string }
   | { type: 'requestPersonalToken' }
+  | { type: 'updateSessionSettings'; settings: { name?: string; description?: string; listed?: boolean } }
   | { type: 'ping' };
 
 export type ServerMessage =
@@ -58,6 +71,7 @@ export type ServerMessage =
   | { type: 'personalToken';  token: string }
   | { type: 'selfRegistered'; inviteToken: string }
   | { type: 'redirect';       code: string }
+  | { type: 'sessionSettingsUpdated'; name: string | null; description: string | null; listed: boolean }
   | { type: 'pong' }
   | { type: 'ack';            msgId: number }
   | { type: 'error';          message: string; serverVersion?: string }

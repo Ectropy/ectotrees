@@ -4,6 +4,7 @@ export interface AppSettings {
   effectsLightning: boolean;
   effectsSparks: boolean;
   showTipTicker: boolean;
+  showBrowseOnStartup: boolean;
   sidebarEnabled: boolean;
   sidebarSide: 'left' | 'right';
   followScout: boolean;
@@ -14,6 +15,7 @@ const DEFAULTS: AppSettings = {
   effectsLightning: true,
   effectsSparks: true,
   showTipTicker: true,
+  showBrowseOnStartup: true,
   sidebarEnabled: false,
   sidebarSide: 'right',
   followScout: false,
@@ -31,6 +33,7 @@ function loadSettings(): AppSettings {
       effectsSparks: p.effectsSparks,
       // Graceful migration: existing stored settings won't have these fields
       showTipTicker: typeof p?.showTipTicker === 'boolean' ? p.showTipTicker : true,
+      showBrowseOnStartup: typeof p?.showBrowseOnStartup === 'boolean' ? p.showBrowseOnStartup : true,
       sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : false,
       sidebarSide: p?.sidebarSide === 'left' ? 'left' : 'right',
       followScout: typeof p?.followScout === 'boolean' ? p.followScout : false,

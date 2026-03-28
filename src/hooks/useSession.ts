@@ -36,6 +36,9 @@ export interface SessionState {
   members: MemberInfo[];
   lastInvite: { inviteToken: string; name: string; link: string } | null;
   forkInvite: { managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string; personalToken?: string } | null;
+  sessionName: string | null;
+  sessionDescription: string | null;
+  sessionListed: boolean;
 }
 
 const API_BASE = resolveApiBase();
@@ -56,6 +59,7 @@ function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
     recentOwnWorldId: null,
     personalToken: null, scoutWorld: null,
     managed: false, ownerToken: null, allowViewers: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
+    sessionName: null, sessionDescription: null, sessionListed: false,
     ...overrides,
   };
 }
@@ -411,6 +415,9 @@ export function useSession(onSessionLost?: () => void) {
           break;
         case 'allowViewers':
           setSession(prev => ({ ...prev, allowViewers: msg.allow }));
+          break;
+        case 'sessionSettingsUpdated':
+          setSession(prev => ({ ...prev, sessionName: msg.name, sessionDescription: msg.description ?? null, sessionListed: msg.listed }));
           break;
         case 'personalToken':
           personalTokenRef.current = msg.token;
@@ -837,6 +844,10 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'setAllowViewers', allow });
   }, []);
 
+  const updateSessionSettingsAction = useCallback((settings: { name?: string; description?: string; listed?: boolean }) => {
+    sendWsMessage({ type: 'updateSessionSettings', settings });
+  }, []);
+
   const requestPersonalTokenAction = useCallback(() => {
     sendWsMessage({ type: 'requestPersonalToken' });
   }, []);
@@ -888,6 +899,7 @@ export function useSession(onSessionLost?: () => void) {
     setMemberRole: setMemberRoleAction,
     transferOwnership: transferOwnershipAction,
     setAllowViewers: setAllowViewersAction,
+    updateSessionSettings: updateSessionSettingsAction,
     requestPersonalToken: requestPersonalTokenAction,
   };
 }

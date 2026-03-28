@@ -27,6 +27,7 @@ interface SessionViewProps {
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (inviteToken: string) => void;
   onSetAllowViewers: (allow: boolean) => void;
+  onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
   onRequestPersonalToken: () => void;
   onBack: () => void;
   followScout: boolean;
@@ -47,7 +48,7 @@ export function SessionView({
   onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
-  onSetAllowViewers, onRequestPersonalToken,
+  onSetAllowViewers, onUpdateSessionSettings, onRequestPersonalToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const [joinCode, setJoinCode] = useState('');
@@ -61,6 +62,17 @@ export function SessionView({
   const [managedName, setManagedName] = useState('');
   const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
   const [joinForkName, setJoinForkName] = useState('');
+  const [sessionNameInput, setSessionNameInput] = useState(session.sessionName ?? '');
+  const [sessionDescInput, setSessionDescInput] = useState(session.sessionDescription ?? '');
+  const [sessionListedInput, setSessionListedInput] = useState(session.sessionListed);
+  const [sessionSettingsError] = useState<string | null>(null);
+  const [prevSessionSettings, setPrevSessionSettings] = useState({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
+  if (prevSessionSettings.name !== session.sessionName || prevSessionSettings.desc !== session.sessionDescription || prevSessionSettings.listed !== session.sessionListed) {
+    setPrevSessionSettings({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
+    setSessionNameInput(session.sessionName ?? '');
+    setSessionDescInput(session.sessionDescription ?? '');
+    setSessionListedInput(session.sessionListed);
+  }
 
   async function handleCreate() {
     setLoading(true);
@@ -283,6 +295,64 @@ export function SessionView({
               >
                 {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1'}
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Session Visibility */}
+        {isConnected && (
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 space-y-3">
+            <p className="text-sm font-medium text-white">Session Visibility</p>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Session Name</label>
+              <input
+                type="text"
+                value={sessionNameInput}
+                onChange={e => setSessionNameInput(e.target.value.slice(0, 50))}
+                placeholder="Give your session a name..."
+                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                maxLength={50}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Description <span className="text-gray-500">(optional)</span></label>
+              <input
+                type="text"
+                value={sessionDescInput}
+                onChange={e => setSessionDescInput(e.target.value.slice(0, 200))}
+                placeholder="Discord link, contact info, etc."
+                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                maxLength={200}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white">Listed in Session Browser</p>
+                <p className="text-xs text-gray-400">Others can find and join this session</p>
+              </div>
+              <Switch
+                checked={sessionListedInput}
+                onCheckedChange={v => setSessionListedInput(v)}
+                disabled={!sessionNameInput.trim()}
+                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+              />
+            </div>
+            {(sessionNameInput !== (session.sessionName ?? '') || sessionDescInput !== (session.sessionDescription ?? '') || sessionListedInput !== session.sessionListed) && (
+              <button
+                onClick={() => {
+                  onUpdateSessionSettings({
+                    name: sessionNameInput,
+                    description: sessionDescInput,
+                    listed: sessionListedInput,
+                  });
+                }}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
+              >
+                Save Visibility Settings
+              </button>
+            )}
+            {sessionSettingsError && (
+              <p className="text-xs text-red-400">{sessionSettingsError}</p>
             )}
           </div>
         )}

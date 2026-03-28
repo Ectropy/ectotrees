@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
-import type { ServerMessage, MemberRole, MemberInfo } from '../shared/protocol.ts';
+import type { ServerMessage, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { log, warn } from './log.ts';
 
@@ -57,6 +57,10 @@ export interface Session {
   // Set on managed sessions created by fork — allows self-registration during the fork invite window
   selfRegisterUntil?: number;
   selfRegisterTokens?: Map<string, boolean>;  // token → consumed; only valid tokens may self-register
+  // Session browser fields
+  name?: string;
+  description?: string;
+  listed?: boolean;
 }
 
 const sessions = new Map<string, Session>();
@@ -194,6 +198,10 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   }
   const snapshot: ServerMessage = { type: 'snapshot', worlds: activeWorlds };
   ws.send(JSON.stringify(snapshot));
+
+  if (session.name) {
+    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
+  }
 
   // Re-send active fork invite only to clients who were present at fork time (have a self-register token)
   if (session.pendingFork) {
@@ -648,6 +656,10 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   }
   ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
 
+  if (session.name) {
+    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
+  }
+
   // Send identity (both managed and anonymous members)
   const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role, sessionCode: session.code };
   ws.send(JSON.stringify(identityMsg));
@@ -908,6 +920,70 @@ export function transferOwnership(session: Session, ws: WebSocket, inviteToken: 
   }
 
   broadcastMemberList(session);
+  return null;
+}
+
+// ── Session browser ────────────────────────────────────────────────────────
+
+export function getListedSessions(): SessionSummary[] {
+  const results: SessionSummary[] = [];
+  for (const session of sessions.values()) {
+    if (!session.listed || !session.name) continue;
+    let activeWorldCount = 0;
+    for (const state of Object.values(session.worldStates)) {
+      if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+        activeWorldCount++;
+      }
+    }
+    let memberCount: number;
+    if (session.managed) {
+      memberCount = 0;
+      for (const m of session.members.values()) {
+        if (!m.banned) memberCount++;
+      }
+    } else {
+      memberCount = session.clients.size;
+    }
+    results.push({
+      code: session.code,
+      name: session.name,
+      description: session.description,
+      managed: !!session.managed,
+      clientCount: session.clients.size,
+      memberCount,
+      activeWorldCount,
+      createdAt: session.createdAt,
+      lastActivityAt: session.lastActivityAt,
+    });
+  }
+  results.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+  return results.slice(0, 50);
+}
+
+export function updateSessionSettings(
+  session: Session,
+  ws: WebSocket,
+  settings: { name?: string; description?: string; listed?: boolean },
+): ServerMessage | null {
+  if (session.managed && !isAdmin(session, ws)) {
+    return { type: 'error', message: 'Permission denied.' };
+  }
+
+  if (settings.name !== undefined) session.name = settings.name || undefined;
+  if (settings.description !== undefined) session.description = settings.description || undefined;
+  if (settings.listed !== undefined) session.listed = settings.listed;
+
+  if (session.listed && !session.name) {
+    session.listed = false;
+    return { type: 'error', message: 'A session name is required to be listed.' };
+  }
+
+  broadcast(session, {
+    type: 'sessionSettingsUpdated',
+    name: session.name ?? null,
+    description: session.description ?? null,
+    listed: !!session.listed,
+  });
   return null;
 }
 

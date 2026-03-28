@@ -17,6 +17,7 @@ import { SettingsView } from './components/SettingsView';
 import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
 import { SessionView } from './components/SessionView';
+import { SessionBrowserView } from './components/SessionBrowserView';
 import { TipTicker } from './components/TipTicker';
 import { UpdateBanner } from './components/UpdateBanner';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
@@ -37,6 +38,7 @@ type ActiveView =
   | { kind: 'settings' }
   | { kind: 'session' }
   | { kind: 'session-join'; code: string }
+  | { kind: 'browse' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 const APP_VERSION = __APP_VERSION__;
@@ -51,7 +53,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -134,7 +136,18 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_inviteToken');
+    if (!hasSession) {
+      try {
+        const raw = localStorage.getItem('evilTree_settings');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const showBrowse = parsed?.showBrowseOnStartup !== false;
+        if (showBrowse) return { kind: 'browse' };
+      } catch { /* fall through */ }
+    }
+    return { kind: 'grid' };
+  });
   const { copied: discordCopied, copy: copyDiscord } = useCopyFeedback(1500);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
@@ -222,7 +235,7 @@ export default function App() {
       const { surface, sidebarSide } = getAnalyticsContext();
       trackUiEvent('ui_nav_action', {
         panel: activeView.kind,
-        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined,
+        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined,
         surface,
         sidebar_side: sidebarSide,
         action: 'close_view',
@@ -268,7 +281,7 @@ export default function App() {
     if (activeView.kind === 'grid') return;
 
     const panel = activeView.kind as UiPanel;
-    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined;
+    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined;
     const surface: UiSurface = useSidebar ? 'sidebar' : 'fullscreen';
     const sidebarSide: UiSidebarSide = useSidebar ? settings.sidebarSide : 'none';
     const key = `${panel}:${worldId ?? 'none'}:${surface}:${sidebarSide}`;
@@ -285,7 +298,7 @@ export default function App() {
     });
   }, [activeView, useSidebar, settings.sidebarSide]);
 
-  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join'
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse'
     ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
@@ -293,6 +306,15 @@ export default function App() {
   function renderViewContent() {
     if (activeView.kind === 'settings')
       return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
+    if (activeView.kind === 'browse')
+      return <SessionBrowserView
+        onJoinSession={handleJoinSession}
+        onRequestSessionJoin={handleRequestSessionJoin}
+        showOnStartup={settings.showBrowseOnStartup}
+        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
+        onBack={handleBack}
+      />;
 
     if (activeView.kind === 'session')
       return <SessionView
@@ -312,6 +334,7 @@ export default function App() {
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowViewers={setAllowViewers}
+        onUpdateSessionSettings={updateSessionSettings}
         onRequestPersonalToken={requestPersonalToken}
         onBack={handleBack}
         followScout={settings.followScout}
@@ -576,7 +599,8 @@ export default function App() {
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
           onRequestPersonalToken={requestPersonalToken}
-        onLinkWithAlt1={handleLinkWithAlt1}
+          onLinkWithAlt1={handleLinkWithAlt1}
+          onOpenBrowser={() => setActiveView({ kind: 'browse' })}
         />
 
         <SortFilterBar

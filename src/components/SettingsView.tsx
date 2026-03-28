@@ -38,6 +38,12 @@ export function SettingsView({ settings, onUpdateSettings, onBack }: Props) {
             onChange={v => onUpdateSettings({ showTipTicker: v })}
           />
           <SettingRow
+            label="Session Browser on Startup"
+            description="Show the session browser when opening the app without an active session"
+            value={settings.showBrowseOnStartup}
+            onChange={v => onUpdateSettings({ showBrowseOnStartup: v })}
+          />
+          <SettingRow
             label="Sidebar Panel"
             description="Show tools in a panel beside the grid instead of full-screen (desktop only)"
             value={settings.sidebarEnabled}

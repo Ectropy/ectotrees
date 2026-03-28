@@ -4,6 +4,7 @@ import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
 import { LOCATION_HINTS } from '../shared/hints.ts';
 import worldsData from '../src/data/worlds.json' with { type: 'json' };
 import { warn } from './log.ts';
+import { containsProfanity } from './profanity.ts';
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 const VALID_TREE_TYPES = new Set<string>(TREE_TYPES);
@@ -199,6 +200,29 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   if (type === 'setAllowViewers') {
     if (typeof raw.allow !== 'boolean') return { error: 'allow must be a boolean.' };
     return { type: 'setAllowViewers', allow: raw.allow };
+  }
+
+  if (type === 'updateSessionSettings') {
+    if (!isObject(raw.settings)) return { error: 'Missing settings object.' };
+    const settings: { name?: string; description?: string; listed?: boolean } = {};
+    if (raw.settings.name !== undefined) {
+      const name = sanitizeString(raw.settings.name);
+      if (name === null) return { error: 'Invalid session name.' };
+      if (name.length > 50) return { error: 'Session name must be 50 characters or fewer.' };
+      if (name && containsProfanity(name)) return { error: 'Session name contains inappropriate language.' };
+      settings.name = name;
+    }
+    if (raw.settings.description !== undefined) {
+      const description = sanitizeString(raw.settings.description);
+      if (description === null) return { error: 'Invalid session description.' };
+      if (description && containsProfanity(description)) return { error: 'Session description contains inappropriate language.' };
+      settings.description = description;
+    }
+    if (raw.settings.listed !== undefined) {
+      if (typeof raw.settings.listed !== 'boolean') return { error: 'listed must be a boolean.' };
+      settings.listed = raw.settings.listed;
+    }
+    return { type: 'updateSessionSettings', settings };
   }
 
   if (type === 'transferOwnership') {

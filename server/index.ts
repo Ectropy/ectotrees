@@ -41,6 +41,8 @@ import {
   authenticateByCode,
   authenticateByInviteToken,
   authenticateByPersonalToken,
+  getListedSessions,
+  updateSessionSettings,
   MAX_CLIENTS_PER_SESSION,
 } from './session.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
@@ -192,7 +194,9 @@ app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) =>
   res.json({ code: result.code });
 });
 
-
+app.get('/api/sessions', httpRateLimitMiddleware, (_req, res) => {
+  res.json({ sessions: getListedSessions() });
+});
 
 app.get('/api/health', (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
@@ -637,6 +641,13 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
+    case 'updateSessionSettings': {
+      const err = updateSessionSettings(session, ws, msg.settings);
+      if (err) ws.send(JSON.stringify(err));
+      else log(`[session] ${session.code} ${c} updateSessionSettings ${JSON.stringify(msg.settings)}`);
+      break;
+    }
+
     case 'setSpawnTimer': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
@@ -720,7 +731,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers', 'updateSessionSettings']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

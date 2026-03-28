@@ -18,6 +18,7 @@ interface SessionBarProps {
   onOpenSession: () => void;
   onRequestPersonalToken: () => void;
   onLinkWithAlt1: () => Promise<string | null>;
+  onOpenBrowser: () => void;
 }
 
 
@@ -33,7 +34,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken, onLinkWithAlt1 }: SessionBarProps) {
+export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken, onLinkWithAlt1, onOpenBrowser }: SessionBarProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -274,6 +275,13 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
           Join Session
         </button>
       )}
+
+      <button
+        onClick={onOpenBrowser}
+        className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+      >
+        Browse
+      </button>
 
       <button
         onClick={onLinkWithAlt1}
