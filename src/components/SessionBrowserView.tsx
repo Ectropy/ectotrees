@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Users, RefreshCw, TreeDeciduous, Shield } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
@@ -41,6 +41,7 @@ export function SessionBrowserView({
   const [badPaste, setBadPaste] = useState(false);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const autoTriggeredRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchSessions();
@@ -56,23 +57,46 @@ export function SessionBrowserView({
   }
 
   async function handleJoin() {
-    const code = joinCode.trim().toUpperCase();
-    if (!validateSessionCode(code)) return;
-    if (activeLocalCount > 0) {
+    const codeOrToken = joinCode.trim().toUpperCase();
+    const isToken = codeOrToken.length === 12;
+    const isCode = validateSessionCode(codeOrToken);
+    if (!isCode && !isToken) return;
+
+    // Tokens always use preview flow (to show session info/member list)
+    // Codes use preview if there's local data, direct join if not
+    if (isToken || activeLocalCount > 0) {
       setJoinCode('');
       setJoining(true);
-      await onRequestSessionJoin(code);
+      await onRequestSessionJoin(codeOrToken);
       setJoining(false);
       return;
     }
+
+    // Code with no local data: direct join
     setJoining(true);
-    const ok = onJoinSession(code);
+    const ok = onJoinSession(codeOrToken);
     setJoining(false);
     if (ok) {
       setJoinCode('');
       onBack();
     }
   }
+
+  // Auto-trigger join preview/flow when a valid code/token is entered
+  // (like how 2FA apps auto-submit when all digits are entered)
+  useEffect(() => {
+    const codeOrToken = joinCode.trim().toUpperCase();
+    const isCode = validateSessionCode(codeOrToken);
+    const isToken = codeOrToken.length === 12;
+    if ((isCode || isToken) && autoTriggeredRef.current !== codeOrToken) {
+      autoTriggeredRef.current = codeOrToken;
+      // Debounce slightly to ensure state is settled
+      const timer = setTimeout(() => {
+        handleJoin();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [joinCode]);
 
   const busy = creating || joining;
 
@@ -116,8 +140,10 @@ export function SessionBrowserView({
                   type="text"
                   value={joinCode}
                   onChange={(e) => {
+                    onDismissError();
                     const x = extractSessionCode(e.target.value);
-                    if (x.length > 6) {
+                    // Accept codes (6 chars) or tokens (12 chars)
+                    if (x.length > 12) {
                       setJoinCode('');
                       setBadPaste(true);
                       setTimeout(() => setBadPaste(false), 2500);
@@ -126,12 +152,12 @@ export function SessionBrowserView({
                       setBadPaste(false);
                     }
                   }}
-                  placeholder="Code or link"
+                  placeholder="Code, token, or link"
                   className="flex-1 min-w-0 px-2 py-2 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-sm uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
                 <button
                   type="submit"
-                  disabled={busy || !validateSessionCode(joinCode.trim())}
+                  disabled={busy || !(validateSessionCode(joinCode.trim()) || joinCode.trim().length === 12)}
                   className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
                 >
                   {joining ? '…' : 'Join'}

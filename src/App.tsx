@@ -53,7 +53,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -112,27 +112,35 @@ export default function App() {
     leaveSession();
   }, [saveToLocalStorage, leaveSession]);
 
-  // Auto-join from hash fragment on first load: #join=CODE or #invite=TOKEN
-  useEffect(() => {
+  // Read the fragment code/token during state initialization so it survives React
+  // Strict Mode's mount→unmount→remount cycle. URL is cleaned immediately here
+  // (not in an effect) so it's gone by the time effects run.
+  const [fragmentJoinTarget] = useState<string | null>(() => {
     const hash = window.location.hash;
-    if (!hash) return;
-
+    if (!hash) return null;
     const joinMatch = hash.match(/^#join=([A-Za-z0-9]+)$/);
     if (joinMatch) {
       const code = joinMatch[1].trim().toUpperCase();
-      if (!validateSessionCode(code)) return;
+      if (!validateSessionCode(code)) return null; // leave URL unchanged
       history.replaceState(null, '', window.location.pathname + window.location.search);
-      handleJoinSession(code);
-      return;
+      return code;
     }
-
     const inviteMatch = hash.match(/^#invite=([A-Za-z0-9]+)$/);
     if (inviteMatch) {
       const token = inviteMatch[1].trim().toUpperCase();
-      if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
+      if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null; // leave URL unchanged
       history.replaceState(null, '', window.location.pathname + window.location.search);
-      joinByInviteToken(token);
+      return token;
     }
+    return null;
+  });
+
+  // Trigger preview join for fragment URLs. useEffect with [] re-fires on each
+  // Strict Mode remount — the first-mount attempt is cancelled by cleanup; the
+  // second succeeds (fragmentJoinTarget is preserved in state, not re-read).
+  useEffect(() => {
+    if (!fragmentJoinTarget) return;
+    handleRequestSessionJoin(fragmentJoinTarget);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -355,7 +363,7 @@ export default function App() {
 
     if (activeView.kind === 'session-join')
       return <SessionJoinView
-        code={activeView.code}
+        codeOrToken={activeView.code}
         localWorldStates={worldStates}
         serverWorlds={previewWorlds ?? {}}
         onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}

@@ -651,7 +651,7 @@ export function useSession(onSessionLost?: () => void) {
     joinSession(code);
   }, [joinSession]);
 
-  const previewJoin = useCallback((code: string): Promise<WorldStates | null> => {
+  const previewJoin = useCallback((codeOrToken: string): Promise<WorldStates | null> => {
     // Cancel any in-flight preview
     if (previewWsRef.current) {
       previewWsRef.current.close();
@@ -671,7 +671,12 @@ export function useSession(onSessionLost?: () => void) {
       previewWsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'authSession', code }));
+        // Determine if it's a code (6 chars) or token (12 chars)
+        const isToken = codeOrToken.length === 12;
+        const msg = isToken
+          ? { type: 'authInvite' as const, token: codeOrToken }
+          : { type: 'authSession' as const, code: codeOrToken };
+        ws.send(JSON.stringify(msg));
       };
 
       ws.onmessage = (event) => {
@@ -702,7 +707,12 @@ export function useSession(onSessionLost?: () => void) {
         } else if (msg.type === 'authError') {
           lastServerErrorRef.current = msg.reason;
           setSession(prev => ({ ...prev, error: msg.reason }));
-          // Server closes the WS after authError; onclose will resolve null
+          // Resolve immediately — don't wait for onclose (which may race with the message)
+          previewWsRef.current = null;
+          const res = previewResolveRef.current;
+          previewResolveRef.current = null;
+          ws.close();
+          res?.(null);
         }
       };
 
@@ -718,27 +728,39 @@ export function useSession(onSessionLost?: () => void) {
     });
   }, []);
 
-  const confirmPreviewJoin = useCallback((code: string, localStates?: WorldStates): void => {
+  const confirmPreviewJoin = useCallback((codeOrToken: string, localStates?: WorldStates): void => {
     const previewWs = previewWsRef.current;
     previewWsRef.current = null;
     previewResolveRef.current = null;
     setPreviewWorlds(null);
 
+    // Determine if it's a code (6 chars) or token (12 chars)
+    const isToken = codeOrToken.length === 12;
+
     // The existing snapshot handler applies merge + contributeWorlds via joinMergeStatesRef
     joinMergeStatesRef.current = localStates ?? null;
-    codeRef.current = code;
-    persistSessionCode(code);
     clearPending();
-    setSession(prev => ({ ...prev, code, reconnectAttempt: 0, error: null }));
+    setSession(prev => ({ ...prev, reconnectAttempt: 0, error: null }));
+
+    if (isToken) {
+      // For invite tokens
+      inviteTokenRef.current = codeOrToken;
+      persistInviteToken(codeOrToken);
+    } else {
+      // For session codes
+      codeRef.current = codeOrToken;
+      persistSessionCode(codeOrToken);
+      setSession(prev => ({ ...prev, code: codeOrToken }));
+    }
 
     // Wait for preview WS to close so the server frees the slot before we reconnect
     if (previewWs && previewWs.readyState !== WebSocket.CLOSED) {
-      previewWs.onclose = () => { connectWs(code); };
+      previewWs.onclose = () => { connectWs(isToken ? null : codeOrToken, isToken ? codeOrToken : null); };
       previewWs.onmessage = null;
       previewWs.onerror = null;
       previewWs.close();
     } else {
-      connectWs(code);
+      connectWs(isToken ? null : codeOrToken, isToken ? codeOrToken : null);
     }
   }, []);
 
