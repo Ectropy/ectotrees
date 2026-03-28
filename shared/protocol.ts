@@ -16,6 +16,8 @@ export interface SessionSummary {
   name: string;
   description?: string;
   managed: boolean;
+  allowViewers: boolean;
+  allowOpenJoin: boolean;
   clientCount: number;
   memberCount: number;
   activeWorldCount: number;
@@ -45,6 +47,7 @@ export type ClientMessage =
   | { type: 'setMemberRole'; inviteToken: string; role: 'moderator' | 'scout' | 'viewer' }
   | { type: 'transferOwnership'; inviteToken: string }
   | { type: 'setAllowViewers'; allow: boolean }
+  | { type: 'setAllowOpenJoin'; allow: boolean }
   | { type: 'selfRegister'; name: string; selfRegisterToken: string; personalToken?: string }
   | { type: 'requestPersonalToken' }
   | { type: 'updateSessionSettings'; settings: { name?: string; description?: string; listed?: boolean } }
@@ -68,6 +71,7 @@ export type ServerMessage =
   | { type: 'memberList';     members: MemberInfo[] }
   | { type: 'banned';         reason: string }
   | { type: 'allowViewers';    allow: boolean }
+  | { type: 'allowOpenJoin';  allow: boolean }
   | { type: 'personalToken';  token: string }
   | { type: 'selfRegistered'; inviteToken: string }
   | { type: 'redirect';       code: string }

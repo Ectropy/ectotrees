@@ -37,6 +37,8 @@ import {
   setMemberRole,
   transferOwnership,
   setAllowViewers,
+  setAllowOpenJoin,
+  createOpenJoinInvite,
   requestPersonalToken,
   authenticateByCode,
   authenticateByInviteToken,
@@ -196,6 +198,26 @@ app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) =>
 
 app.get('/api/sessions', httpRateLimitMiddleware, (_req, res) => {
   res.json({ sessions: getListedSessions() });
+});
+
+app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
+  const session = getSession(req.params.code as string);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found.' });
+    return;
+  }
+  if (!session.allowOpenJoin) {
+    res.status(403).json({ error: 'This session does not allow open join.' });
+    return;
+  }
+  const name = typeof req.body?.name === 'string' ? req.body.name : '';
+  const result = createOpenJoinInvite(session, name);
+  if ('error' in result) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  log(`[open-join] ${session.code} — "${name.trim().slice(0, 200)}" self-issued invite`);
+  res.json({ inviteToken: result.inviteToken });
 });
 
 app.get('/api/health', (_req, res) => {
@@ -641,6 +663,13 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
+    case 'setAllowOpenJoin': {
+      const err = setAllowOpenJoin(session, ws, msg.allow);
+      if (err) ws.send(JSON.stringify(err));
+      else log(`[managed] ${session.code} ${c} setAllowOpenJoin ${msg.allow}`);
+      break;
+    }
+
     case 'updateSessionSettings': {
       const err = updateSessionSettings(session, ws, msg.settings);
       if (err) ws.send(JSON.stringify(err));
@@ -731,7 +760,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers', 'updateSessionSettings']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers', 'setAllowOpenJoin', 'updateSessionSettings']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

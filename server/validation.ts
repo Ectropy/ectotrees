@@ -202,6 +202,11 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'setAllowViewers', allow: raw.allow };
   }
 
+  if (type === 'setAllowOpenJoin') {
+    if (typeof raw.allow !== 'boolean') return { error: 'allow must be a boolean.' };
+    return { type: 'setAllowOpenJoin', allow: raw.allow };
+  }
+
   if (type === 'updateSessionSettings') {
     if (!isObject(raw.settings)) return { error: 'Missing settings object.' };
     const settings: { name?: string; description?: string; listed?: boolean } = {};

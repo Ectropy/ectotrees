@@ -31,6 +31,7 @@ export interface SessionState {
   managed: boolean;
   ownerToken: string | null;
   allowViewers: boolean;
+  allowOpenJoin: boolean;
   memberName: string | null;
   memberRole: MemberRole | null;
   members: MemberInfo[];
@@ -58,7 +59,7 @@ function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
     error: null, reconnectAttempt: 0, reconnectAt: null,
     recentOwnWorldId: null,
     personalToken: null, scoutWorld: null,
-    managed: false, ownerToken: null, allowViewers: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
+    managed: false, ownerToken: null, allowViewers: false, allowOpenJoin: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
     sessionName: null, sessionDescription: null, sessionListed: false,
     ...overrides,
   };
@@ -415,6 +416,9 @@ export function useSession(onSessionLost?: () => void) {
           break;
         case 'allowViewers':
           setSession(prev => ({ ...prev, allowViewers: msg.allow }));
+          break;
+        case 'allowOpenJoin':
+          setSession(prev => ({ ...prev, allowOpenJoin: msg.allow }));
           break;
         case 'sessionSettingsUpdated':
           setSession(prev => ({ ...prev, sessionName: msg.name, sessionDescription: msg.description ?? null, sessionListed: msg.listed }));
@@ -866,6 +870,30 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'setAllowViewers', allow });
   }, []);
 
+  const setAllowOpenJoinAction = useCallback((allow: boolean) => {
+    sendWsMessage({ type: 'setAllowOpenJoin', allow });
+  }, []);
+
+  const openJoin = useCallback(async (code: string, name: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/session/${encodeURIComponent(code)}/open-join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSession(prev => ({ ...prev, error: data.error ?? 'Failed to join session.' }));
+        return false;
+      }
+      joinByInviteToken(data.inviteToken as string);
+      return true;
+    } catch {
+      setSession(prev => ({ ...prev, error: 'Network error. Please try again.' }));
+      return false;
+    }
+  }, [joinByInviteToken]);
+
   const updateSessionSettingsAction = useCallback((settings: { name?: string; description?: string; listed?: boolean }) => {
     sendWsMessage({ type: 'updateSessionSettings', settings });
   }, []);
@@ -921,6 +949,8 @@ export function useSession(onSessionLost?: () => void) {
     setMemberRole: setMemberRoleAction,
     transferOwnership: transferOwnershipAction,
     setAllowViewers: setAllowViewersAction,
+    setAllowOpenJoin: setAllowOpenJoinAction,
+    openJoin,
     updateSessionSettings: updateSessionSettingsAction,
     requestPersonalToken: requestPersonalTokenAction,
   };

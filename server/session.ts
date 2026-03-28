@@ -46,6 +46,7 @@ export interface Session {
   managed?: boolean;
   ownerToken?: string;
   allowViewers?: boolean;              // when true, ?code= connections are admitted as read-only viewers
+  allowOpenJoin?: boolean;             // when true, anyone can self-issue a viewer invite via POST /api/session/:code/open-join
   // Fork-to-managed fields (anonymous sessions only)
   pendingFork?: {
     managedCode: string;
@@ -665,9 +666,12 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   ws.send(JSON.stringify(identityMsg));
 
   if (session.managed) {
-    // Send allowViewers setting
+    // Send allowViewers / allowOpenJoin settings
     if (session.allowViewers) {
       ws.send(JSON.stringify({ type: 'allowViewers', allow: true } satisfies ServerMessage));
+    }
+    if (session.allowOpenJoin) {
+      ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: true } satisfies ServerMessage));
     }
 
     // Owner gets their token so the client can persist it for reconnection
@@ -753,9 +757,55 @@ export function requestPersonalToken(session: Session, ws: WebSocket): ServerMes
 export function setAllowViewers(session: Session, ws: WebSocket, allow: boolean): ServerMessage | null {
   if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+  if (!allow && session.listed && !session.allowOpenJoin) {
+    return { type: 'error', message: 'Cannot disable while session is listed. Enable "Open join" first.' };
+  }
   session.allowViewers = allow;
   broadcast(session, { type: 'allowViewers', allow });
   return null;
+}
+
+export function setAllowOpenJoin(session: Session, ws: WebSocket, allow: boolean): ServerMessage | null {
+  if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+  if (!allow && session.listed && !session.allowViewers) {
+    return { type: 'error', message: 'Cannot disable while session is listed. Enable "Allow viewers" first.' };
+  }
+  session.allowOpenJoin = allow;
+  broadcast(session, { type: 'allowOpenJoin', allow });
+  return null;
+}
+
+export function createOpenJoinInvite(session: Session, name: string): { inviteToken: string } | { error: string } {
+  if (!session.managed || !session.members) return { error: 'Session is not managed.' };
+  if (!session.allowOpenJoin) return { error: 'This session does not allow open join.' };
+  if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { error: 'Session is full.' };
+
+  // eslint-disable-next-line no-control-regex
+  const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 200);
+  if (!sanitized) return { error: 'Name is required.' };
+
+  // Enforce name uniqueness (case-insensitive)
+  for (const m of session.members.values()) {
+    if (!m.banned && m.name.toLowerCase() === sanitized.toLowerCase()) {
+      return { error: 'Name already taken.' };
+    }
+  }
+
+  const inviteToken = generateUniqueInviteToken();
+  const member: Member = {
+    name: sanitized,
+    inviteToken,
+    role: 'viewer',
+    banned: false,
+    connections: new Set(),
+    currentWorld: null,
+    lastSeen: Date.now(),
+  };
+  session.members.set(inviteToken, member);
+  inviteTokenIndex.set(inviteToken, session.code);
+  broadcastMemberList(session);
+  return { inviteToken };
 }
 
 export function createInvite(session: Session, ws: WebSocket, name: string, role?: 'scout' | 'viewer'): ServerMessage {
@@ -949,6 +999,8 @@ export function getListedSessions(): SessionSummary[] {
       name: session.name,
       description: session.description,
       managed: !!session.managed,
+      allowViewers: !!session.allowViewers,
+      allowOpenJoin: !!session.allowOpenJoin,
       clientCount: session.clients.size,
       memberCount,
       activeWorldCount,
@@ -979,6 +1031,11 @@ export function updateSessionSettings(
   if (session.listed && !session.name) {
     session.listed = false;
     return { type: 'error', message: 'A session name is required to be listed.' };
+  }
+
+  if (session.listed && !session.allowViewers && !session.allowOpenJoin) {
+    session.listed = false;
+    return { type: 'error', message: 'Enable "Allow viewers" or "Open join" before listing your session.' };
   }
 
   broadcast(session, {

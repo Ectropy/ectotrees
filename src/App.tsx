@@ -53,7 +53,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, setAllowOpenJoin, openJoin, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -322,6 +322,7 @@ export default function App() {
         onCreateSession={handleCreateSession}
         onJoinSession={handleJoinSession}
         onRequestSessionJoin={handleRequestSessionJoin}
+        onOpenJoin={openJoin}
         onDismissError={dismissError}
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
@@ -335,6 +336,7 @@ export default function App() {
         onCreateSession={handleCreateSession}
         onJoinSession={handleJoinSession}
         onRequestSessionJoin={handleRequestSessionJoin}
+        onOpenJoin={openJoin}
         onDismissError={dismissError}
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
@@ -353,6 +355,7 @@ export default function App() {
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowViewers={setAllowViewers}
+        onSetAllowOpenJoin={setAllowOpenJoin}
         onUpdateSessionSettings={updateSessionSettings}
         onRequestPersonalToken={requestPersonalToken}
         onBack={handleBack}

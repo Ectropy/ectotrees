@@ -23,6 +23,7 @@ interface SessionViewProps {
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (inviteToken: string) => void;
   onSetAllowViewers: (allow: boolean) => void;
+  onSetAllowOpenJoin: (allow: boolean) => void;
   onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
   onRequestPersonalToken: () => void;
   onBack: () => void;
@@ -44,7 +45,7 @@ export function SessionView({
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onBanMember, onSetMemberRole, onBack,
-  onSetAllowViewers, onUpdateSessionSettings, onRequestPersonalToken,
+  onSetAllowViewers, onSetAllowOpenJoin, onUpdateSessionSettings, onRequestPersonalToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const { copied, copy: copyCode } = useCopyFeedback(1500);
@@ -284,13 +285,29 @@ export function SessionView({
                 onSetMemberRole={onSetMemberRole}
               />
               {(session.memberRole === 'owner' || session.memberRole === 'moderator') && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-700">
-                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Allow public viewers</span>
-                  <Switch
-                    checked={session.allowViewers}
-                    onCheckedChange={onSetAllowViewers}
-                    className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
-                  />
+                <div className="space-y-2 pt-2 border-t border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className={`text-xs ${TEXT_COLOR.muted}`}>Allow public viewers</span>
+                      <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone with the code joins anonymously (read-only)</p>
+                    </div>
+                    <Switch
+                      checked={session.allowViewers}
+                      onCheckedChange={onSetAllowViewers}
+                      className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className={`text-xs ${TEXT_COLOR.muted}`}>Open join</span>
+                      <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone in the session browser can join by name</p>
+                    </div>
+                    <Switch
+                      checked={session.allowOpenJoin}
+                      onCheckedChange={onSetAllowOpenJoin}
+                      className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+                    />
+                  </div>
                 </div>
               )}
               </>
