@@ -928,7 +928,7 @@ export function transferOwnership(session: Session, ws: WebSocket, inviteToken: 
 export function getListedSessions(): SessionSummary[] {
   const results: SessionSummary[] = [];
   for (const session of sessions.values()) {
-    if (!session.listed || !session.name) continue;
+    if (!session.managed || !session.listed || !session.name) continue;
     let activeWorldCount = 0;
     for (const state of Object.values(session.worldStates)) {
       if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
@@ -965,7 +965,10 @@ export function updateSessionSettings(
   ws: WebSocket,
   settings: { name?: string; description?: string; listed?: boolean },
 ): ServerMessage | null {
-  if (session.managed && !isAdmin(session, ws)) {
+  if (!session.managed) {
+    return { type: 'error', message: 'Session visibility settings require a managed session.' };
+  }
+  if (!isAdmin(session, ws)) {
     return { type: 'error', message: 'Permission denied.' };
   }
 

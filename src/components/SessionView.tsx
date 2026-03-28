@@ -198,56 +198,64 @@ export function SessionView({
         {isConnected && (
           <div className="bg-gray-800 border border-gray-700 rounded p-3 space-y-3">
             <p className="text-sm font-medium text-white">Session Visibility</p>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Session Name</label>
-              <input
-                type="text"
-                value={sessionNameInput}
-                onChange={e => setSessionNameInput(e.target.value.slice(0, 50))}
-                placeholder="Give your session a name..."
-                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                maxLength={50}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Description <span className="text-gray-500">(optional)</span></label>
-              <input
-                type="text"
-                value={sessionDescInput}
-                onChange={e => setSessionDescInput(e.target.value.slice(0, 200))}
-                placeholder="Discord link, contact info, etc."
-                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                maxLength={200}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white">Listed in Session Browser</p>
-                <p className="text-xs text-gray-400">Others can find and join this session</p>
-              </div>
-              <Switch
-                checked={sessionListedInput}
-                onCheckedChange={v => setSessionListedInput(v)}
-                disabled={!sessionNameInput.trim()}
-                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-              />
-            </div>
-            {(sessionNameInput !== (session.sessionName ?? '') || sessionDescInput !== (session.sessionDescription ?? '') || sessionListedInput !== session.sessionListed) && (
-              <button
-                onClick={() => {
-                  onUpdateSessionSettings({
-                    name: sessionNameInput,
-                    description: sessionDescInput,
-                    listed: sessionListedInput,
-                  });
-                }}
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
-              >
-                Save Visibility Settings
-              </button>
-            )}
-            {sessionSettingsError && (
-              <p className="text-xs text-red-400">{sessionSettingsError}</p>
+            {session.managed ? (
+              <>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Session Name</label>
+                  <input
+                    type="text"
+                    value={sessionNameInput}
+                    onChange={e => setSessionNameInput(e.target.value.slice(0, 50))}
+                    placeholder="Give your session a name..."
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                    maxLength={50}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Description <span className="text-gray-500">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={sessionDescInput}
+                    onChange={e => setSessionDescInput(e.target.value.slice(0, 200))}
+                    placeholder="Discord link, contact info, etc."
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                    maxLength={200}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white">Listed in Session Browser</p>
+                    <p className="text-xs text-gray-400">Others can find and join this session</p>
+                  </div>
+                  <Switch
+                    checked={sessionListedInput}
+                    onCheckedChange={v => setSessionListedInput(v)}
+                    disabled={!sessionNameInput.trim()}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
+                {(sessionNameInput !== (session.sessionName ?? '') || sessionDescInput !== (session.sessionDescription ?? '') || sessionListedInput !== session.sessionListed) && (
+                  <button
+                    onClick={() => {
+                      onUpdateSessionSettings({
+                        name: sessionNameInput,
+                        description: sessionDescInput,
+                        listed: sessionListedInput,
+                      });
+                    }}
+                    className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
+                  >
+                    Save Visibility Settings
+                  </button>
+                )}
+                {sessionSettingsError && (
+                  <p className="text-xs text-red-400">{sessionSettingsError}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Public listing and session names are only available in managed sessions. Convert this session to managed to make it discoverable.
+              </p>
             )}
           </div>
         )}
