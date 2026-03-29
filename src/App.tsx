@@ -90,10 +90,11 @@ export default function App() {
     return joinSession(code);
   }, [joinSession]);
 
-  const handleRequestSessionJoin = useCallback(async (code: string): Promise<void> => {
+  const handleRequestSessionJoin = useCallback(async (code: string): Promise<boolean> => {
     const serverWorlds = await previewJoin(code);
-    if (!serverWorlds) return; // error already in session.error
+    if (!serverWorlds) return false; // error already in session.error
     setActiveView({ kind: 'session-join', code });
+    return true;
   }, [previewJoin]);
 
   const handleJoinFromView = useCallback((code: string, localStates?: WorldStates): void => {

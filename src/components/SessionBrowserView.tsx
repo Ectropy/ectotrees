@@ -10,7 +10,7 @@ interface SessionBrowserViewProps {
   activeLocalCount: number;
   onCreateSession: () => Promise<string | null>;
   onJoinSession: (code: string) => boolean;
-  onRequestSessionJoin: (code: string) => Promise<void>;
+  onRequestSessionJoin: (code: string) => Promise<boolean>;
   onOpenJoin: (code: string, name: string) => Promise<boolean>;
   onDismissError: () => void;
   showOnStartup: boolean;
@@ -68,24 +68,12 @@ export function SessionBrowserView({
     const isCode = validateSessionCode(codeOrToken);
     if (!isCode && !isToken) return;
 
-    // Tokens always use preview flow (to show session info/member list)
-    // Codes use preview if there's local data, direct join if not
-    if (isToken || activeLocalCount > 0) {
-      setJoinCode('');
-      setJoining(true);
-      await onRequestSessionJoin(codeOrToken);
-      setJoining(false);
-      return;
-    }
-
-    // Code with no local data: direct join
     setJoining(true);
-    const ok = onJoinSession(codeOrToken);
+    const joined = await onRequestSessionJoin(codeOrToken);
     setJoining(false);
-    if (ok) {
-      setJoinCode('');
-      onBack();
-    }
+    // Only clear input on success — on failure, preserve it so user can
+    // continue typing (e.g. chars 7–12 of an invite token after a 6-char mismatch)
+    if (joined) setJoinCode('');
   }
 
   // Auto-trigger join preview/flow when a valid code/token is entered
@@ -138,10 +126,7 @@ export function SessionBrowserView({
                 {creating ? 'Creating…' : 'Create Session'}
               </button>
               <span className={`text-xs ${TEXT_COLOR.faint}`}>or</span>
-              <form
-                className="flex items-center flex-1 min-w-0"
-                onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
-              >
+              <div className="flex items-center flex-1 min-w-0">
                 <input
                   type="text"
                   value={joinCode}
@@ -161,7 +146,7 @@ export function SessionBrowserView({
                   placeholder="Join code or link"
                   className="flex-1 min-w-0 px-2 py-0.5 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-xs uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
-              </form>
+              </div>
             </div>
             {badPaste && <p className="text-xs text-red-400 mt-1">Not a valid code or link</p>}
             {session.error && (
@@ -170,7 +155,9 @@ export function SessionBrowserView({
                 className="mt-1 text-red-400 text-xs hover:text-red-300 transition-colors"
                 title={`${session.error} (click to dismiss)`}
               >
-                {session.error}
+                {session.error === 'Session not found.' && joinCode.length > 0
+                  ? 'Session not found. Keep typing to enter a 12-digit invite token.'
+                  : session.error}
               </button>
             )}
           </div>
