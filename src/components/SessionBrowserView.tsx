@@ -73,7 +73,12 @@ export function SessionBrowserView({
     setJoining(false);
     // Only clear input on success — on failure, preserve it so user can
     // continue typing (e.g. chars 7–12 of an invite token after a 6-char mismatch)
-    if (joined) setJoinCode('');
+    if (joined) {
+      setJoinCode('');
+    } else {
+      // Reset so the same value can be retried after an error
+      autoTriggeredRef.current = null;
+    }
   }
 
   // Auto-trigger join preview/flow when a valid code/token is entered
