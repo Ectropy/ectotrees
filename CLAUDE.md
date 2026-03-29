@@ -6,7 +6,8 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI; `RefreshCw`, `Lock` used in `SessionBrowserView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **obscenity** — profanity filter used server-side to sanitize member names and session descriptions (`server/profanity.ts`)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
 - **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
@@ -44,7 +45,7 @@ shared/
   types.ts              # Single source of truth: TreeType, WorldState, timing constants
   protocol.ts           # WebSocket message types (ClientMessage, ServerMessage)
   mutations.ts          # Pure state mutation functions (used by both client and server)
-  hints.ts              # Location hints database (17 hints → possible exact locations)
+  hints.ts              # Location hints database (19 hints → possible exact locations)
   reconnect.ts          # Shared reconnection constants and formatReconnectMessage() helper
   __tests__/
     mutations.test.ts   # Vitest unit tests for all mutation functions
@@ -53,6 +54,7 @@ server/
   index.ts              # Express 5 + WebSocket server entry point
   session.ts            # In-memory session management, auto-transitions, expiry
   validation.ts         # Input validation for all WebSocket messages
+  profanity.ts          # containsProfanity(text): boolean — wraps the obscenity library; used in validation
   log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
   tsconfig.json         # Server-specific TypeScript config (target: ESNext)
   __tests__/
@@ -91,6 +93,7 @@ src/
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook (used by useFavorites, useHiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
     useNow.ts           # Reactive timestamp primitive (returns Date.now() as state, re-ticks every interval ms)
+    useSessionBrowser.ts # Fetches GET /api/sessions and returns sorted SessionSummary[]; sort modes: 'newest' | 'active' | 'members'
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -105,6 +108,7 @@ src/
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator; opens SessionView panel
     SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites)
     MemberPanel.tsx      # Member list with role badges, admin controls (role change, ban), and invite creation form
+    SessionBrowserView.tsx # Full-screen/sidebar: session discovery panel — browse/join listed sessions, create session, enter code/token
     SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
     UpdateBanner.tsx     # Fixed bottom banner shown in production when a new app version is detected (polls /api/health every 15 min, compares `data.version` against `__APP_VERSION__`)
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
@@ -230,9 +234,9 @@ All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `e
 Pure TypeScript code shared between client and server — the single source of truth for types, constants, protocol, and state mutations.
 
 - **`types.ts`** — `TreeType`, `WorldState`, `WorldStates`, timing constants (`SAPLING_MATURE_MS`, `ALIVE_DEAD_MS`, `DEAD_CLEAR_MS`, `LIGHTNING_1_MS`, `LIGHTNING_2_MS`, `HEALTH_LIGHTNING_1`, `HEALTH_LIGHTNING_2`), payload interfaces
-- **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol
+- **`protocol.ts`** — `ClientMessage` and `ServerMessage` discriminated unions defining the WebSocket protocol; also exports `MemberRole`, `MemberInfo`, and `SessionSummary` interfaces
 - **`mutations.ts`** — Pure functions (`applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, `applyUpdateHealth`, `applyMarkDead`, `applyClearWorld`, `applyReportLightning`, `applyTransitions`) that take a `WorldStates` map and return a new one
-- **`hints.ts`** — `LOCATION_HINTS` map: 18 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
+- **`hints.ts`** — `LOCATION_HINTS` map: 19 in-game location hints → arrays of possible exact locations, used in `TreeInfoView` and `WorldDetailView` to narrow exact location options when a hint is known
 - **`reconnect.ts`** — `RECONNECT_DELAYS`, `MAX_RECONNECT_ATTEMPTS`, `formatReconnectMessage()` — shared reconnection constants and helper used by both the main app and alt1 plugin
 
 `src/types/index.ts` and `src/constants/evilTree.ts` re-export from `shared/types.ts`.
@@ -262,7 +266,11 @@ Security response headers applied to all HTTP responses:
 |---|---|---|
 | `POST` | `/api/session` | Create a new session. Returns `{ code }` |
 | `POST` | `/api/session/:code/self-invite` | Self-register into a managed session during a fork invite window. Body: `{ name: string; selfRegisterToken: string }`. Returns `{ inviteToken }` or an error. |
+| `GET` | `/api/sessions` | Returns `{ sessions: SessionSummary[] }` — only sessions with `listed: true` |
+| `POST` | `/api/session/:code/open-join` | Self-issue a viewer invite token for an open-join session. Body: `{ name: string }`. Returns `{ inviteToken }` or an error. |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
+
+REST endpoints (except `/api/health`) are rate-limited to 20 requests/minute per IP.
 
 ### WebSocket Protocol
 All clients connect to `ws://host/ws` (no query parameters). Authentication is message-based: immediately after the WebSocket opens, the client sends one of three auth messages (`authSession`, `authInvite`, or `authPersonal`). The server enforces a 10-second auth timeout — connections that don't authenticate are closed. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
@@ -291,7 +299,10 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `renameMember` | `inviteToken: string; name: string` — renames a member (admin only) |
 | `setMemberRole` | `inviteToken: string; role: 'moderator' \| 'scout' \| 'viewer'` — changes a member's role (admin only) |
 | `transferOwnership` | `inviteToken: string` — transfers owner role to another member |
+| `kickMember` | `inviteToken: string` — disconnects a member without permanently revoking their token (admin only) |
 | `setAllowViewers` | `allow: boolean` — toggles whether anonymous viewers can join a managed session (admin only) |
+| `setAllowOpenJoin` | `allow: boolean` — toggles whether anyone can self-issue a viewer invite via `POST /api/session/:code/open-join` (admin only) |
+| `updateSessionSettings` | `settings: { name?: string; description?: string; listed?: boolean }` — updates session metadata for the session browser (admin only) |
 | `selfRegister` | `name: string; selfRegisterToken: string; personalToken?: string` — WebSocket-based self-registration into a managed session during fork invite window |
 | `ping` | (no payload, no `msgId`) |
 
@@ -314,8 +325,11 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `memberJoined` | `name: string` — broadcast when a member connects |
 | `memberLeft` | `name: string` — broadcast when a member disconnects |
 | `memberList` | `members: MemberInfo[]` — full member list broadcast; admin recipients receive `inviteToken` on each entry, regular members do not |
+| `kicked` | (no payload) — sent to a member who was kicked (not banned); connection is closed but token remains valid |
 | `banned` | `reason: string` — sent to a client whose invite token has been revoked |
 | `allowViewers` | `allow: boolean` — broadcast when the allow-viewers setting changes |
+| `allowOpenJoin` | `allow: boolean` — broadcast when the allow-open-join setting changes |
+| `sessionSettingsUpdated` | `name: string \| null; description: string \| null; listed: boolean` — broadcast when session metadata is updated |
 | `selfRegistered` | `inviteToken: string` — confirms WebSocket-based self-registration succeeded; client uses token for `authInvite` on reconnect |
 | `redirect` | `code: string` — tells a client to disconnect and reconnect to a different session (used during fork migration for clients with personal tokens) |
 | `ack` | `msgId: number` — confirms a mutation was applied |
@@ -330,12 +344,13 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
 - Session expiry (checked every 5 min): inactive > 24 hours, or empty > 60 minutes
 - **Scout linking (personal tokens)**: a dashboard can request a personal token via `requestPersonalToken`; the server responds with a 12-char `personalToken` message. The scout connects using `authPersonal` with the same token, linking the two. The dashboard receives `peerWorld` messages when the scout reports world changes via `reportWorld`. Personal tokens persist across reconnects (stored in `localStorage` as `evilTree_inviteToken`).
-- **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken` and their `personalToken` (if any). Clients self-register via `POST /api/session/:code/self-invite` (returns an `inviteToken`) then reconnect to the managed session using `authInvite`. The initiator receives `forkCreated` with their `ownerToken`. Fork invite window is 10 minutes (`FORK_INVITE_TTL_MS`); a 1-hour cooldown (`FORK_COOLDOWN_MS`) prevents rapid forks. Owner token is 12-char, persisted to client localStorage for reconnect. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations (enforced by `canWrite()` check). `allowViewers` flag (toggled via `setAllowViewers`) admits anonymous `authSession` connections as read-only viewers. Admins (owner/moderator) receive `inviteToken` and `link` on each `MemberInfo` in `memberList`. Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous string).
+- **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken` and their `personalToken` (if any). Clients self-register via `POST /api/session/:code/self-invite` (returns an `inviteToken`) then reconnect to the managed session using `authInvite`. The initiator receives `forkCreated` with their `ownerToken`. Fork invite window is 10 minutes (`FORK_INVITE_TTL_MS`); a 1-hour cooldown (`FORK_COOLDOWN_MS`) prevents rapid forks. Owner token is 12-char, persisted to client localStorage for reconnect. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations (enforced by `canWrite()` check). `allowViewers` flag (toggled via `setAllowViewers`) admits anonymous `authSession` connections as read-only viewers. `allowOpenJoin` flag (toggled via `setAllowOpenJoin`) allows anyone to self-issue a viewer invite via `POST /api/session/:code/open-join` (name required; returned token used for `authInvite`). Admins (owner/moderator) receive `inviteToken` and `link` on each `MemberInfo` in `memberList`. Kick = disconnect without revoking token; Ban = disconnect + permanent token revocation. `worldUpdate.source` carries `{ name, role }` attribution in managed sessions (vs anonymous string).
+- **Session browser**: managed sessions can opt in to public discovery by setting `listed: true` via `updateSessionSettings` (also sets `name` and optional `description`). Listed sessions appear in `GET /api/sessions` as `SessionSummary` objects and are displayed in `SessionBrowserView`.
 
 ### Validation (`validation.ts`)
 - `worldId` must exist in `worlds.json`
 - `msFromNow` must be a positive integer, max 2 hours
-- Strings are sanitized (control chars stripped, max 200 chars)
+- Strings are sanitized (control chars stripped, max 200 chars) and checked for profanity via `containsProfanity()`
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 
 ### Per-Connection Protections
@@ -383,7 +398,7 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 
 ## Client Sync Layer (`useSession.ts`)
 
-Exposes `createSession`, `joinSession`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowViewers`), and personal token ops (`requestPersonalToken`, `joinByInviteToken`).
+Exposes `createSession`, `joinSession`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `kickMember`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowViewers`, `setAllowOpenJoin`, `openJoin`, `updateSessionSettings`), and personal token ops (`requestPersonalToken`, `joinByInviteToken`).
 
 Key behaviors:
 - **localStorage**: session code → `evilTree_sessionCode`; invite/personal token → `evilTree_inviteToken`. Both are auto-resumed on page reload.
