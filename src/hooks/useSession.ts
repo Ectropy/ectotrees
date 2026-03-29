@@ -449,6 +449,11 @@ export function useSession(onSessionLost?: () => void) {
         case 'memberLeft':
           // These are informational — memberList broadcast follows and updates state
           break;
+        case 'kicked':
+          intentionalCloseRef.current = true;
+          clearPending();
+          setSession(prev => ({ ...prev, status: 'disconnected', error: 'You were kicked from the session.' }));
+          break;
         case 'banned':
           intentionalCloseRef.current = true;
           cleanup();
@@ -651,9 +656,14 @@ export function useSession(onSessionLost?: () => void) {
 
   const rejoinSession = useCallback((code: string): void => {
     reconnectAttemptRef.current = 0;
+    codeRef.current = code;
+    persistSessionCode(code);
     clearPending();
-    joinSession(code);
-  }, [joinSession]);
+    setSession(prev => ({ ...prev, code, error: null, reconnectAttempt: 0 }));
+    // Use the invite token if available so managed-session members rejoin as themselves,
+    // not as anonymous viewers (which would leave member.connections empty on the server).
+    connectWs(code, inviteTokenRef.current ?? undefined);
+  }, []);
 
   const previewJoin = useCallback((codeOrToken: string): Promise<WorldStates | null> => {
     // Cancel any in-flight preview

@@ -888,15 +888,22 @@ export function kickMember(session: Session, ws: WebSocket, inviteToken: string)
     return { type: 'error', message: 'Moderators cannot kick other moderators.' };
   }
 
-  // Disconnect all their connections but leave the token valid so they can rejoin
+  // Disconnect all their connections but leave the token valid so they can rejoin.
+  // Perform cleanup inline (without calling removeClient) so that member.connections
+  // is cleared before any broadcast fires — avoiding an intermediate broadcast that
+  // incorrectly shows the member as still online.
   for (const memberWs of member.connections) {
     if (memberWs.readyState === 1) {
+      memberWs.send(JSON.stringify({ type: 'kicked' }));
       memberWs.close(1008, 'Kicked');
     }
     session.wsToInviteToken!.delete(memberWs);
-    removeClient(session, memberWs);
+    session.clients.delete(memberWs);
+    session.clientIds.delete(memberWs);
+    session.clientTypes.delete(memberWs);
   }
   member.connections.clear();
+  if (session.clients.size === 0) session.emptySince = Date.now();
 
   broadcastMemberList(session);
   broadcastManagedClientCount(session);

@@ -70,6 +70,7 @@ export type ServerMessage =
   | { type: 'memberJoined';   name: string }
   | { type: 'memberLeft';     name: string }
   | { type: 'memberList';     members: MemberInfo[] }
+  | { type: 'kicked' }
   | { type: 'banned';         reason: string }
   | { type: 'allowViewers';    allow: boolean }
   | { type: 'allowOpenJoin';  allow: boolean }
