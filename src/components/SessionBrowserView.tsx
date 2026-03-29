@@ -3,7 +3,7 @@ import { Users, RefreshCw, TreeDeciduous, Shield, Lock } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
-import { TEXT_COLOR } from '../constants/toolColors';
+import { TEXT_COLOR, TREE_COLOR } from '../constants/toolColors';
 
 interface SessionBrowserViewProps {
   session: SessionState;
@@ -128,18 +128,18 @@ export function SessionBrowserView({
           </p>
 
           {/* Create / Join */}
-          <div className="bg-gray-800 border border-gray-700 rounded p-3 mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleCreate}
                 disabled={busy}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors whitespace-nowrap"
+                className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-50 text-white text-xs rounded transition-colors whitespace-nowrap`}
               >
                 {creating ? 'Creating…' : 'Create Session'}
               </button>
               <span className={`text-xs ${TEXT_COLOR.faint}`}>or</span>
               <form
-                className="flex items-center gap-2 flex-1 min-w-0"
+                className="flex items-center flex-1 min-w-0"
                 onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
               >
                 <input
@@ -158,23 +158,16 @@ export function SessionBrowserView({
                       setBadPaste(false);
                     }
                   }}
-                  placeholder="Code, token, or link"
-                  className="flex-1 min-w-0 px-2 py-2 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-sm uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder="Join code or link"
+                  className="flex-1 min-w-0 px-2 py-0.5 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-xs uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
-                <button
-                  type="submit"
-                  disabled={busy || !(validateSessionCode(joinCode.trim()) || joinCode.trim().length === 12)}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
-                >
-                  {joining ? '…' : 'Join'}
-                </button>
               </form>
             </div>
-            {badPaste && <p className="text-xs text-red-400 mt-2">Not a valid code or link</p>}
+            {badPaste && <p className="text-xs text-red-400 mt-1">Not a valid code or link</p>}
             {session.error && (
               <button
                 onClick={onDismissError}
-                className="mt-2 text-red-400 text-xs hover:text-red-300 transition-colors"
+                className="mt-1 text-red-400 text-xs hover:text-red-300 transition-colors"
                 title={`${session.error} (click to dismiss)`}
               >
                 {session.error}
