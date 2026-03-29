@@ -135,7 +135,7 @@ export function SessionBrowserView({
                     const x = extractSessionCode(e.target.value);
                     // Accept codes (6 chars) or tokens (12 chars)
                     if (x.length > 12) {
-                      setJoinCode('');
+                      setJoinCode(x.slice(0, 12));
                       setBadPaste(true);
                       setTimeout(() => setBadPaste(false), 2500);
                     } else {

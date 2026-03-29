@@ -446,14 +446,14 @@ export function validateAuthMessage(raw: unknown):
   if (type === 'authInvite') {
     if (!('token' in raw)) return { error: 'Missing token field.' };
     const token = validateInviteToken(raw.token);
-    if (!token) return { error: 'Invalid invite token format.' };
+    if (!token) return { error: 'Invalid invite token.' };
     return { type: 'authInvite', token };
   }
 
   if (type === 'authPersonal') {
     if (!('token' in raw)) return { error: 'Missing token field.' };
     const token = validateInviteToken(raw.token);
-    if (!token) return { error: 'Invalid personal token format.' };
+    if (!token) return { error: 'Invalid personal token.' };
     return { type: 'authPersonal', token };
   }
 

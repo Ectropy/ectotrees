@@ -471,8 +471,12 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
 
     // Reject non-auth messages if not authenticated
     if (!extensions.authenticated) {
-      ws.send(JSON.stringify({ type: 'authError', reason: 'Authentication required.', code: 'invalid' }));
-      ws.close(1008, 'Authentication required');
+      const msgType = typeof parsed === 'object' && parsed !== null
+        ? (parsed as { type?: string }).type : null;
+      const wasAuthAttempt = msgType === 'authSession' || msgType === 'authInvite' || msgType === 'authPersonal';
+      const reason = wasAuthAttempt ? (authValidated as { error: string }).error : 'Authentication required.';
+      ws.send(JSON.stringify({ type: 'authError', reason, code: 'invalid' }));
+      ws.close(1008, reason);
       return;
     }
 
