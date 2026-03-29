@@ -460,6 +460,9 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   if ('error' in childResult) return childResult;
   const childSession = sessions.get(childResult.code)!;
 
+  // Auto-name the session from the owner's display name
+  childSession.name = name.endsWith('s') ? `${name}' Session` : `${name}'s Session`;
+
   // Copy world state snapshot
   childSession.worldStates = { ...session.worldStates };
 

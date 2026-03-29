@@ -79,10 +79,10 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
         {session.managed ? (
           <button
             onClick={onOpenSession}
-            className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
+            className={`font-bold ${session.sessionName ? '' : 'font-mono'} ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
             title="Open session panel"
           >
-            {session.code}
+            {session.sessionName ?? session.code}
           </button>
         ) : (
           <button
