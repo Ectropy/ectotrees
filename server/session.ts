@@ -874,6 +874,35 @@ export function banMember(session: Session, ws: WebSocket, inviteToken: string):
   return null; // success, no error
 }
 
+export function kickMember(session: Session, ws: WebSocket, inviteToken: string): ServerMessage | null {
+  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
+  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
+
+  const member = session.members.get(inviteToken);
+  if (!member) return { type: 'error', message: 'Member not found.' };
+
+  if (member.role === 'owner') return { type: 'error', message: 'Cannot kick the owner.' };
+
+  const callerRole = getMemberRole(session, ws);
+  if (callerRole === 'moderator' && member.role === 'moderator') {
+    return { type: 'error', message: 'Moderators cannot kick other moderators.' };
+  }
+
+  // Disconnect all their connections but leave the token valid so they can rejoin
+  for (const memberWs of member.connections) {
+    if (memberWs.readyState === 1) {
+      memberWs.close(1008, 'Kicked');
+    }
+    session.wsToInviteToken!.delete(memberWs);
+    removeClient(session, memberWs);
+  }
+  member.connections.clear();
+
+  broadcastMemberList(session);
+  broadcastManagedClientCount(session);
+  return null;
+}
+
 export function renameMember(session: Session, ws: WebSocket, inviteToken: string, name: string): ServerMessage | null {
   if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };

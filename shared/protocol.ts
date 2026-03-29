@@ -42,6 +42,7 @@ export type ClientMessage =
   | { type: 'reportWorld'; worldId: number | null }
   | { type: 'forkToManaged'; name: string }
   | { type: 'createInvite'; name: string; role?: 'scout' | 'viewer' }
+  | { type: 'kickMember'; inviteToken: string }
   | { type: 'banMember'; inviteToken: string }
   | { type: 'renameMember'; inviteToken: string; name: string }
   | { type: 'setMemberRole'; inviteToken: string; role: 'moderator' | 'scout' | 'viewer' }

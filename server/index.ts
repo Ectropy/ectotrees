@@ -32,6 +32,7 @@ import {
   addMemberConnection,
   canWrite,
   createInvite,
+  kickMember,
   banMember,
   renameMember,
   setMemberRole,
@@ -616,6 +617,16 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
+    case 'kickMember': {
+      const err = kickMember(session, ws, msg.inviteToken);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} kicked member ${msg.inviteToken.slice(0, 4)}…`);
+      }
+      break;
+    }
+
     case 'banMember': {
       const err = banMember(session, ws, msg.inviteToken);
       if (err) {
@@ -760,7 +771,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers', 'setAllowOpenJoin', 'updateSessionSettings']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers', 'setAllowOpenJoin', 'updateSessionSettings']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

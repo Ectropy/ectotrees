@@ -3,6 +3,7 @@ import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
 import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS } from '../constants/toolColors';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface MemberPanelProps {
   members: MemberInfo[];
@@ -10,12 +11,13 @@ interface MemberPanelProps {
   myName: string | null;
   lastInvite: { inviteToken: string; name: string; link: string } | null;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
+  onKickMember: (inviteToken: string) => void;
   onBanMember: (inviteToken: string) => void;
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
 }
 
 
-export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvite, onBanMember, onSetMemberRole }: MemberPanelProps) {
+export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvite, onKickMember, onBanMember, onSetMemberRole }: MemberPanelProps) {
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'scout' | 'viewer'>('scout');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -60,7 +62,8 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
           <tr className="text-gray-500 text-[10px] uppercase tracking-wide">
             <th className="text-left font-normal pb-1">Username</th>
             <th className="text-left font-normal pb-1">Role</th>
-            <th className="text-right font-normal pb-1">Actions</th>
+            {isAdmin && <th className="text-left font-normal pb-1">Link</th>}
+            {isAdmin && <th className="pb-1" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-700/50">
@@ -79,67 +82,85 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                 </span>
               </td>
               <td className="py-1 pr-2 whitespace-nowrap">
-                <span className={`${ROLE_COLORS[m.role]} text-[10px]`}>{ROLE_LABELS[m.role]}</span>
+                {canModify(m) ? (
+                  <select
+                    className="bg-gray-700 text-gray-300 text-[10px] rounded px-0.5 cursor-pointer"
+                    value={m.role}
+                    onChange={(e) => onSetMemberRole(m.inviteToken!, e.target.value as 'moderator' | 'scout' | 'viewer')}
+                  >
+                    {myRole === 'owner' && <option value="moderator">Mod</option>}
+                    <option value="scout">Scout</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                ) : (
+                  <span className={`${ROLE_COLORS[m.role]} text-[10px]`}>{ROLE_LABELS[m.role]}</span>
+                )}
               </td>
-              <td className="py-1 text-right whitespace-nowrap">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  {/* Copy invite link */}
+              {isAdmin && (
+                <td className="py-1 pr-2 whitespace-nowrap">
                   {m.link && (
                     <button
                       onClick={() => handleCopyLink(m.link!, m.inviteToken!)}
                       className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
-                      title={`Copy invite link for ${m.name}`}
+                      title={`Copy join link for ${m.name}`}
                     >
                       {copiedToken === m.inviteToken
                         ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                        : <><Copy className="w-3 h-3" /><span>Copy link</span></>
+                        : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
                       }
                     </button>
                   )}
-
-                  {/* Admin controls */}
-                  {canModify(m) && (
-                    <>
-                      <select
-                        className="bg-gray-700 text-gray-300 text-[10px] rounded px-0.5 cursor-pointer"
-                        value={m.role}
-                        onChange={(e) => onSetMemberRole(m.inviteToken!, e.target.value as 'moderator' | 'scout' | 'viewer')}
-                      >
-                        {myRole === 'owner' && <option value="moderator">Mod</option>}
-                        <option value="scout">Scout</option>
-                        <option value="viewer">Viewer</option>
-                      </select>
-
-                      {/* Ban with confirmation */}
-                      {validConfirmBan === m.inviteToken ? (
-                        <>
-                          <span className="text-red-400 text-[10px]">Ban?</span>
-                          <button
-                            onClick={() => { onBanMember(m.inviteToken!); setConfirmBan(null); }}
-                            className="text-red-500 hover:text-red-400 text-[10px] font-medium transition-colors"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setConfirmBan(null)}
-                            className="text-gray-400 hover:text-gray-200 text-[10px] transition-colors"
-                          >
-                            No
-                          </button>
-                        </>
-                      ) : (
+                </td>
+              )}
+              {isAdmin && <td className="py-1 text-right whitespace-nowrap">
+                {canModify(m) && (
+                  <span className="inline-flex items-center gap-2 justify-end">
+                    {/* Kick */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <button
-                          onClick={() => setConfirmBan(m.inviteToken!)}
-                          className="text-red-500 hover:text-red-400 text-[10px] transition-colors"
-                          title={`Ban ${m.name}`}
+                          onClick={() => onKickMember(m.inviteToken!)}
+                          className="text-yellow-600 hover:text-yellow-400 text-[10px] transition-colors"
                         >
-                          Ban
+                          Kick
                         </button>
-                      )}
-                    </>
-                  )}
-                </span>
-              </td>
+                      </TooltipTrigger>
+                      <TooltipContent>Disconnect member; they can rejoin with their invite link</TooltipContent>
+                    </Tooltip>
+
+                    {/* Ban with confirmation */}
+                    {validConfirmBan === m.inviteToken ? (
+                      <>
+                        <span className="text-red-400 text-[10px]">Ban?</span>
+                        <button
+                          onClick={() => { onBanMember(m.inviteToken!); setConfirmBan(null); }}
+                          className="text-red-500 hover:text-red-400 text-[10px] font-medium transition-colors"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setConfirmBan(null)}
+                          className="text-gray-400 hover:text-gray-200 text-[10px] transition-colors"
+                        >
+                          No
+                        </button>
+                      </>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setConfirmBan(m.inviteToken!)}
+                            className="text-red-500 hover:text-red-400 text-[10px] transition-colors"
+                          >
+                            Ban
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Disconnect and permanently revoke their invite link</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </span>
+                )}
+              </td>}
             </tr>
           ))}
         </tbody>

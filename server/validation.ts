@@ -173,6 +173,12 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'createInvite', name, role: role as 'scout' | 'viewer' | undefined };
   }
 
+  if (type === 'kickMember') {
+    const token = validateInviteToken(raw.inviteToken);
+    if (!token) return { error: 'Invalid inviteToken.' };
+    return { type: 'kickMember', inviteToken: token };
+  }
+
   if (type === 'banMember') {
     const token = validateInviteToken(raw.inviteToken);
     if (!token) return { error: 'Invalid inviteToken.' };

@@ -850,6 +850,10 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'createInvite', name, role });
   }, []);
 
+  const kickMemberAction = useCallback((inviteToken: string) => {
+    sendWsMessage({ type: 'kickMember', inviteToken });
+  }, []);
+
   const banMemberAction = useCallback((inviteToken: string) => {
     sendWsMessage({ type: 'banMember', inviteToken });
   }, []);
@@ -944,6 +948,7 @@ export function useSession(onSessionLost?: () => void) {
     forkToManaged,
     joinManagedFork,
     createInvite: createInviteAction,
+    kickMember: kickMemberAction,
     banMember: banMemberAction,
     renameMember: renameMemberAction,
     setMemberRole: setMemberRoleAction,

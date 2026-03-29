@@ -18,6 +18,7 @@ interface SessionViewProps {
   onForkToManaged: (name: string) => void;
   onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string) => Promise<void>;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
+  onKickMember: (inviteToken: string) => void;
   onBanMember: (inviteToken: string) => void;
   onRenameMember: (inviteToken: string, name: string) => void;
   onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
@@ -44,7 +45,7 @@ export function SessionView({
   session,
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
-  onCreateInvite, onBanMember, onSetMemberRole, onBack,
+  onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
   onSetAllowViewers, onSetAllowOpenJoin, onUpdateSessionSettings, onRequestPersonalToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
@@ -281,6 +282,7 @@ export function SessionView({
                 myName={session.memberName}
                 lastInvite={session.lastInvite}
                 onCreateInvite={onCreateInvite}
+                onKickMember={onKickMember}
                 onBanMember={onBanMember}
                 onSetMemberRole={onSetMemberRole}
               />
