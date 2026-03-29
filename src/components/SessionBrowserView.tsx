@@ -249,7 +249,7 @@ export function SessionBrowserView({
                       autoFocus
                       value={openJoinName}
                       onChange={e => setOpenJoinName(e.target.value)}
-                      placeholder="Your name"
+                      placeholder="Your username"
                       maxLength={32}
                       className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
                     />
