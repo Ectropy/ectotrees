@@ -67,10 +67,10 @@ export const TREE_STATE_COLOR = {
 
 export const CHIP_COLOR = {
   inactive:   'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200',
-  active:     'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
-  sortActive: 'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  active:     'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
+  sortActive: 'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
   needs:      'bg-amber-500/20 border border-amber-500 text-white font-semibold hover:bg-amber-500/30',
-  has:        'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  has:        'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
 } as const;
 
 /** General UI text hierarchy */
