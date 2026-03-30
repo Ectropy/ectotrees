@@ -147,7 +147,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
         <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
           <button
             onClick={() => setIsCompact(false)}
-            className={`px-2 py-0.5 text-xs rounded ${CHIP_COLOR.sortActive} hover:bg-amber-600 transition-colors inline-flex items-center gap-0.5`}
+            className={`px-2 py-0.5 text-xs rounded ${CHIP_COLOR.sortActive} transition-colors inline-flex items-center gap-0.5`}
           >
             Sort: {sortSummaryLabel}{sortMode !== 'soonest' && <SortArrow className="h-3 w-3 ml-0.5" />}
           </button>
@@ -162,7 +162,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
           )) : (
             <button
               onClick={() => setIsCompact(false)}
-              className="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600 transition-colors"
+              className={`px-2 py-0.5 text-xs rounded ${CHIP_COLOR.inactive} transition-colors`}
             >
               No active filters
             </button>
