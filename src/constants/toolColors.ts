@@ -66,11 +66,11 @@ export const TREE_STATE_COLOR = {
 /** Filter / sort chip UI states (SortFilterBar — FilterChip, TriStateChip, activeSummary pills) */
 
 export const CHIP_COLOR = {
-  inactive:   'bg-gray-700 text-gray-400 hover:bg-gray-600',         // off / unselected state for every chip type
-  active:     'bg-blue-700 text-white font-semibold',                  // active boolean filter chip (Favorite, P2P, F2P)
-  sortActive: 'bg-amber-700 text-white font-semibold',                 // active sort button (W#, Soonest, Favorite, Health)
-  needs:      'bg-amber-500/30 text-amber-200 font-semibold ring-1 ring-amber-500',       // tri-state "Needs" — show worlds missing this info
-  has:        'bg-green-500/30 text-green-200 font-semibold ring-1 ring-green-500', // tri-state "Has" — show worlds that have this info
+  inactive:   'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200',
+  active:     'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  sortActive: 'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  needs:      'bg-amber-500/20 border border-amber-500 text-white font-semibold hover:bg-amber-500/30',
+  has:        'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
 } as const;
 
 /** General UI text hierarchy */
