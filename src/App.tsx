@@ -548,29 +548,29 @@ export default function App() {
             Ectotrees
             <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <div className="relative flex items-center">
-              <Search className="absolute left-1.5 h-3 w-3 text-gray-500 pointer-events-none" />
+              <Search className={`absolute left-1.5 h-3 w-3 ${TEXT_COLOR.muted} pointer-events-none`} />
               <input
                 type="text"
                 inputMode="numeric"
                 value={worldSearch}
                 onChange={e => setWorldSearch(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 placeholder="World"
-                className="w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 text-gray-200 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-500"
+                className={`w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 ${TEXT_COLOR.prominent} rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-400`}
                 aria-label="Search worlds by number"
               />
               {worldSearch && (
                 <button
                   onClick={() => setWorldSearch('')}
-                  className="absolute right-1 text-gray-400 hover:text-gray-200"
+                  className={`absolute right-1 ${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}`}
                   aria-label="Clear search"
                 >
                   <X className="h-3 w-3" />
                 </button>
               )}
             </div>
-            <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            <span className={`text-xs ${TEXT_COLOR.prominent}`}>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
                 const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
@@ -584,7 +584,7 @@ export default function App() {
                     const msg = buildDiscordMessage(intelWorlds, worldStates);
                     copyDiscord(msg);
                   }}
-                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}
+                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? `${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}` : `${TEXT_COLOR.ghost} cursor-not-allowed`}`}
                   title="Copy intel to clipboard in Discord-friendly format"
                   aria-label="Copy intel to clipboard"
                 >
@@ -607,7 +607,7 @@ export default function App() {
                 });
                 setActiveView({ kind: 'settings' });
               }}
-              className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
+              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none`}
               title="Settings"
               aria-label="Open settings"
             ><Settings className="h-4 w-4" /></button>

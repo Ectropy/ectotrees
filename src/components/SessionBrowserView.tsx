@@ -316,7 +316,7 @@ export function SessionBrowserView({
               onChange={e => onShowOnStartupChange(!e.target.checked)}
               className="rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
             />
-            <span className={`text-sm ${TEXT_COLOR.muted}`}>Don't show on startup</span>
+            <span className={`text-sm ${TEXT_COLOR.muted}`}>Don't show Sessions on startup</span>
           </label>
         </div>
       </div>
