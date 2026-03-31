@@ -124,6 +124,14 @@ export const ROLE_LABELS = {
   viewer:    'Viewer',
 } as const;
 
+/** Alt1 Scout plugin link color (button outline + token code display) */
+export const ALT1_COLOR = {
+  text:        'text-cyan-400',          // personal token code display
+  border:      'border border-cyan-400', // bordered button style
+  label:       BUTTON_LABEL_COLOR,       // label color on bordered button
+  borderHover: 'hover:bg-cyan-400/20',   // subtle fill on hover
+} as const;
+
 /** Base classes for secondary (gray) action buttons.
  *  Add sizing (py-2 / py-2.5) and layout (flex-1, w-full, mt-6) per usage. */
 export const BUTTON_SECONDARY = 'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 font-medium rounded transition-colors';

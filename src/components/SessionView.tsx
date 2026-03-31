@@ -6,7 +6,7 @@ import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -159,7 +159,7 @@ export function SessionView({
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className={`text-xs ${TEXT_COLOR.muted}`}>Your Alt1 code:</span>
-                  <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.personalToken}</span>
+                  <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{session.personalToken}</span>
                   <button
                     onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
                     className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}

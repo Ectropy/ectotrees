@@ -5,7 +5,7 @@ import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -115,7 +115,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
             <span className="text-gray-400 text-xs">Alt1 code:</span>
             <button
               onClick={() => { copyToken(buildInviteUrl(session.personalToken!)); onOpenSession(); }}
-              className="font-mono font-bold text-amber-300 tracking-widest hover:opacity-80 transition-opacity"
+              className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest hover:opacity-80 transition-opacity`}
               title="Copy Alt1 link & open session panel"
             >
               {session.personalToken}
@@ -137,7 +137,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
         {!session.personalToken && !session.managed && (
           <button
             onClick={isConnected ? onRequestPersonalToken : onLinkWithAlt1}
-            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            className={`text-xs px-1.5 py-0.5 bg-transparent ${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} rounded transition-colors`}
             title="Get a code to link your Ectotrees Scout Alt1 plugin"
           >
             Link with Alt1
@@ -202,14 +202,14 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
 
       <button
         onClick={onOpenBrowser}
-        className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+        className={`px-2 py-0.5 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} rounded transition-colors`}
       >
         Join a Session
       </button>
 
       <button
         onClick={onLinkWithAlt1}
-        className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        className={`text-xs px-1.5 py-0.5 bg-transparent ${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} rounded transition-colors`}
         title="Create a session and get a code to link your Ectotrees Scout Alt1 plugin"
       >
         Link with Alt1
