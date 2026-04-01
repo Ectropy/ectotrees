@@ -10,10 +10,10 @@ const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, 
 const MAX_SESSIONS = 1000;
 export const MAX_CLIENTS_PER_SESSION = 1000;
 const MAX_MEMBERS_PER_SESSION = 500;
-const SESSION_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
-const EMPTY_SESSION_TTL_MS = 60 * 60 * 1000;       // 60 minutes
+const SESSION_INACTIVITY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
+const EMPTY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;       // 24 hours
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
-const FORK_INVITE_TTL_MS = 10 * 60 * 1000;        // 10 minutes
+const FORK_INVITE_TTL_MS = 15 * 60 * 1000;        // 15 minutes
 const FORK_COOLDOWN_MS = 60 * 60 * 1000;          // 1 hour
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
@@ -1122,9 +1122,9 @@ export function cleanupExpiredSessions() {
     const inactiveExpired = now - session.lastActivityAt > SESSION_INACTIVITY_MS;
     const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
     if (inactiveExpired || emptyExpired) {
-      const closeReason = inactiveExpired ? 'inactive 24h' : 'empty 60min';
+      const closeReason = inactiveExpired ? 'inactive 10 days' : 'empty 24 hours';
       const clientCount = session.clients.size;
-      destroySession(session, inactiveExpired ? 'Session expired due to inactivity.' : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 60_000} minutes.`);
+      destroySession(session, inactiveExpired ? 'Session expired due to inactivity.' : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 3_600_000} hours.`);
       log(`[session] Destroyed ${session.code} — ${closeReason} (${clientCount} clients disconnected, ${getSessionCount()} sessions active)`);
     }
   }
