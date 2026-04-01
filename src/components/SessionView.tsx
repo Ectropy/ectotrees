@@ -95,12 +95,16 @@ export function SessionView({
 
           {/* Session name line */}
           <div>
-            <span className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Session Name</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-                <span className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Anonymous Session</span>
-                <span className="font-mono font-bold text-base text-white tracking-wider">{session.code}</span>
+                <span className={`font-mono font-bold text-base ${TEXT_COLOR.prominent} tracking-wider`}>{session.code}</span>
+                <span className={`text-xs ${TEXT_COLOR.muted}`}>
+                  (Anonymous session)
+                </span>
               </div>
               <span className={`text-xs ${TEXT_COLOR.muted}`}>
                 {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
@@ -291,25 +295,25 @@ export function SessionView({
 
         {/* Session name line */}
         <div>
-          <span className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Session Name</span>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+            <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
+          </div>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-              {isAdmin ? (
-                <input
-                  type="text"
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value.slice(0, 50))}
-                  placeholder="Give your session a name..."
-                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                  maxLength={50}
-                />
-              ) : (
-                <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
-                  {session.sessionName || 'Managed Session'}
-                </span>
-              )}
-            </div>
+            {isAdmin ? (
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value.slice(0, 50))}
+                placeholder="Give your session a name..."
+                className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                maxLength={50}
+              />
+            ) : (
+              <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
+                {session.sessionName || 'Managed Session'}
+              </span>
+            )}
             <span className={`text-xs ${TEXT_COLOR.muted} flex-shrink-0`}>
               {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
             </span>
@@ -329,15 +333,6 @@ export function SessionView({
             >
               Rejoin
             </button>
-          </div>
-        )}
-
-        {/* Identity line */}
-        {session.memberName && session.memberRole && (
-          <div className="flex items-center gap-2">
-            <span className={`text-xs ${TEXT_COLOR.muted}`}>You:</span>
-            <span className="text-xs text-gray-200">{session.memberName}</span>
-            <span className={`text-xs ${ROLE_COLORS[session.memberRole]}`}>({ROLE_LABELS[session.memberRole]})</span>
           </div>
         )}
 
