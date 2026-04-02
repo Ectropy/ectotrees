@@ -126,7 +126,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
 
   if (type === 'ping') return { type: 'ping' };
 
-  if (type === 'requestPersonalToken') return { type: 'requestPersonalToken' };
+  if (type === 'requestIdentityToken') return { type: 'requestIdentityToken' };
 
   if (type === 'reportWorld') {
     const worldId = raw.worldId;
@@ -154,13 +154,13 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     if (!name) return { error: 'Name is required.' };
     const selfRegisterToken = sanitizeString(raw.selfRegisterToken);
     if (!selfRegisterToken) return { error: 'Self-registration token is required.' };
-    let personalToken: string | undefined;
-    if (raw.personalToken !== undefined) {
-      const pt = validateInviteToken(raw.personalToken);
-      if (!pt) return { error: 'Invalid personalToken.' };
-      personalToken = pt;
+    let identityToken: string | undefined;
+    if (raw.identityToken !== undefined) {
+      const pt = validateIdentityToken(raw.identityToken);
+      if (!pt) return { error: 'Invalid identityToken.' };
+      identityToken = pt;
     }
-    return { type: 'selfRegister', name, selfRegisterToken, personalToken };
+    return { type: 'selfRegister', name, selfRegisterToken, identityToken };
   }
 
   if (type === 'createInvite') {
@@ -174,33 +174,33 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   }
 
   if (type === 'kickMember') {
-    const token = validateInviteToken(raw.inviteToken);
-    if (!token) return { error: 'Invalid inviteToken.' };
-    return { type: 'kickMember', inviteToken: token };
+    const token = validateIdentityToken(raw.identityToken);
+    if (!token) return { error: 'Invalid identityToken.' };
+    return { type: 'kickMember', identityToken: token };
   }
 
   if (type === 'banMember') {
-    const token = validateInviteToken(raw.inviteToken);
-    if (!token) return { error: 'Invalid inviteToken.' };
-    return { type: 'banMember', inviteToken: token };
+    const token = validateIdentityToken(raw.identityToken);
+    if (!token) return { error: 'Invalid identityToken.' };
+    return { type: 'banMember', identityToken: token };
   }
 
   if (type === 'renameMember') {
-    const token = validateInviteToken(raw.inviteToken);
-    if (!token) return { error: 'Invalid inviteToken.' };
+    const token = validateIdentityToken(raw.identityToken);
+    if (!token) return { error: 'Invalid identityToken.' };
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };
-    return { type: 'renameMember', inviteToken: token, name };
+    return { type: 'renameMember', identityToken: token, name };
   }
 
   if (type === 'setMemberRole') {
-    const token = validateInviteToken(raw.inviteToken);
-    if (!token) return { error: 'Invalid inviteToken.' };
+    const token = validateIdentityToken(raw.identityToken);
+    if (!token) return { error: 'Invalid identityToken.' };
     const role = raw.role;
     if (role !== 'moderator' && role !== 'scout' && role !== 'viewer') {
       return { error: 'Invalid role.' };
     }
-    return { type: 'setMemberRole', inviteToken: token, role };
+    return { type: 'setMemberRole', identityToken: token, role };
   }
 
   if (type === 'setAllowViewers') {
@@ -237,9 +237,9 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   }
 
   if (type === 'transferOwnership') {
-    const token = validateInviteToken(raw.inviteToken);
-    if (!token) return { error: 'Invalid inviteToken.' };
-    return { type: 'transferOwnership', inviteToken: token };
+    const token = validateIdentityToken(raw.identityToken);
+    if (!token) return { error: 'Invalid identityToken.' };
+    return { type: 'transferOwnership', identityToken: token };
   }
 
   if (type === 'initializeState') {
@@ -418,7 +418,7 @@ export function validateSessionCode(code: unknown): string | null {
   return code;
 }
 
-export function validateInviteToken(token: unknown): string | null {
+export function validateIdentityToken(token: unknown): string | null {
   if (typeof token !== 'string') return null;
   if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null;
   return token;
@@ -426,8 +426,7 @@ export function validateInviteToken(token: unknown): string | null {
 
 export function validateAuthMessage(raw: unknown):
   | { type: 'authSession'; code: string }
-  | { type: 'authInvite'; token: string }
-  | { type: 'authPersonal'; token: string }
+  | { type: 'authIdentity'; token: string }
   | { error: string }
 {
   if (typeof raw !== 'object' || raw === null || !('type' in raw)) {
@@ -443,18 +442,11 @@ export function validateAuthMessage(raw: unknown):
     return { type: 'authSession', code };
   }
 
-  if (type === 'authInvite') {
+  if (type === 'authIdentity') {
     if (!('token' in raw)) return { error: 'Missing token field.' };
-    const token = validateInviteToken(raw.token);
-    if (!token) return { error: 'Invalid invite token.' };
-    return { type: 'authInvite', token };
-  }
-
-  if (type === 'authPersonal') {
-    if (!('token' in raw)) return { error: 'Missing token field.' };
-    const token = validateInviteToken(raw.token);
-    if (!token) return { error: 'Invalid personal token.' };
-    return { type: 'authPersonal', token };
+    const token = validateIdentityToken(raw.token);
+    if (!token) return { error: 'Invalid identity token.' };
+    return { type: 'authIdentity', token };
   }
 
   return { error: `Unknown auth type: ${type}` };

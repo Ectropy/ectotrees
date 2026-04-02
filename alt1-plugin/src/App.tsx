@@ -22,7 +22,7 @@ const STATUS_DURATIONS: Record<StatusKind, number> = {
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, inviteToken, error,
+    status, code, identityToken, error,
     memberName, memberRole,
     reconnectAttempt, reconnectAt,
     ackCount, leaveSession, sendMutation, dismissError,
@@ -418,7 +418,7 @@ export function App() {
         <SessionPanel
           status={status}
           code={code}
-          inviteToken={inviteToken}
+          identityToken={identityToken}
           memberName={memberName}
           memberRole={memberRole}
           reconnectAttempt={reconnectAttempt}

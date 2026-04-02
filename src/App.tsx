@@ -53,7 +53,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, setAllowOpenJoin, openJoin, updateSessionSettings, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -99,7 +99,7 @@ export default function App() {
 
   const handleJoinFromView = useCallback((code: string, localStates?: WorldStates): void => {
     confirmPreviewJoin(code, localStates);
-    setActiveView({ kind: 'grid' });
+    setActiveView({ kind: 'session' });
   }, [confirmPreviewJoin]);
 
   const activeLocalCount = useMemo(() => {
@@ -146,7 +146,7 @@ export default function App() {
   }, []);
 
   const [activeView, setActiveView] = useState<ActiveView>(() => {
-    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_inviteToken');
+    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_identityToken');
     if (!hasSession) {
       try {
         const raw = localStorage.getItem('evilTree_settings');
@@ -328,6 +328,7 @@ export default function App() {
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
         onBack={handleBack}
+        onSessionStarted={() => setActiveView({ kind: 'session' })}
       />;
 
     if (activeView.kind === 'session') {
@@ -342,6 +343,7 @@ export default function App() {
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
         onBack={handleBack}
+        onSessionStarted={() => setActiveView({ kind: 'session' })}
       />;
       return <SessionView
         session={session}
@@ -359,7 +361,7 @@ export default function App() {
         onSetAllowViewers={setAllowViewers}
         onSetAllowOpenJoin={setAllowOpenJoin}
         onUpdateSessionSettings={updateSessionSettings}
-        onRequestPersonalToken={requestPersonalToken}
+        onRequestIdentityToken={requestIdentityToken}
         onBack={handleBack}
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
@@ -620,7 +622,7 @@ export default function App() {
           onRejoinSession={rejoinSession}
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
-          onRequestPersonalToken={requestPersonalToken}
+          onRequestIdentityToken={requestIdentityToken}
           onLinkWithAlt1={handleLinkWithAlt1}
           onOpenBrowser={() => setActiveView({ kind: 'browse' })}
         />

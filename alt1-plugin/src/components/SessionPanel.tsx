@@ -6,7 +6,7 @@ import { formatReconnectMessage } from '@shared/reconnect';
 interface SessionPanelProps {
   status: SessionStatus;
   code: string | null;
-  inviteToken: string | null;
+  identityToken: string | null;
   memberName: string | null;
   memberRole: string | null;
   reconnectAttempt: number;
@@ -18,7 +18,7 @@ interface SessionPanelProps {
 
 export function SessionPanel({
   status,
-  inviteToken,
+  identityToken,
   memberName,
   memberRole,
   reconnectAttempt,
@@ -32,7 +32,7 @@ export function SessionPanel({
   const connected = status === 'connected';
   const connecting = status === 'connecting';
   const active = connected || connecting;
-  const hasDroppedToken = status === 'disconnected' && inviteToken !== null;
+  const hasDroppedToken = status === 'disconnected' && identityToken !== null;
 
   function handleInput(raw: string) {
     // If the input is a URL with a recognized fragment (#invite=, #personal=),
@@ -95,7 +95,7 @@ export function SessionPanel({
 
   // ── Disconnected with a dropped invite token (reconnect UI) ───────────────
   if (hasDroppedToken) {
-    const redacted = '••••••••' + inviteToken!.slice(-4);
+    const redacted = '••••••••' + identityToken!.slice(-4);
     return (
       <section className="px-3 py-2">
         <div className="flex items-center gap-1.5">
@@ -103,7 +103,7 @@ export function SessionPanel({
             {redacted}
           </span>
           <button
-            onClick={() => onJoinWithToken(inviteToken!)}
+            onClick={() => onJoinWithToken(identityToken!)}
             className="bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 rounded hover:opacity-90"
           >
             Reconnect

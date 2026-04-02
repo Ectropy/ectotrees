@@ -16,17 +16,17 @@ interface SessionViewProps {
   onLeaveSession: () => void;
   onDismissError: () => void;
   onForkToManaged: (name: string) => void;
-  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string) => Promise<void>;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string) => Promise<void>;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
-  onKickMember: (inviteToken: string) => void;
-  onBanMember: (inviteToken: string) => void;
-  onRenameMember: (inviteToken: string, name: string) => void;
-  onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
-  onTransferOwnership: (inviteToken: string) => void;
+  onKickMember: (identityToken: string) => void;
+  onBanMember: (identityToken: string) => void;
+  onRenameMember: (identityToken: string, name: string) => void;
+  onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
+  onTransferOwnership: (identityToken: string) => void;
   onSetAllowViewers: (allow: boolean) => void;
   onSetAllowOpenJoin: (allow: boolean) => void;
   onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
-  onRequestPersonalToken: () => void;
+  onRequestIdentityToken: () => void;
   onBack: () => void;
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
@@ -40,7 +40,7 @@ export function SessionView({
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
-  onSetAllowOpenJoin, onUpdateSessionSettings, onRequestPersonalToken,
+  onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const { copied: codeCopied, copy: copyCode } = useCopyFeedback(1500);
@@ -157,9 +157,9 @@ export function SessionView({
 
           {/* Link with Alt1 */}
           {isConnected && (
-            alt1Expanded && session.personalToken ? (
+            alt1Expanded && session.identityToken ? (
               <Alt1LinkedSection
-                personalToken={session.personalToken}
+                identityToken={session.identityToken}
                 scoutWorld={session.scoutWorld}
                 followScout={followScout}
                 onFollowScoutChange={onFollowScoutChange}
@@ -170,10 +170,10 @@ export function SessionView({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (session.personalToken) {
+                    if (session.identityToken) {
                       setAlt1Expanded(true);
                     } else {
-                      onRequestPersonalToken();
+                      onRequestIdentityToken();
                       setAlt1Expanded(true);
                     }
                   }}
@@ -430,19 +430,19 @@ export function SessionView({
 
         {/* Link with Alt1 */}
         {isConnected && (
-          alt1Expanded && session.personalToken ? (
+          alt1Expanded && session.identityToken ? (
             <Alt1LinkedSection
-              personalToken={session.personalToken}
+              identityToken={session.identityToken}
               scoutWorld={session.scoutWorld}
               followScout={followScout}
               onFollowScoutChange={onFollowScoutChange}
               tokenCopied={tokenCopied}
               copyToken={copyToken}
             />
-          ) : session.managed && session.personalToken ? (
+          ) : session.managed && session.identityToken ? (
             /* Managed sessions auto-have a token (it's the invite token) — show linked state directly */
             <Alt1LinkedSection
-              personalToken={session.personalToken}
+              identityToken={session.identityToken}
               scoutWorld={session.scoutWorld}
               followScout={followScout}
               onFollowScoutChange={onFollowScoutChange}
@@ -453,10 +453,10 @@ export function SessionView({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  if (session.personalToken) {
+                  if (session.identityToken) {
                     setAlt1Expanded(true);
                   } else if (!session.managed) {
-                    onRequestPersonalToken();
+                    onRequestIdentityToken();
                     setAlt1Expanded(true);
                   }
                 }}
@@ -529,9 +529,9 @@ export function SessionView({
 // ─── Sub-components ───
 
 function Alt1LinkedSection({
-  personalToken, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
+  identityToken, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
 }: {
-  personalToken: string;
+  identityToken: string;
   scoutWorld: number | null;
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
@@ -542,9 +542,9 @@ function Alt1LinkedSection({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 code:</span>
-        <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{personalToken}</span>
+        <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{identityToken}</span>
         <button
-          onClick={() => copyToken(buildInviteUrl(personalToken))}
+          onClick={() => copyToken(buildInviteUrl(identityToken))}
           className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
         >
           {tokenCopied
@@ -588,7 +588,7 @@ function ForkInviteBanner({
   joinForkName: string;
   setJoinForkName: (v: string) => void;
   onForkToManaged: (name: string) => void;
-  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string) => Promise<void>;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string) => Promise<void>;
 }) {
   return (
     <div className="space-y-3">
@@ -612,7 +612,7 @@ function ForkInviteBanner({
                 if (!name) return;
                 setJoinForkStep('idle');
                 setJoinForkName('');
-                await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.personalToken);
+                await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.identityToken);
               }}
             >
               <input

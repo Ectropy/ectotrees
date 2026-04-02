@@ -16,6 +16,7 @@ interface SessionBrowserViewProps {
   showOnStartup: boolean;
   onShowOnStartupChange: (value: boolean) => void;
   onBack: () => void;
+  onSessionStarted: () => void;
 }
 
 function relativeTime(ts: number): string {
@@ -36,7 +37,7 @@ export function SessionBrowserView({
   onDismissError,
   showOnStartup,
   onShowOnStartupChange,
-  onBack,
+  onSessionStarted,
 }: SessionBrowserViewProps) {
   const { sessions, loading: browsing, error: browseError, fetchSessions } = useSessionBrowser();
   const [joinCode, setJoinCode] = useState('');
@@ -59,7 +60,7 @@ export function SessionBrowserView({
     setCreating(true);
     const code = await onCreateSession();
     setCreating(false);
-    if (code) onBack();
+    if (code) onSessionStarted();
   }
 
   async function handleJoin() {
@@ -211,7 +212,7 @@ export function SessionBrowserView({
                         if (activeLocalCount > 0) {
                           await onRequestSessionJoin(s.code);
                         } else {
-                          if (onJoinSession(s.code)) onBack();
+                          if (onJoinSession(s.code)) onSessionStarted();
                         }
                       }}
                       className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
@@ -241,7 +242,7 @@ export function SessionBrowserView({
                       if (ok) {
                         setOpenJoinCode(null);
                         setOpenJoinName('');
-                        onBack();
+                        onSessionStarted();
                       }
                     }}
                   >
@@ -276,7 +277,7 @@ export function SessionBrowserView({
                       if (activeLocalCount > 0) {
                         await onRequestSessionJoin(s.code);
                       } else {
-                        if (onJoinSession(s.code)) onBack();
+                        if (onJoinSession(s.code)) onSessionStarted();
                       }
                     }}
                     className={`text-xs ${TEXT_COLOR.faint} hover:text-gray-300 transition-colors mb-1.5 block`}

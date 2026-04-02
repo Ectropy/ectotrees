@@ -9,11 +9,11 @@ interface MemberPanelProps {
   members: MemberInfo[];
   myRole: MemberRole | null;
   myName: string | null;
-  lastInvite: { inviteToken: string; name: string; link: string } | null;
+  lastInvite: { identityToken: string; name: string; link: string } | null;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
-  onKickMember: (inviteToken: string) => void;
-  onBanMember: (inviteToken: string) => void;
-  onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
+  onKickMember: (identityToken: string) => void;
+  onBanMember: (identityToken: string) => void;
+  onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
 }
 
 
@@ -26,7 +26,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
 
   // Derive validity: if the member being confirmed for ban has left, treat as null
   const validConfirmBan = useMemo(
-    () => confirmBan && members.some(m => m.inviteToken === confirmBan) ? confirmBan : null,
+    () => confirmBan && members.some(m => m.identityToken === confirmBan) ? confirmBan : null,
     [confirmBan, members]
   );
 
@@ -47,7 +47,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
   }
 
   function canModify(target: MemberInfo): boolean {
-    if (!target.inviteToken) return false;
+    if (!target.identityToken) return false;
     if (target.role === 'owner') return false;
     if (myRole === 'owner') return true;
     if (myRole === 'moderator' && target.role !== 'moderator') return true;
@@ -68,7 +68,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
         </thead>
         <tbody className="divide-y divide-gray-700/50">
           {members.map((m) => (
-            <tr key={m.inviteToken ?? m.name} className="group">
+            <tr key={m.identityToken ?? m.name} className="group">
               <td className="py-1 pr-2 max-w-0">
                 <span className="flex items-center gap-1.5">
                   <span
@@ -86,7 +86,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                   <select
                     className="bg-gray-700 text-gray-300 text-[10px] rounded px-0.5 cursor-pointer"
                     value={m.role}
-                    onChange={(e) => onSetMemberRole(m.inviteToken!, e.target.value as 'moderator' | 'scout' | 'viewer')}
+                    onChange={(e) => onSetMemberRole(m.identityToken!, e.target.value as 'moderator' | 'scout' | 'viewer')}
                   >
                     {myRole === 'owner' && <option value="moderator">Mod</option>}
                     <option value="scout">Scout</option>
@@ -100,11 +100,11 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                 <td className="py-1 pr-2 whitespace-nowrap">
                   {m.link && (
                     <button
-                      onClick={() => handleCopyLink(m.link!, m.inviteToken!)}
+                      onClick={() => handleCopyLink(m.link!, m.identityToken!)}
                       className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
                       title={`Copy join link for ${m.name}`}
                     >
-                      {copiedToken === m.inviteToken
+                      {copiedToken === m.identityToken
                         ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
                         : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
                       }
@@ -119,7 +119,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => onKickMember(m.inviteToken!)}
+                          onClick={() => onKickMember(m.identityToken!)}
                           className="text-yellow-600 hover:text-yellow-400 text-[10px] transition-colors"
                         >
                           Kick
@@ -129,11 +129,11 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                     </Tooltip>
 
                     {/* Ban with confirmation */}
-                    {validConfirmBan === m.inviteToken ? (
+                    {validConfirmBan === m.identityToken ? (
                       <>
                         <span className="text-red-400 text-[10px]">Ban?</span>
                         <button
-                          onClick={() => { onBanMember(m.inviteToken!); setConfirmBan(null); }}
+                          onClick={() => { onBanMember(m.identityToken!); setConfirmBan(null); }}
                           className="text-red-500 hover:text-red-400 text-[10px] font-medium transition-colors"
                         >
                           Yes
@@ -149,7 +149,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => setConfirmBan(m.inviteToken!)}
+                            onClick={() => setConfirmBan(m.identityToken!)}
                             className="text-red-500 hover:text-red-400 text-[10px] transition-colors"
                           >
                             Ban
