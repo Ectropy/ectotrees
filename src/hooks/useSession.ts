@@ -171,7 +171,6 @@ export function useSession(onSessionLost?: () => void) {
   const msgIdCounterRef = useRef(1);
   const pendingMutationsRef = useRef<Map<number, PendingMutation>>(new Map());
   const identityTokenRef = useRef<string | null>(loadPersistedIdentityToken());
-  const memberNameRef = useRef<string | null>(null);
 
   const recentOwnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestTokenAfterConnectRef = useRef(false);
@@ -365,13 +364,7 @@ export function useSession(onSessionLost?: () => void) {
         }
         case 'worldUpdate': {
           handlersRef.current?.onWorldUpdate(msg.worldId, msg.state);
-          // Own submission: detect when this update originated from our own connection
-          const isOwn = msg.source && (
-            // Anonymous sessions: source is the identity token string
-            msg.source === identityTokenRef.current ||
-            // Managed sessions: source is { name, role } — match against our member name
-            (typeof msg.source === 'object' && msg.source.name === memberNameRef.current)
-          );
+          const isOwn = msg.ownUpdate;
           if (isOwn) {
             if (recentOwnTimerRef.current) clearTimeout(recentOwnTimerRef.current);
             setSession(prev => ({ ...prev, recentOwnWorldId: msg.worldId }));
@@ -385,7 +378,6 @@ export function useSession(onSessionLost?: () => void) {
           setSession(prev => ({ ...prev, scoutWorld: msg.worldId }));
           break;
         case 'identity':
-          memberNameRef.current = msg.name;
           setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role, identityToken: identityTokenRef.current }));
           break;
         case 'managedEnabled':

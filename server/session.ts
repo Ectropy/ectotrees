@@ -276,34 +276,22 @@ export function updateWorldState(
     session.worldStates[worldId] = state;
   }
 
-  // Managed session: public attribution (name + role visible to all)
-  if (session.managed && originWs) {
-    const token = session.wsToIdentityToken.get(originWs);
-    if (token) {
-      const member = session.members.get(token);
-      if (member) {
-        const source = { name: member.name, role: member.role };
-        broadcast(session, { type: 'worldUpdate', worldId, state, source });
-        return;
-      }
-    }
-  }
-
-  // Member-based attribution: send dashboard connections of same member a copy with source = token
+  // Attribution: send ownUpdate flag to originator's dashboard connections;
+  // managed sessions also broadcast source { name, role } to everyone else.
   if (originWs) {
     const token = session.wsToIdentityToken.get(originWs);
     if (token) {
       const member = session.members.get(token);
       if (member) {
-        // Send attributed update to same-member dashboard connections, normal to everyone else
-        const attributed = JSON.stringify({ type: 'worldUpdate', worldId, state, source: token });
-        const normal = JSON.stringify({ type: 'worldUpdate', worldId, state });
+        const source = session.managed ? { name: member.name, role: member.role } : undefined;
+        const ownMsg = JSON.stringify({ type: 'worldUpdate', worldId, state, ownUpdate: true });
+        const otherMsg = JSON.stringify({ type: 'worldUpdate', worldId, state, ...(source && { source }) });
         for (const ws of session.clients) {
           if (ws.readyState !== 1) continue;
           if (ws !== originWs && member.connections.has(ws) && session.clientTypes.get(ws) === 'dashboard') {
-            ws.send(attributed);
+            ws.send(ownMsg);
           } else {
-            ws.send(normal);
+            ws.send(otherMsg);
           }
         }
         return;
