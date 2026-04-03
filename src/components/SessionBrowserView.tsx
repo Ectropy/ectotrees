@@ -194,114 +194,105 @@ export function SessionBrowserView({
             )}
 
             {sessions.map(s => (
-              <div key={s.code} className="bg-gray-800 border border-gray-700 rounded p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-white">{s.name}</span>
-                  {s.allowOpenJoin ? (
-                    openJoinCode === s.code ? null : (
-                      <button
-                        onClick={() => { setOpenJoinCode(s.code); setOpenJoinName(''); }}
-                        className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
-                      >
-                        Join
-                      </button>
-                    )
-                  ) : s.allowViewers ? (
-                    <button
-                      onClick={async () => {
-                        if (activeLocalCount > 0) {
-                          await onRequestSessionJoin(s.code);
-                        } else {
-                          if (onJoinSession(s.code)) onSessionStarted();
+              <div key={s.code} className="bg-gray-800 border border-gray-700 rounded p-3 flex gap-3">
+                {/* Left column: session info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white mb-1">{s.name}</p>
+                  {s.description && (
+                    <p className={`text-xs ${TEXT_COLOR.muted} mb-1.5`}>{s.description}</p>
+                  )}
+                  {/* Open-join inline form */}
+                  {s.allowOpenJoin && openJoinCode === s.code && (
+                    <form
+                      className="flex gap-2 mb-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const name = openJoinName.trim();
+                        if (!name) return;
+                        setOpenJoining(true);
+                        const ok = await onOpenJoin(s.code, name);
+                        setOpenJoining(false);
+                        if (ok) {
+                          setOpenJoinCode(null);
+                          setOpenJoinName('');
+                          onSessionStarted();
                         }
                       }}
-                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
                     >
-                      View
-                    </button>
-                  ) : (
-                    <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.faint}`}>
-                      <Lock className="w-3 h-3" /> Invite required
-                    </span>
+                      <input
+                        autoFocus
+                        value={openJoinName}
+                        onChange={e => setOpenJoinName(e.target.value)}
+                        placeholder="Your username"
+                        maxLength={32}
+                        className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!openJoinName.trim() || openJoining}
+                        className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
+                      >
+                        {openJoining ? '…' : 'Join →'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setOpenJoinCode(null); setOpenJoinName(''); }}
+                        className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </form>
                   )}
-                </div>
-                {s.description && (
-                  <p className={`text-xs ${TEXT_COLOR.muted} mb-1.5`}>{s.description}</p>
-                )}
-                {/* Open-join inline form */}
-                {s.allowOpenJoin && openJoinCode === s.code && (
-                  <form
-                    className="flex gap-2 mb-2"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const name = openJoinName.trim();
-                      if (!name) return;
-                      setOpenJoining(true);
-                      const ok = await onOpenJoin(s.code, name);
-                      setOpenJoining(false);
-                      if (ok) {
-                        setOpenJoinCode(null);
-                        setOpenJoinName('');
-                        onSessionStarted();
-                      }
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      value={openJoinName}
-                      onChange={e => setOpenJoinName(e.target.value)}
-                      placeholder="Your username"
-                      maxLength={32}
-                      className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!openJoinName.trim() || openJoining}
-                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
-                    >
-                      {openJoining ? '…' : 'Join →'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setOpenJoinCode(null); setOpenJoinName(''); }}
-                      className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                )}
-                {/* If both modes enabled, show "View only" link beneath the name form */}
-                {s.allowOpenJoin && s.allowViewers && openJoinCode !== s.code && (
-                  <button
-                    onClick={async () => {
-                      if (activeLocalCount > 0) {
-                        await onRequestSessionJoin(s.code);
-                      } else {
-                        if (onJoinSession(s.code)) onSessionStarted();
-                      }
-                    }}
-                    className={`text-xs ${TEXT_COLOR.faint} hover:text-gray-300 transition-colors mb-1.5 block`}
-                  >
-                    View only (anonymous) →
-                  </button>
-                )}
-                <div className="flex items-center gap-3 text-xs">
-                  <span className={`font-mono ${TEXT_COLOR.faint}`}>{s.code}</span>
-                  {s.managed ? (
-                    <span className="flex items-center gap-1 text-blue-400">
-                      <Shield className="w-3 h-3" /> Managed
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className={`font-mono ${TEXT_COLOR.faint}`}>{s.code}</span>
+                    {s.managed ? (
+                      <span className="flex items-center gap-1 text-blue-400">
+                        <Shield className="w-3 h-3" /> Managed
+                      </span>
+                    ) : (
+                      <span className={TEXT_COLOR.faint}>Anonymous</span>
+                    )}
+                    <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
+                      <Users className="w-3 h-3" /> {s.clientCount}
                     </span>
-                  ) : (
-                    <span className={TEXT_COLOR.faint}>Anonymous</span>
-                  )}
-                  <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
-                    <Users className="w-3 h-3" /> {s.clientCount}
-                  </span>
-                  <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
-                    <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
-                  </span>
+                    <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
+                      <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
+                    </span>
+                  </div>
+                  <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(s.lastActivityAt)}</p>
                 </div>
-                <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(s.lastActivityAt)}</p>
+                {/* Right column: action buttons */}
+                {openJoinCode !== s.code && (
+                  <div className="min-w-max flex flex-col gap-1 justify-start">
+                    {s.allowOpenJoin && (
+                      <button
+                        onClick={() => { setOpenJoinCode(s.code); setOpenJoinName(''); }}
+                        className="w-full px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
+                      >
+                        Join as Scout
+                      </button>
+                    )}
+                    {s.allowViewers && (
+                      <button
+                        onClick={async () => {
+                          if (activeLocalCount > 0) {
+                            await onRequestSessionJoin(s.code);
+                          } else {
+                            if (onJoinSession(s.code)) onSessionStarted();
+                          }
+                        }}
+                        className="w-full px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
+                      >
+                        Join as Viewer
+                      </button>
+                    )}
+                    {!s.allowOpenJoin && !s.allowViewers && (
+                      <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.faint}`}>
+                        <Lock className="w-3 h-3" /> Invite required
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
