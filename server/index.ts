@@ -387,7 +387,7 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authIden
 
   // Send auth success response (with identity token if applicable)
   const identityToken = member ? validatedSession.wsToIdentityToken.get(ws) : undefined;
-  ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, identityToken }));
+  ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, identityToken, managed: validatedSession.managed || undefined }));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

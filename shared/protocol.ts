@@ -54,7 +54,7 @@ export type ClientMessage =
   | { type: 'ping' };
 
 export type ServerMessage =
-  | { type: 'authSuccess';    sessionCode: string; identityToken?: string }
+  | { type: 'authSuccess';    sessionCode: string; identityToken?: string; managed?: boolean }
   | { type: 'authError';      reason: string; code?: 'invalid' | 'expired' | 'full' | 'banned' | 'timeout' }
   | { type: 'snapshot';       worlds: WorldStates }
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null; ownUpdate?: boolean; source?: { name: string; role: string } }

@@ -330,8 +330,15 @@ export default function App() {
     });
   }, [activeView, useSidebar, settings.sidebarSide]);
 
+  // If a viewer somehow lands on an edit tool view (e.g. role changed mid-session), redirect to detail
+  useEffect(() => {
+    if (!canEdit && (activeView.kind === 'spawn' || activeView.kind === 'tree' || activeView.kind === 'dead')) {
+      setActiveView({ kind: 'detail', worldId: (activeView as { worldId: number }).worldId });
+    }
+  }, [canEdit, activeView]);
+
   const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse'
-    ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
+    ? { activeKind: activeView.kind, canEdit, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
   // Render the current tool/detail/settings view component
@@ -723,6 +730,8 @@ const NAV_ITEMS = [
   { kind: 'tree'   as const, icon: TreeDeciduous,   label: 'Tree',  activeColor: TREE_COLOR.text,   hoverBg: TREE_COLOR.borderHover,  underline: TREE_COLOR.underline  },
   { kind: 'dead'   as const, icon: Skull,           label: 'Dead',  activeColor: DEAD_COLOR.text,   hoverBg: DEAD_COLOR.borderHover,  underline: DEAD_COLOR.underline  },
 ];
+// Viewers in managed sessions only see the detail nav button — edit tools are hidden
+const VIEWER_NAV_ITEMS = NAV_ITEMS.filter(item => item.kind === 'detail');
 
 function NavButton({ item, isActive, onClick, variant }: {
   item: typeof NAV_ITEMS[number];
@@ -763,7 +772,7 @@ function SidebarWrapper({
   onChangeSide: (side: 'left' | 'right') => void;
   onExpand: () => void;
   onClose: () => void;
-  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; canEdit: boolean; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
@@ -799,7 +808,7 @@ function SidebarWrapper({
         </div>
         {/* Center: world nav buttons */}
         <div className="flex items-center justify-center gap-0.5">
-          {worldNav && NAV_ITEMS.map(item => (
+          {worldNav && (worldNav.canEdit ? NAV_ITEMS : VIEWER_NAV_ITEMS).map(item => (
             <NavButton
               key={item.kind}
               item={item}
@@ -842,7 +851,7 @@ function FullscreenWrapper({
   showDockControls: boolean;
   onDockLeft: () => void;
   onDockRight: () => void;
-  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; canEdit: boolean; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
@@ -870,7 +879,7 @@ function FullscreenWrapper({
           )}
           {/* Nav buttons: left-aligned on mobile, absolutely centered on desktop */}
           <div className="flex items-center gap-0.5 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
-            {worldNav && NAV_ITEMS.map(item => (
+            {worldNav && (worldNav.canEdit ? NAV_ITEMS : VIEWER_NAV_ITEMS).map(item => (
               <NavButton
                 key={item.kind}
                 item={item}

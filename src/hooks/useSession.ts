@@ -288,6 +288,11 @@ export function useSession(onSessionLost?: () => void) {
             persistSessionCode(msg.sessionCode);
             setSession(prev => ({ ...prev, code: msg.sessionCode }));
           }
+          // Server tells us if this is a managed session — anonymous viewers need this to
+          // correctly derive canEdit=false without waiting for an identity message
+          if (msg.managed) {
+            setSession(prev => ({ ...prev, managed: true }));
+          }
           // Identify as a dashboard
           ws.send(JSON.stringify({ type: 'identify', clientType: 'dashboard' }));
 
