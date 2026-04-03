@@ -93,9 +93,32 @@ export default function App() {
   const handleRequestSessionJoin = useCallback(async (code: string): Promise<boolean> => {
     const serverWorlds = await previewJoin(code);
     if (!serverWorlds) return false; // error already in session.error
+
+    // Skip the join screen when it offers no decision: nothing to contribute and nothing being lost
+    const localActive = Object.entries(worldStatesRef.current).filter(
+      ([, s]) => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
+    );
+    const hasContribute = localActive.some(([id]) => !(Number(id) in serverWorlds));
+    const hasConflicts  = localActive.some(([id, s]) => {
+      const sv = serverWorlds[Number(id)];
+      return sv !== undefined
+        && (s.treeStatus         !== sv.treeStatus
+         || s.nextSpawnTarget    !== sv.nextSpawnTarget
+         || s.treeType           !== sv.treeType
+         || s.treeHint           !== sv.treeHint
+         || s.treeExactLocation  !== sv.treeExactLocation
+         || s.treeHealth         !== sv.treeHealth);
+    });
+
+    if (!hasContribute && !hasConflicts) {
+      confirmPreviewJoin(code, undefined);
+      setActiveView({ kind: 'session' });
+      return true;
+    }
+
     setActiveView({ kind: 'session-join', code });
     return true;
-  }, [previewJoin]);
+  }, [previewJoin, confirmPreviewJoin]);
 
   const handleJoinFromView = useCallback((code: string, localStates?: WorldStates): void => {
     confirmPreviewJoin(code, localStates);
