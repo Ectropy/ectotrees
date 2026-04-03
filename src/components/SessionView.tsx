@@ -40,7 +40,7 @@ export function SessionView({
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
-  onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
+  onSetAllowViewers, onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
 }: SessionViewProps) {
   const { copied: codeCopied, copy: copyCode } = useCopyFeedback(1500);
@@ -368,7 +368,10 @@ export function SessionView({
             {/* Save button (when settings changed) */}
             {hasSettingsChanges && (
               <button
-                onClick={() => onUpdateSessionSettings({ name: nameInput, description: descInput, listed: listedInput })}
+                onClick={() => {
+                  if (listedInput && !session.allowViewers) onSetAllowViewers(true);
+                  onUpdateSessionSettings({ name: nameInput, description: descInput, listed: listedInput });
+                }}
                 className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
               >
                 Save Settings
