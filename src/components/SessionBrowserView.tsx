@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Users, RefreshCw, TreeDeciduous, Shield, Lock } from 'lucide-react';
+import { Users, RefreshCw, TreeDeciduous, Lock } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
@@ -117,7 +117,7 @@ export function SessionBrowserView({
               <RefreshCw className={`h-4 w-4 ${browsing ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          <p className="text-sm ${TEXT_COLOR.muted} mb-4">
+          <p className={`text-sm ${TEXT_COLOR.muted} mb-4`}>
             Create or join a session to share intel with others.
           </p>
 
@@ -244,14 +244,6 @@ export function SessionBrowserView({
                     </form>
                   )}
                   <div className="flex items-center gap-3 text-xs">
-                    <span className={`font-mono ${TEXT_COLOR.faint}`}>{s.code}</span>
-                    {s.managed ? (
-                      <span className="flex items-center gap-1 text-blue-400">
-                        <Shield className="w-3 h-3" /> Managed
-                      </span>
-                    ) : (
-                      <span className={TEXT_COLOR.faint}>Anonymous</span>
-                    )}
                     <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
                       <Users className="w-3 h-3" /> {s.clientCount}
                     </span>
