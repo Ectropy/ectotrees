@@ -217,6 +217,14 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   }
 
   broadcastClientCount(session);
+
+  // Send initial member list to the new client (covers anonymous viewers who won't go
+  // through addMemberConnection, which is where identified members receive theirs)
+  if (session.managed && session.members) {
+    const members = buildMemberList(session);
+    ws.send(JSON.stringify({ type: 'memberList', members } satisfies ServerMessage));
+  }
+
   return clientId;
 }
 
