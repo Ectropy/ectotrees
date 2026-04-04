@@ -431,8 +431,8 @@ export function SessionView({
           </div>
         )}
 
-        {/* Link with Alt1 */}
-        {isConnected && (
+        {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
+        {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
           alt1Expanded && session.identityToken ? (
             <Alt1LinkedSection
               identityToken={session.identityToken}
