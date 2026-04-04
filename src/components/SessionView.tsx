@@ -539,7 +539,7 @@ function Alt1LinkedSection({
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
   tokenCopied: boolean;
-  copyToken: (text: string) => Promise<void>;
+  copyToken: (text: string) => Promise<boolean>;
 }) {
   return (
     <div className="space-y-2">
