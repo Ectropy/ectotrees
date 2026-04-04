@@ -3,7 +3,7 @@ import { Users, RefreshCw, TreeDeciduous, Lock } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
-import { TEXT_COLOR, TREE_COLOR } from '../constants/toolColors';
+import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
 
 interface SessionBrowserViewProps {
   session: SessionState;
@@ -150,7 +150,7 @@ export function SessionBrowserView({
                     }
                   }}
                   placeholder="Join code or link"
-                  className="flex-1 min-w-0 px-2 py-0.5 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-xs uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="flex-1 min-w-0 px-2 py-0.5 bg-gray-700 border border-gray-600 text-white rounded font-mono text-center text-xs uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 />
               </div>
             </div>
@@ -223,19 +223,19 @@ export function SessionBrowserView({
                           onChange={e => setOpenJoinName(e.target.value)}
                           placeholder="Your username"
                           maxLength={32}
-                          className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                          className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
                         />
                         <button
                           type="submit"
                           disabled={!openJoinName.trim() || openJoining}
-                          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
+                          className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 text-xs font-medium rounded transition-colors`}
                         >
                           {openJoining ? '…' : 'Join →'}
                         </button>
                         <button
                           type="button"
                           onClick={() => { setOpenJoinCode(null); setOpenJoinName(''); }}
-                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                          className={`px-2 py-1 ${BUTTON_SECONDARY} text-xs`}
                         >
                           Cancel
                         </button>
@@ -257,7 +257,7 @@ export function SessionBrowserView({
                       {s.allowOpenJoin && (
                         <button
                           onClick={() => { setOpenJoinCode(s.code); setOpenJoinName(''); }}
-                          className="w-full px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
+                          className={`w-full px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
                         >
                           Join as Scout
                         </button>
@@ -271,7 +271,7 @@ export function SessionBrowserView({
                               if (onJoinSession(s.code)) onSessionStarted();
                             }
                           }}
-                          className="w-full px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition-colors"
+                          className={`w-full px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
                         >
                           Join as Viewer
                         </button>

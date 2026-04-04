@@ -180,9 +180,9 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
           )}
           <button
             onClick={onOpenSession}
-            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            className={`text-xs px-1.5 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} rounded transition-colors`}
           >
-            Manage session
+            Session Details
           </button>
         </span>
 
