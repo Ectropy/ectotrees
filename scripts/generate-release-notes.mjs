@@ -41,6 +41,15 @@ if (!commitLog) {
   process.exit(0);
 }
 
+// Get the full diff for the range. Truncate if very large to stay within model limits.
+const MAX_DIFF_CHARS = 80_000;
+let diff = execSync(`git diff ${range}`, { encoding: 'utf8' });
+let diffTruncated = false;
+if (diff.length > MAX_DIFF_CHARS) {
+  diff = diff.slice(0, MAX_DIFF_CHARS);
+  diffTruncated = true;
+}
+
 console.log(`Generating release notes for ${TAG_NAME} (commits since ${baseLabel})...`);
 
 const model = process.env.CLAUDE_MODEL ?? 'claude-haiku-4-5';
@@ -55,13 +64,23 @@ const response = await client.messages.create({
       role: 'user',
       content: `You are writing release notes for a GitHub Release of a RuneScape 3 Evil Trees tracker web app called Ectotrees.
 
-Here are the commits included in this release (${TAG_NAME}, since ${baseLabel}):
+Below are the code changes and commit messages for this release (${TAG_NAME}, since ${baseLabel}).
+
+Use the **diff as the primary source of truth** for what actually changed. Use the **commit messages as context** — they provide feature names, intent, and domain terminology that may not be obvious from the code alone.${diffTruncated ? '\n\nNote: The diff was truncated due to size. Base your notes on what is shown.' : ''}
+
+## Commit messages
 
 ${commitLog}
 
+## Diff
+
+\`\`\`diff
+${diff}
+\`\`\`
+
 Write concise, user-friendly GitHub release notes in GitHub Flavored Markdown. Use these rules:
 - Start with a short 1–2 sentence summary of what this release is about (no heading for the summary).
-- Then use the following H2 sections, but **only include a section if there are relevant commits**:
+- Then use the following H2 sections, but **only include a section if there are relevant changes**:
   - ## What's New
   - ## Bug Fixes
   - ## Internal
