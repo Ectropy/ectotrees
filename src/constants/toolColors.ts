@@ -111,7 +111,7 @@ export const STATUS_TEXT_COLORS: Record<SessionStatus, string> = {
 
 /** Member role display colors and labels (MemberPanel + SessionView) */
 export const ROLE_COLORS = {
-  owner:     'text-amber-400',
+  owner:     'text-yellow-400',
   moderator: 'text-blue-400',
   scout:     'text-green-400',
   viewer:    'text-gray-400',
@@ -130,6 +130,14 @@ export const ALT1_COLOR = {
   border:      'border border-cyan-400', // bordered button style
   label:       BUTTON_LABEL_COLOR,       // label color on bordered button
   borderHover: 'hover:bg-cyan-400/20',   // subtle fill on hover
+} as const;
+
+/** Managed/fork session button and banner color (yellow — matches P2P world card border) */
+export const MANAGED_COLOR = {
+  border:      'border border-yellow-500',    // bordered button style
+  label:       BUTTON_LABEL_COLOR,            // label color on bordered button
+  borderHover: 'hover:bg-yellow-500/20',      // subtle fill on hover
+  panelBorder: 'border border-yellow-500/50', // banner panel border
 } as const;
 
 /** Base classes for secondary (gray) action buttons.

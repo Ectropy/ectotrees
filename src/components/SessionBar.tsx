@@ -5,7 +5,7 @@ import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -16,6 +16,7 @@ interface SessionBarProps {
   onRequestIdentityToken: () => void;
   onLinkWithAlt1: () => Promise<string | null>;
   onOpenBrowser: () => void;
+  forkDismissed: boolean;
 }
 
 
@@ -31,7 +32,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, onCreateSession, onRejoinSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser }: SessionBarProps) {
+export function SessionBar({ session, onCreateSession, onRejoinSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
   const [loading, setLoading] = useState(false);
   const { copied, copy: copyCode } = useCopyFeedback(1500);
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
@@ -158,14 +159,14 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
         )}
 
         {/* Fork invite indicator */}
-        {session.forkInvite && !session.managed && (
+        {session.forkInvite && session.forkInvite.selfRegisterToken && !session.managed && !forkDismissed && (
           <button
             onClick={onOpenSession}
-            className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-900/40 border border-amber-700/50 hover:bg-amber-900/60 text-amber-300 text-xs rounded transition-colors flex-shrink-0"
-            title={`${session.forkInvite.initiatorName} created a managed fork — click to view`}
+            className={`flex items-center gap-1.5 px-2 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} text-xs rounded transition-colors flex-shrink-0`}
+            title={`${session.forkInvite.initiatorName} created a managed fork of this session. Click to view or join.`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-            Managed fork available
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse flex-shrink-0" />
+            Managed session available
           </button>
         )}
 

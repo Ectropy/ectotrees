@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
-import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS } from '../constants/toolColors';
+import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS, MANAGED_COLOR } from '../constants/toolColors';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface MemberPanelProps {
@@ -77,7 +77,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                   />
                   <span className="truncate text-gray-200" title={m.name}>
                     {m.name}
-                    {m.name === myName && <span className="text-amber-400/70 ml-1 text-[10px]">(you)</span>}
+                    {m.name === myName && <span className="text-yellow-400/70 ml-1 text-[10px]">(you)</span>}
                   </span>
                 </span>
               </td>
@@ -120,7 +120,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => onKickMember(m.identityToken!)}
-                          className="text-yellow-600 hover:text-yellow-400 text-[10px] transition-colors"
+                          className="text-yellow-500 hover:text-yellow-400 text-[10px] transition-colors"
                         >
                           Kick
                         </button>
@@ -181,7 +181,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
             value={inviteName}
             onChange={(e) => setInviteName(e.target.value)}
             placeholder="Username"
-            className="flex-1 min-w-0 px-1.5 py-0.5 bg-gray-700 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="flex-1 min-w-0 px-1.5 py-0.5 bg-gray-700 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
           />
           <select
             value={inviteRole}
@@ -194,7 +194,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
           <button
             type="submit"
             disabled={!inviteName.trim()}
-            className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded text-xs transition-colors"
+            className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 px-1.5 py-0.5 rounded text-xs transition-colors`}
           >
             Invite
           </button>

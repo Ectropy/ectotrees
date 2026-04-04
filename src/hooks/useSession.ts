@@ -148,6 +148,7 @@ export function useSession(onSessionLost?: () => void) {
   const initialCode = loadPersistedSessionCode();
   const [session, setSession] = useState<SessionState>(defaultSessionState({ code: initialCode }));
   const [previewWorlds, setPreviewWorlds] = useState<WorldStates | null>(null);
+  const [dismissedForkCode, setDismissedForkCode] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const previewWsRef = useRef<WebSocket | null>(null);
@@ -392,9 +393,11 @@ export function useSession(onSessionLost?: () => void) {
           break;
         case 'forkInvite':
           setSession(prev => ({ ...prev, forkInvite: { managedCode: msg.managedCode, inviteLink: msg.inviteLink, initiatorName: msg.initiatorName, expiresAt: msg.expiresAt, selfRegisterToken: msg.selfRegisterToken, identityToken: msg.identityToken } }));
+          setDismissedForkCode(prev => prev === msg.managedCode ? prev : null);
           break;
         case 'forkInviteExpired':
           setSession(prev => ({ ...prev, forkInvite: null }));
+          setDismissedForkCode(null);
           break;
         case 'forkCreated': {
           // Initiator joins the new managed session as owner via identity token
@@ -969,5 +972,7 @@ export function useSession(onSessionLost?: () => void) {
     openJoin,
     updateSessionSettings: updateSessionSettingsAction,
     requestIdentityToken: requestIdentityTokenAction,
+    forkDismissed: dismissedForkCode !== null && session.forkInvite?.managedCode === dismissedForkCode,
+    dismissForkInvite: () => setDismissedForkCode(session.forkInvite?.managedCode ?? null),
   };
 }

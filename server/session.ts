@@ -14,7 +14,7 @@ const SESSION_INACTIVITY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
 const EMPTY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;       // 24 hours
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
 const FORK_INVITE_TTL_MS = 15 * 60 * 1000;        // 15 minutes
-const FORK_COOLDOWN_MS = 60 * 60 * 1000;          // 1 hour
+const FORK_COOLDOWN_MS = FORK_INVITE_TTL_MS;       // same as invite TTL — new fork allowed once invite window closes
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 
@@ -204,16 +204,14 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
   }
 
-  // Re-send active fork invite only to clients who were present at fork time (have a self-register token)
+  // Re-send active fork invite to all connecting clients; selfRegisterToken only included for those present at fork time
   if (session.pendingFork) {
     const { managedCode, initiatorName, expiresAt, wsTokens } = session.pendingFork;
     const selfRegisterToken = wsTokens.get(ws);
-    if (selfRegisterToken) {
-      const inviteLink = `${APP_URL}/#join=${managedCode}`;
-      const identityToken = session.wsToIdentityToken.get(ws);
-      const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken, identityToken };
-      ws.send(JSON.stringify(forkInviteMsg));
-    }
+    const inviteLink = `${APP_URL}/#join=${managedCode}`;
+    const identityToken = session.wsToIdentityToken.get(ws);
+    const forkInviteMsg: ServerMessage = { type: 'forkInvite', managedCode, inviteLink, initiatorName, expiresAt, selfRegisterToken, identityToken };
+    ws.send(JSON.stringify(forkInviteMsg));
   }
 
   broadcastClientCount(session);
