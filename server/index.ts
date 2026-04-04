@@ -32,15 +32,19 @@ import {
   addMemberConnection,
   canWrite,
   createInvite,
+  kickMember,
   banMember,
   renameMember,
   setMemberRole,
   transferOwnership,
   setAllowViewers,
-  requestPersonalToken,
+  setAllowOpenJoin,
+  createOpenJoinInvite,
+  requestIdentityToken,
   authenticateByCode,
-  authenticateByInviteToken,
-  authenticateByPersonalToken,
+  authenticateByIdentityToken,
+  getListedSessions,
+  updateSessionSettings,
   MAX_CLIENTS_PER_SESSION,
 } from './session.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
@@ -192,7 +196,29 @@ app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) =>
   res.json({ code: result.code });
 });
 
+app.get('/api/sessions', httpRateLimitMiddleware, (_req, res) => {
+  res.json({ sessions: getListedSessions() });
+});
 
+app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
+  const session = getSession(req.params.code as string);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found.' });
+    return;
+  }
+  if (!session.allowOpenJoin) {
+    res.status(403).json({ error: 'This session does not allow open join.' });
+    return;
+  }
+  const name = typeof req.body?.name === 'string' ? req.body.name : '';
+  const result = createOpenJoinInvite(session, name);
+  if ('error' in result) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  log(`[open-join] ${session.code} — "${name.trim().slice(0, 200)}" self-issued invite`);
+  res.json({ identityToken: result.identityToken });
+});
 
 app.get('/api/health', (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
@@ -271,7 +297,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // Handle authentication messages from unauthenticated clients
-function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authInvite' | 'authPersonal' }): void {
+function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authIdentity' }): void {
   const extensions = wsExtensions.get(ws);
   if (!extensions) {
     ws.send(JSON.stringify({ type: 'authError', reason: 'Internal server error.' }));
@@ -284,16 +310,8 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authInvi
 
   if (msg.type === 'authSession') {
     session = authenticateByCode((msg as unknown as { code: string }).code);
-  } else if (msg.type === 'authInvite') {
-    const result = authenticateByInviteToken((msg as unknown as { token: string }).token);
-    if ('error' in result) {
-      session = result;
-    } else {
-      session = result.session;
-      member = result.member;
-    }
-  } else if (msg.type === 'authPersonal') {
-    const result = authenticateByPersonalToken((msg as unknown as { token: string }).token);
+  } else if (msg.type === 'authIdentity') {
+    const result = authenticateByIdentityToken((msg as unknown as { token: string }).token);
     if ('error' in result) {
       session = result;
     } else {
@@ -367,9 +385,9 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authInvi
     extensions.authTimeout = undefined;
   }
 
-  // Send auth success response (with personal token if applicable)
-  const personalToken = member ? validatedSession.wsToInviteToken.get(ws) : undefined;
-  ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, personalToken }));
+  // Send auth success response (with identity token if applicable)
+  const identityToken = member ? validatedSession.wsToIdentityToken.get(ws) : undefined;
+  ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: validatedSession.code, identityToken, managed: validatedSession.managed || undefined }));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -438,14 +456,18 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
     // Handle auth messages (even when unauthenticated)
     const authValidated = validateAuthMessage(parsed);
     if (!('error' in authValidated)) {
-      handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authInvite' | 'authPersonal' });
+      handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authIdentity' });
       return;
     }
 
     // Reject non-auth messages if not authenticated
     if (!extensions.authenticated) {
-      ws.send(JSON.stringify({ type: 'authError', reason: 'Authentication required.', code: 'invalid' }));
-      ws.close(1008, 'Authentication required');
+      const msgType = typeof parsed === 'object' && parsed !== null
+        ? (parsed as { type?: string }).type : null;
+      const wasAuthAttempt = msgType === 'authSession' || msgType === 'authIdentity';
+      const reason = wasAuthAttempt ? (authValidated as { error: string }).error : 'Authentication required.';
+      ws.send(JSON.stringify({ type: 'authError', reason, code: 'invalid' }));
+      ws.close(1008, reason);
       return;
     }
 
@@ -517,11 +539,11 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
-    case 'requestPersonalToken': {
-      const result = requestPersonalToken(session, ws);
+    case 'requestIdentityToken': {
+      const result = requestIdentityToken(session, ws);
       ws.send(JSON.stringify(result));
-      if (result.type === 'personalToken') {
-        log(`[personal] ${session.code} ${c} generated personal token ${result.token.slice(0, 4)}…`);
+      if (result.type === 'identityToken') {
+        log(`[identity] ${session.code} ${c} generated identity token ${result.token.slice(0, 4)}…`);
       }
       break;
     }
@@ -537,7 +559,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
         ws.send(JSON.stringify(errorMsg(result.error)));
       } else {
         // Tell the initiator which session to join and provide their owner token
-        const forkCreatedMsg: ServerMessage = { type: 'forkCreated', managedCode: result.managedCode, ownerToken: result.ownerToken };
+        const forkCreatedMsg: ServerMessage = { type: 'forkCreated', managedCode: result.managedCode, identityToken: result.identityToken };
         ws.send(JSON.stringify(forkCreatedMsg));
         log(`[fork] ${session.code} ${c} forked to managed session ${result.managedCode} as "${msg.name}"`);
       }
@@ -558,20 +580,20 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
         ws.send(JSON.stringify(errorMsg('Managed session not found.')));
         break;
       }
-      const srResult = selfRegisterMember(managedSession, msg.name, msg.selfRegisterToken, msg.personalToken);
+      const srResult = selfRegisterMember(managedSession, msg.name, msg.selfRegisterToken, msg.identityToken);
       if ('error' in srResult) {
         ws.send(JSON.stringify(errorMsg(srResult.error)));
         break;
       }
       log(`[self-invite] ${managedSession.code} — "${msg.name}" self-registered via WS`);
-      const selfRegisteredMsg: ServerMessage = { type: 'selfRegistered', inviteToken: srResult.inviteToken };
+      const selfRegisteredMsg: ServerMessage = { type: 'selfRegistered', identityToken: srResult.identityToken };
       ws.send(JSON.stringify(selfRegisteredMsg));
-      // If a personal token was provided and migrated, redirect any scout connections in this session
-      if (msg.personalToken) {
+      // If an identity token was provided and migrated, redirect any scout connections in this session
+      if (msg.identityToken) {
         for (const clientWs of session.clients) {
           if (clientWs === ws) continue;
-          const tok = session.wsToInviteToken.get(clientWs);
-          if (tok === msg.personalToken && clientWs.readyState === 1) {
+          const tok = session.wsToIdentityToken.get(clientWs);
+          if (tok === msg.identityToken && clientWs.readyState === 1) {
             clientWs.send(JSON.stringify({ type: 'redirect', code: managedSession.code } as ServerMessage));
           }
         }
@@ -590,42 +612,52 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
-    case 'banMember': {
-      const err = banMember(session, ws, msg.inviteToken);
+    case 'kickMember': {
+      const err = kickMember(session, ws, msg.identityToken);
       if (err) {
         ws.send(JSON.stringify(err));
       } else {
-        log(`[managed] ${session.code} ${c} banned member ${msg.inviteToken.slice(0, 4)}…`);
+        log(`[managed] ${session.code} ${c} kicked member ${msg.identityToken.slice(0, 4)}…`);
+      }
+      break;
+    }
+
+    case 'banMember': {
+      const err = banMember(session, ws, msg.identityToken);
+      if (err) {
+        ws.send(JSON.stringify(err));
+      } else {
+        log(`[managed] ${session.code} ${c} banned member ${msg.identityToken.slice(0, 4)}…`);
       }
       break;
     }
 
     case 'renameMember': {
-      const err = renameMember(session, ws, msg.inviteToken, msg.name);
+      const err = renameMember(session, ws, msg.identityToken, msg.name);
       if (err) {
         ws.send(JSON.stringify(err));
       } else {
-        log(`[managed] ${session.code} ${c} renamed member ${msg.inviteToken.slice(0, 4)}… to "${msg.name}"`);
+        log(`[managed] ${session.code} ${c} renamed member ${msg.identityToken.slice(0, 4)}… to "${msg.name}"`);
       }
       break;
     }
 
     case 'setMemberRole': {
-      const err = setMemberRole(session, ws, msg.inviteToken, msg.role);
+      const err = setMemberRole(session, ws, msg.identityToken, msg.role);
       if (err) {
         ws.send(JSON.stringify(err));
       } else {
-        log(`[managed] ${session.code} ${c} set role ${msg.role} for ${msg.inviteToken.slice(0, 4)}…`);
+        log(`[managed] ${session.code} ${c} set role ${msg.role} for ${msg.identityToken.slice(0, 4)}…`);
       }
       break;
     }
 
     case 'transferOwnership': {
-      const err = transferOwnership(session, ws, msg.inviteToken);
+      const err = transferOwnership(session, ws, msg.identityToken);
       if (err) {
         ws.send(JSON.stringify(err));
       } else {
-        log(`[managed] ${session.code} ${c} transferred ownership to ${msg.inviteToken.slice(0, 4)}…`);
+        log(`[managed] ${session.code} ${c} transferred ownership to ${msg.identityToken.slice(0, 4)}…`);
       }
       break;
     }
@@ -634,6 +666,20 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const err = setAllowViewers(session, ws, msg.allow);
       if (err) ws.send(JSON.stringify(err));
       else log(`[managed] ${session.code} ${c} setAllowViewers ${msg.allow}`);
+      break;
+    }
+
+    case 'setAllowOpenJoin': {
+      const err = setAllowOpenJoin(session, ws, msg.allow);
+      if (err) ws.send(JSON.stringify(err));
+      else log(`[managed] ${session.code} ${c} setAllowOpenJoin ${msg.allow}`);
+      break;
+    }
+
+    case 'updateSessionSettings': {
+      const err = updateSessionSettings(session, ws, msg.settings);
+      if (err) ws.send(JSON.stringify(err));
+      else log(`[session] ${session.code} ${c} updateSessionSettings ${JSON.stringify(msg.settings)}`);
       break;
     }
 
@@ -720,7 +766,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestPersonalToken', 'setAllowViewers']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowViewers', 'setAllowOpenJoin', 'updateSessionSettings']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

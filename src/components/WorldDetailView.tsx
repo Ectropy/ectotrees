@@ -161,7 +161,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
           <div className="bg-gray-800 border border-gray-700 rounded p-4">
             {isBlank ? (
               <p className="text-sm text-gray-500">No known information. =(<br /><br/>
-              <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>There are several ways to find Evil trees.</a> Consider scouting this world to help others.
+              <a href='https://runescape.wiki/w/Evil_Tree#Locations' target='_blank' rel='noopener noreferrer' className='text-blue-400 hover:text-blue-300 underline'>There are several ways to find Evil trees.</a>{canEdit && ' Consider scouting this world to help others.'}
               </p>
             ) : (
               <>

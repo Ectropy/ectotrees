@@ -6,7 +6,12 @@ const W = 1;
 test.beforeEach(async ({ page }) => {
   // Clear localStorage before each test so state doesn't bleed between tests.
   // addInitScript runs before the page loads, so React never sees stale data.
-  await page.addInitScript(() => localStorage.clear());
+  // showBrowseOnStartup defaults to true, so explicitly disable it so tests
+  // start on the grid instead of the session browser.
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('evilTree_settings', JSON.stringify({ showBrowseOnStartup: false }));
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +20,6 @@ test.beforeEach(async ({ page }) => {
 
 test('lightning cap: alive tree at 11 min auto-reduces health to 50%', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.clear();
     const matureAt = Date.now() - 11 * 60 * 1000;
     localStorage.setItem('evilTree_worldStates', JSON.stringify({
       1: { treeStatus: 'alive', matureAt, treeHealth: 80 },
@@ -203,6 +207,9 @@ test('#join= valid code: session code appears in bar when WS connects', async ({
 
   await page.goto(`/#join=${JOIN_CODE}`);
 
+  // Preview flow: SessionJoinView appears — confirm the join
+  await page.getByRole('button', { name: 'Join session' }).click();
+
   // The session bar button showing the code confirms a successful join
   await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
 });
@@ -213,8 +220,8 @@ test('#join= valid code: session code appears in bar when WS connects', async ({
 
 test('join input: URL with no #join= clears the field and shows error', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Join Session' }).click();
-  const input = page.getByPlaceholder('CODE');
+  await page.getByRole('button', { name: 'Join a Session' }).click();
+  const input = page.getByPlaceholder('Code, token, or link');
 
   await input.fill('http://localhost:8080');
 
@@ -222,12 +229,12 @@ test('join input: URL with no #join= clears the field and shows error', async ({
   await expect(page.locator('text=Not a valid code or link')).toBeVisible();
 });
 
-test('join input: string longer than 6 chars clears the field and shows error', async ({ page }) => {
+test('join input: string longer than 12 chars clears the field and shows error', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Join Session' }).click();
-  const input = page.getByPlaceholder('CODE');
+  await page.getByRole('button', { name: 'Join a Session' }).click();
+  const input = page.getByPlaceholder('Code, token, or link');
 
-  await input.fill('ABCDEFGHIJK');
+  await input.fill('ABCDEFGHIJKLMNO'); // 15 chars — not a valid code (6) or token (12)
 
   await expect(input).toHaveValue('');
   await expect(page.locator('text=Not a valid code or link')).toBeVisible();
@@ -235,8 +242,8 @@ test('join input: string longer than 6 chars clears the field and shows error', 
 
 test('join input: full URL with valid #join= extracts the code', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Join Session' }).click();
-  const input = page.getByPlaceholder('CODE');
+  await page.getByRole('button', { name: 'Join a Session' }).click();
+  const input = page.getByPlaceholder('Code, token, or link');
 
   await input.fill('http://localhost:5173/#join=ABCD23');
 
@@ -246,8 +253,8 @@ test('join input: full URL with valid #join= extracts the code', async ({ page }
 
 test('join input: plain 6-char code is accepted without modification', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Join Session' }).click();
-  const input = page.getByPlaceholder('CODE');
+  await page.getByRole('button', { name: 'Join a Session' }).click();
+  const input = page.getByPlaceholder('Code, token, or link');
 
   await input.fill('ABCD23');
 
@@ -342,10 +349,10 @@ test('ws race: authError on join surfaces error message', async ({ page }) => {
   await page.goto('/');
 
   // Open join input and submit a code
-  await page.getByRole('button', { name: 'Join Session' }).click();
-  const input = page.getByPlaceholder('CODE');
+  await page.getByRole('button', { name: 'Join a Session' }).click();
+  const input = page.getByPlaceholder('Code, token, or link');
   await input.fill(JOIN_CODE);
-  await page.getByRole('button', { name: 'Join' }).click();
+  // Auto-trigger fires after ~100ms and attempts the join — no button click needed
 
   // The authError reason should be visible in the session bar
   await expect(page.locator('text=This is a private session')).toBeVisible();

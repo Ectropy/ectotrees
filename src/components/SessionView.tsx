@@ -1,93 +1,76 @@
 import { useState } from 'react';
-import { Link2, Shield, Users, Copy, Check, ExternalLink } from 'lucide-react';
+import { Link2, Users, Copy, Check, ExternalLink, HelpCircle } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
-import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
+import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 interface SessionViewProps {
   session: SessionState;
-  activeLocalCount: number;
-  onCreateSession: () => Promise<string | null>;
-  onJoinSession: (code: string) => boolean;
-  onRequestSessionJoin: (code: string) => Promise<void>;
   onRejoinSession: (code: string) => void;
   onLeaveSession: () => void;
   onDismissError: () => void;
   onForkToManaged: (name: string) => void;
-  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, personalToken?: string) => Promise<void>;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string) => Promise<void>;
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
-  onBanMember: (inviteToken: string) => void;
-  onRenameMember: (inviteToken: string, name: string) => void;
-  onSetMemberRole: (inviteToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
-  onTransferOwnership: (inviteToken: string) => void;
+  onKickMember: (identityToken: string) => void;
+  onBanMember: (identityToken: string) => void;
+  onRenameMember: (identityToken: string, name: string) => void;
+  onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
+  onTransferOwnership: (identityToken: string) => void;
   onSetAllowViewers: (allow: boolean) => void;
-  onRequestPersonalToken: () => void;
+  onSetAllowOpenJoin: (allow: boolean) => void;
+  onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
+  onRequestIdentityToken: () => void;
   onBack: () => void;
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
+  forkDismissed: boolean;
+  onDismissFork: () => void;
 }
-
-const STATUS_LABELS: Record<SessionState['status'], string> = {
-  connected:    'Connected',
-  connecting:   'Connecting…',
-  disconnected: 'Disconnected',
-};
 
 // window.location.origin is constant for the page lifetime
 const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfig.json`;
 
 export function SessionView({
-  session, activeLocalCount,
-  onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onLeaveSession,
+  session,
+  onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
-  onCreateInvite, onBanMember, onSetMemberRole, onBack,
-  onSetAllowViewers, onRequestPersonalToken,
+  onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
+  onSetAllowViewers, onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
+  forkDismissed, onDismissFork,
 }: SessionViewProps) {
-  const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { copied, copy: copyCode } = useCopyFeedback(1500);
+  const { copied: codeCopied, copy: copyCode } = useCopyFeedback(1500);
+  const { copied: linkCopied, copy: copyLink } = useCopyFeedback(1500);
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const countdown = useCountdown(session.reconnectAt ?? null);
   const forkCountdown = useCountdown(session.forkInvite?.expiresAt ?? null, 1000);
-  const [badPaste, setBadPaste] = useState(false);
   const [managedSetupStep, setManagedSetupStep] = useState<'idle' | 'naming'>('idle');
   const [managedName, setManagedName] = useState('');
   const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
   const [joinForkName, setJoinForkName] = useState('');
+  const [alt1Expanded, setAlt1Expanded] = useState(false);
 
-  async function handleCreate() {
-    setLoading(true);
-    await onCreateSession();
-    setLoading(false);
+  // Managed session settings (inline — replaces SessionSettingsPanel)
+  const [nameInput, setNameInput] = useState(session.sessionName ?? '');
+  const [descInput, setDescInput] = useState(session.sessionDescription ?? '');
+  const [listedInput, setListedInput] = useState(session.sessionListed);
+  const [prevSettings, setPrevSettings] = useState({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
+
+  if (prevSettings.name !== session.sessionName || prevSettings.desc !== session.sessionDescription || prevSettings.listed !== session.sessionListed) {
+    setPrevSettings({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
+    setNameInput(session.sessionName ?? '');
+    setDescInput(session.sessionDescription ?? '');
+    setListedInput(session.sessionListed);
   }
 
-  async function handleJoin() {
-    const code = joinCode.trim().toUpperCase();
-    if (!validateSessionCode(code)) return;
-    if (activeLocalCount > 0) {
-      setJoinCode('');
-      setLoading(true);
-      await onRequestSessionJoin(code);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const ok = onJoinSession(code);
-    setLoading(false);
-    if (ok) setJoinCode('');
-  }
-
-  async function handleCopyCode() {
-    if (!session.code) return;
-    await copyCode(buildSessionUrl(session.code));
-  }
+  const hasSettingsChanges = nameInput !== (session.sessionName ?? '') || descInput !== (session.sessionDescription ?? '') || listedInput !== session.sessionListed;
 
   function getReconnectText(): string | null {
     if (session.status !== 'connecting') return null;
@@ -96,116 +79,46 @@ export function SessionView({
 
   const isConnected = session.status === 'connected';
   const canRejoin = session.status === 'disconnected' && session.code !== null;
+  const isAdmin = session.memberRole === 'owner' || session.memberRole === 'moderator';
 
-  // ─── No active session ───
-  if (!session.code) {
-    return (
-      <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-        <div className="max-w-lg mx-auto">
-          <div className="mb-6">
-            <h1 className={`text-2xl font-bold ${TEXT_COLOR.prominent} flex items-center gap-2`}>
-              <Users className="h-5 w-5" /> Session
-            </h1>
-            <p className={`text-sm ${TEXT_COLOR.muted} mt-1`}>Create or join a sync session to share world data in real time.</p>
-          </div>
+  // No active session — should not reach here; App.tsx routes to SessionBrowserView
+  if (!session.code) return null;
 
-          <div className="space-y-3">
-            <button
-              onClick={handleCreate}
-              disabled={loading}
-              className="w-full px-4 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium rounded transition-colors"
-            >
-              {loading ? 'Creating…' : 'Create Session'}
-            </button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700" /></div>
-              <div className="relative flex justify-center"><span className="bg-gray-900 px-3 text-xs text-gray-500">or</span></div>
-            </div>
-
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
-            >
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => {
-                  const x = extractSessionCode(e.target.value);
-                  if (x.length > 6) {
-                    setJoinCode('');
-                    setBadPaste(true);
-                    setTimeout(() => setBadPaste(false), 2500);
-                  } else {
-                    setJoinCode(x);
-                    setBadPaste(false);
-                  }
-                }}
-                placeholder="Enter code or paste link"
-                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 text-white rounded font-mono text-center uppercase placeholder:text-gray-500 placeholder:font-sans placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <button
-                type="submit"
-                disabled={loading || !validateSessionCode(joinCode.trim())}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded transition-colors"
-              >
-                {loading ? '…' : 'Join'}
-              </button>
-            </form>
-            {badPaste && <p className="text-xs text-red-400">Not a valid code or link</p>}
-          </div>
-
-          {session.error && (
-            <button
-              onClick={onDismissError}
-              className="mt-4 text-red-400 text-xs hover:text-red-300 transition-colors"
-              title={`${session.error} (click to dismiss)`}
-            >
-              {session.error}
-            </button>
-          )}
-
-          <button
-            onClick={onBack}
-            className={`mt-6 w-full ${BUTTON_SECONDARY} py-2.5`}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Active session ───
   const reconnectText = getReconnectText();
 
-  return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-      <div className="max-w-lg mx-auto space-y-4">
-        {/* Header */}
-        <div>
+  // ─── Anonymous session view ───
+  if (!session.managed) {
+    return (
+      <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
+        <div className="max-w-lg mx-auto space-y-4">
+          {/* Header */}
           <h1 className={`text-2xl font-bold ${TEXT_COLOR.prominent} flex items-center gap-2`}>
             <Users className="h-5 w-5" /> Session
           </h1>
-        </div>
 
-        {/* Connection status */}
-        <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-              <span className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>{STATUS_LABELS[session.status]}</span>
+          {/* Session name line */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
             </div>
-            <span className="text-xs text-gray-500">
-              {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-              {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
-            </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`font-mono font-bold text-base ${TEXT_COLOR.prominent} tracking-wider`}>{session.code}</span>
+                <span className={`text-xs ${TEXT_COLOR.muted}`}>
+                  (Anonymous session)
+                </span>
+              </div>
+              <span className={`text-xs ${TEXT_COLOR.muted}`}>
+                {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
+              </span>
+            </div>
           </div>
 
+          {/* Connection issues */}
           {reconnectText && (
             <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
           )}
-
           {canRejoin && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-red-400">Connection lost.</span>
@@ -218,279 +131,373 @@ export function SessionView({
             </div>
           )}
 
-          {/* Session code + copy */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs ${TEXT_COLOR.muted}`}>Code:</span>
-            <span className="font-mono font-bold text-base text-white tracking-wider">{session.code}</span>
+          {/* Copy buttons + share text */}
+          {isConnected && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => copyCode(session.code!)}
+                  className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                >
+                  {codeCopied
+                    ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                    : <><Copy className="w-3 h-3" /><span>Copy join code</span></>
+                  }
+                </button>
+                <button
+                  onClick={() => copyLink(buildSessionUrl(session.code!))}
+                  className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                >
+                  {linkCopied
+                    ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                    : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
+                  }
+                </button>
+              </div>
+              <p className={`text-xs ${TEXT_COLOR.faint}`}>Share to invite others to join this session.</p>
+            </div>
+          )}
+
+          {/* Link with Alt1 */}
+          {isConnected && (
+            alt1Expanded && session.identityToken ? (
+              <Alt1LinkedSection
+                identityToken={session.identityToken}
+                scoutWorld={session.scoutWorld}
+                followScout={followScout}
+                onFollowScoutChange={onFollowScoutChange}
+                tokenCopied={tokenCopied}
+                copyToken={copyToken}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (session.identityToken) {
+                      setAlt1Expanded(true);
+                    } else {
+                      onRequestIdentityToken();
+                      setAlt1Expanded(true);
+                    }
+                  }}
+                  className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
+                >
+                  Link with Alt1 →
+                </button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="right">
+                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )
+          )}
+
+          {/* Fork to Managed Session */}
+          {isConnected && (
+            session.forkInvite && session.forkInvite.selfRegisterToken && !forkDismissed && (forkCountdown === null || forkCountdown > 0) ? (
+              <ForkInviteBanner
+                session={session}
+                forkCountdown={forkCountdown}
+                joinForkStep={joinForkStep}
+                setJoinForkStep={setJoinForkStep}
+                joinForkName={joinForkName}
+                setJoinForkName={setJoinForkName}
+                onJoinManagedFork={onJoinManagedFork}
+                onDismiss={onDismissFork}
+              />
+            ) : managedSetupStep === 'naming' ? (
+              <ForkNameForm
+                managedName={managedName}
+                setManagedName={setManagedName}
+                onForkToManaged={onForkToManaged}
+                onCancel={() => { setManagedSetupStep('idle'); setManagedName(''); }}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setManagedSetupStep('naming')}
+                  disabled={!!(session.forkInvite && (forkDismissed || !session.forkInvite.selfRegisterToken))}
+                  className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 text-xs rounded transition-colors`}
+                >
+                  Fork to Managed Session{session.forkInvite && forkCountdown !== null && forkCountdown > 0 && ` (${forkCountdown}s)`} →
+                </button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="right">
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>Creates a new managed session with a snapshot of current world data</li>
+                      <li>All members are invited to join — the original session is unchanged</li>
+                      <li>New members must join via a personal invite link</li>
+                      <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )
+          )}
+
+          {/* Identity line (if you somehow have a role in anon — e.g. during fork transitions) */}
+          {session.memberName && session.memberRole && (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${TEXT_COLOR.muted}`}>You:</span>
+              <span className="text-xs text-gray-200">{session.memberName}</span>
+              <span className={`text-xs ${ROLE_COLORS[session.memberRole]}`}>({ROLE_LABELS[session.memberRole]})</span>
+            </div>
+          )}
+
+          {/* Error */}
+          {session.error && (
             <button
-              onClick={handleCopyCode}
-              className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-              title="Copy session link"
+              onClick={onDismissError}
+              className="w-full text-left text-red-400 text-xs hover:text-red-300 transition-colors bg-red-900/20 border border-red-800/30 rounded p-3"
+              title="Click to dismiss"
             >
-              {copied ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></> : <><Copy className="w-3 h-3" /><span>Copy link</span></>}
+              {session.error}
+            </button>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
+              Close
+            </button>
+            <button
+              onClick={onLeaveSession}
+              className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
+            >
+              Leave Session
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Alt1 Scout Link */}
-        {isConnected && (
-          <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent}`}>Ectotrees Scout Alt1 plugin <TooltipProvider><Tooltip><TooltipTrigger asChild><sup className="text-xs font-normal text-amber-400 cursor-help">Beta</sup></TooltipTrigger><TooltipContent side="top" className="max-w-56 bg-[#1e1e2a] border border-gray-700 text-gray-200 [&_.fill-primary]:fill-[#1e1e2a]">Ectotrees Scout may have bugs and not all intended features are implemented. Please report issues on GitHub.</TooltipContent></Tooltip></TooltipProvider></h2>
-              <a
-                href={ALT1_INSTALL_LINK}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
-                title="Install Alt1 plugin"
-              >
-                Install <ExternalLink className="w-3 h-3" />
-              </a>
+  // ─── Managed session view ───
+  return (
+    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
+      <div className="max-w-lg mx-auto space-y-4">
+        {/* Header */}
+        <h1 className={`text-2xl font-bold ${TEXT_COLOR.prominent} flex items-center gap-2`}>
+          <Users className="h-5 w-5" /> Session
+        </h1>
+
+        {/* Session name line */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+            <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {isAdmin ? (
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value.slice(0, 50))}
+                placeholder="Give your session a name..."
+                className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                maxLength={50}
+              />
+            ) : (
+              <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
+                {session.sessionName || 'Managed Session'}
+              </span>
+            )}
+            <span className={`text-xs ${TEXT_COLOR.muted} flex-shrink-0`}>
+              {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
+            </span>
+          </div>
+        </div>
+
+        {/* Connection issues */}
+        {reconnectText && (
+          <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
+        )}
+        {canRejoin && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-red-400">Connection lost.</span>
+            <button
+              onClick={() => onRejoinSession(session.code!)}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+            >
+              Rejoin
+            </button>
+          </div>
+        )}
+
+        {/* Description + Settings (admin only) */}
+        {isConnected && isAdmin && (
+          <div className="space-y-3">
+            {/* Description */}
+            <div>
+              <label className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Description <span className={TEXT_COLOR.faint}>(optional)</span></label>
+              <textarea
+                value={descInput}
+                onChange={e => setDescInput(e.target.value.slice(0, 200))}
+                placeholder="Discord link, contact info, etc."
+                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-y min-h-[2.5rem] max-h-32"
+                maxLength={200}
+              />
             </div>
-            <p className={`text-xs ${TEXT_COLOR.muted}`}>Scout currently allows auto-detection of world hops, and can automatically read the Spirit Trees's dialog box to gather timer and hint intel. Requires <a href='https://runeapps.org/alt1' className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>.</p>
-            {session.personalToken ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Your Alt1 code:</span>
-                  <span className="font-mono font-bold text-amber-300 tracking-widest text-lg">{session.personalToken}</span>
-                  <button
-                    onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
-                    className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                  >
-                    {tokenCopied
-                      ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                      : <><Copy className="w-3 h-3" /><span>Copy</span></>
-                    }
-                  </button>
-                </div>
-                {session.scoutWorld !== null && (
+
+            {/* Listed toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${TEXT_COLOR.prominent}`}>List in Session Browser</p>
+                <p className={`text-xs ${TEXT_COLOR.faint}`}>Others can find and join as viewers</p>
+              </div>
+              <Switch
+                checked={listedInput}
+                onCheckedChange={v => setListedInput(v)}
+                disabled={!nameInput.trim()}
+                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+              />
+            </div>
+
+            {/* Save button (when settings changed) */}
+            {hasSettingsChanges && (
+              <button
+                onClick={() => {
+                  if (listedInput && !session.allowViewers) onSetAllowViewers(true);
+                  onUpdateSessionSettings({ name: nameInput, description: descInput, listed: listedInput });
+                }}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
+              >
+                Save Settings
+              </button>
+            )}
+
+            {/* Conditional sharing section — visible when listed */}
+            {listedInput && (
+              <div className="space-y-3 border-t border-gray-700 pt-3">
+                {/* Copy buttons */}
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <Link2 className={`w-3.5 h-3.5 ${CONNECTION_COLOR.connectedText}`} />
-                    <span className={`text-xs ${CONNECTION_COLOR.connectedText}`}>Scout linked — world {session.scoutWorld}</span>
+                    <button
+                      onClick={() => copyCode(session.code!)}
+                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                    >
+                      {codeCopied
+                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                        : <><Copy className="w-3 h-3" /><span>Copy join code</span></>
+                      }
+                    </button>
+                    <button
+                      onClick={() => copyLink(buildSessionUrl(session.code!))}
+                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                    >
+                      {linkCopied
+                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                        : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
+                      }
+                    </button>
                   </div>
-                )}
+                  <p className={`text-xs ${TEXT_COLOR.faint}`}>Share to invite others to view this session.</p>
+                </div>
+
+                {/* Open Join toggle */}
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Follow scout's world</span>
+                  <div>
+                    <p className={`text-sm ${TEXT_COLOR.prominent}`}>Open Join</p>
+                    <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone can join as a scout, and self-report their name</p>
+                  </div>
                   <Switch
-                    checked={followScout}
-                    onCheckedChange={onFollowScoutChange}
-                    className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+                    checked={session.allowOpenJoin}
+                    onCheckedChange={onSetAllowOpenJoin}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
                   />
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={session.managed ? undefined : onRequestPersonalToken}
-                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-              >
-                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1'}
-              </button>
             )}
           </div>
         )}
 
-        {/* Managed session */}
-        {isConnected && (
-          <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent} flex items-center gap-1.5`}>
-                <Shield className="w-4 h-4" /> Managed Mode <TooltipProvider><Tooltip><TooltipTrigger asChild><sup className="text-xs font-normal text-amber-400 cursor-help">Beta</sup></TooltipTrigger><TooltipContent side="top" className="max-w-56 bg-[#1e1e2a] border border-gray-700 text-gray-200 [&_.fill-primary]:fill-[#1e1e2a]">Managed mode is in beta. Members, roles, and invite links are experimental features. Expect rough edges and please report issues on GitHub.</TooltipContent></Tooltip></TooltipProvider>
-              </h2>
-              {session.managed && (
-                <span className="text-xs text-green-500">Active</span>
-              )}
-            </div>
+        {/* Non-admin: read-only description */}
+        {isConnected && session.managed && !isAdmin && session.sessionDescription && (
+          <div>
+            <span className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Description</span>
+            <p className={`text-sm ${TEXT_COLOR.prominent}`}>{session.sessionDescription}</p>
+          </div>
+        )}
 
-            {session.managed ? (
-              <>
-              <MemberPanel
-                members={session.members}
-                myRole={session.memberRole}
-                myName={session.memberName}
-                lastInvite={session.lastInvite}
-                onCreateInvite={onCreateInvite}
-                onBanMember={onBanMember}
-                onSetMemberRole={onSetMemberRole}
-              />
-              {(session.memberRole === 'owner' || session.memberRole === 'moderator') && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-700">
-                  <span className={`text-xs ${TEXT_COLOR.muted}`}>Allow public viewers</span>
-                  <Switch
-                    checked={session.allowViewers}
-                    onCheckedChange={onSetAllowViewers}
-                    className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
-                  />
-                </div>
-              )}
-              </>
-            ) : session.forkInvite && (forkCountdown === null || forkCountdown > 0) ? (
-              /* A fork invite is live — show join prompt */
-              <div className="space-y-3">
-                <div className="bg-amber-900/20 border border-amber-700/40 rounded p-3 space-y-2">
-                  <p className={`text-xs font-medium text-amber-300`}>
-                    <span className="font-bold">{session.forkInvite.initiatorName}</span> created a managed fork of this session
-                  </p>
-                  <p className={`text-xs ${TEXT_COLOR.muted}`}>
-                    Members with invite links can join the managed session. The original session remains open.
-                    {forkCountdown !== null && forkCountdown > 0 && (
-                      <> Invite expires in {forkCountdown}s.</>
-                    )}
-                  </p>
-                  {session.forkInvite.selfRegisterToken ? (
-                    joinForkStep === 'naming' ? (
-                      <form
-                        className="flex gap-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const name = joinForkName.trim();
-                          if (!name) return;
-                          setJoinForkStep('idle');
-                          setJoinForkName('');
-                          await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.personalToken);
-                        }}
-                      >
-                        <input
-                          autoFocus
-                          value={joinForkName}
-                          onChange={e => setJoinForkName(e.target.value)}
-                          placeholder="Your name"
-                          maxLength={32}
-                          className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                        />
-                        <button
-                          type="submit"
-                          disabled={!joinForkName.trim()}
-                          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs rounded transition-colors"
-                        >
-                          Join →
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
-                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </form>
-                    ) : (
-                      <button
-                        onClick={() => setJoinForkStep('naming')}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded transition-colors"
-                      >
-                        Join managed session →
-                      </button>
-                    )
-                  ) : (
-                    <p className={`text-xs ${TEXT_COLOR.muted}`}>
-                      You were not present when this fork was created — no invite slot is available.
-                    </p>
-                  )}
-                </div>
-                {managedSetupStep === 'naming' ? (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const name = managedName.trim();
-                      if (!name) return;
-                      onForkToManaged(name);
-                      setManagedSetupStep('idle');
-                      setManagedName('');
-                    }}
-                    className="space-y-2"
-                  >
-                    <label className="block text-xs text-gray-400">
-                      Create a separate managed fork with you as owner
-                    </label>
-                    <input
-                      type="text"
-                      value={managedName}
-                      onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
-                      placeholder="Your username"
-                      maxLength={30}
-                      autoFocus
-                      className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        disabled={!managedName.trim()}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
-                      >
-                        Fork
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setManagedSetupStep('idle'); setManagedName(''); }}
-                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <button
-                    onClick={() => setManagedSetupStep('naming')}
-                    className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors`}
-                  >
-                    Or create your own managed fork →
-                  </button>
-                )}
-              </div>
-            ) : managedSetupStep === 'naming' ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const name = managedName.trim();
-                  if (!name) return;
-                  onForkToManaged(name);
-                  setManagedSetupStep('idle');
-                  setManagedName('');
+        {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
+        {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
+          alt1Expanded && session.identityToken ? (
+            <Alt1LinkedSection
+              identityToken={session.identityToken}
+              scoutWorld={session.scoutWorld}
+              followScout={followScout}
+              onFollowScoutChange={onFollowScoutChange}
+              tokenCopied={tokenCopied}
+              copyToken={copyToken}
+            />
+          ) : session.managed && session.identityToken ? (
+            /* Managed sessions auto-have a token (it's the invite token) — show linked state directly */
+            <Alt1LinkedSection
+              identityToken={session.identityToken}
+              scoutWorld={session.scoutWorld}
+              followScout={followScout}
+              onFollowScoutChange={onFollowScoutChange}
+              tokenCopied={tokenCopied}
+              copyToken={copyToken}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (session.identityToken) {
+                    setAlt1Expanded(true);
+                  } else if (!session.managed) {
+                    onRequestIdentityToken();
+                    setAlt1Expanded(true);
+                  }
                 }}
-                className="space-y-2"
+                className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
               >
-                <label className="block text-xs text-gray-300">
-                  Your username <span className="text-gray-500">(visible to all members)</span>
-                </label>
-                <input
-                  type="text"
-                  value={managedName}
-                  onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
-                  placeholder="Enter your username"
-                  maxLength={30}
-                  autoFocus
-                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={!managedName.trim()}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
-                  >
-                    Fork to managed
+                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
+              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                    <HelpCircle className="w-4 h-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setManagedSetupStep('idle'); setManagedName(''); }}
-                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <ul className={`text-xs ${TEXT_COLOR.muted} space-y-1 list-disc list-inside`}>
-                  <li>Creates a new managed session with a snapshot of current world data</li>
-                  <li>All members are invited to join — the original session is unchanged</li>
-                  <li>New members must join via a personal invite link</li>
-                  <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
-                </ul>
-                <button
-                  onClick={() => setManagedSetupStep('naming')}
-                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                >
-                  Fork to managed session →
-                </button>
-              </>
-            )}
+                </PopoverTrigger>
+                <PopoverContent side="right">
+                  <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+                  <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )
+        )}
+
+        {/* Members */}
+        {isConnected && (
+          <div className="space-y-2">
+            <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent} flex items-center gap-1.5`}>
+              <Users className="w-4 h-4" /> Members
+            </h2>
+            <MemberPanel
+              members={session.members}
+              myRole={session.memberRole}
+              myName={session.memberName}
+              lastInvite={session.lastInvite}
+              onCreateInvite={onCreateInvite}
+              onKickMember={onKickMember}
+              onBanMember={onBanMember}
+              onSetMemberRole={onSetMemberRole}
+            />
           </div>
         )}
 
@@ -507,20 +514,205 @@ export function SessionView({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <button
-            onClick={onBack}
-            className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}
-          >
+          <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
             Close
           </button>
           <button
             onClick={onLeaveSession}
-            className="px-4 py-2.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-medium rounded transition-colors"
+            className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
           >
             Leave Session
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Sub-components ───
+
+function Alt1LinkedSection({
+  identityToken, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
+}: {
+  identityToken: string;
+  scoutWorld: number | null;
+  followScout: boolean;
+  onFollowScoutChange: (value: boolean) => void;
+  tokenCopied: boolean;
+  copyToken: (text: string) => Promise<boolean>;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 code:</span>
+        <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{identityToken}</span>
+        <button
+          onClick={() => copyToken(buildInviteUrl(identityToken))}
+          className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+        >
+          {tokenCopied
+            ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+            : <><Copy className="w-3 h-3" /><span>Copy</span></>
+          }
+        </button>
+      </div>
+      {scoutWorld !== null && (
+        <div className="flex items-center gap-2">
+          <Link2 className={`w-3.5 h-3.5 ${CONNECTION_COLOR.connectedText}`} />
+          <span className={`text-xs ${CONNECTION_COLOR.connectedText}`}>Scout linked — world {scoutWorld}</span>
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <span className={`text-xs ${TEXT_COLOR.muted}`}>Follow scout's world</span>
+        <Switch
+          checked={followScout}
+          onCheckedChange={onFollowScoutChange}
+          className="data-[state=checked]:bg-white data-[state=unchecked]:bg-gray-600"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ForkInviteBanner({
+  session, forkCountdown,
+  joinForkStep, setJoinForkStep, joinForkName, setJoinForkName,
+  onJoinManagedFork, onDismiss,
+}: {
+  session: SessionState;
+  forkCountdown: number | null;
+  joinForkStep: 'idle' | 'naming';
+  setJoinForkStep: (v: 'idle' | 'naming') => void;
+  joinForkName: string;
+  setJoinForkName: (v: string) => void;
+  onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string) => Promise<void>;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
+      <p className="text-xs font-medium text-yellow-300">
+        <span className="font-bold">{session.forkInvite!.initiatorName}</span> created a managed fork of this session
+      </p>
+      <p className={`text-xs ${TEXT_COLOR.muted}`}>
+        You were here when it was created, so you may join without an invite. The original session will remain.
+      </p>
+      {session.forkInvite!.selfRegisterToken ? (
+        joinForkStep === 'naming' ? (
+          <form
+            className="flex gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const name = joinForkName.trim();
+              if (!name) return;
+              setJoinForkStep('idle');
+              setJoinForkName('');
+              await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.identityToken);
+            }}
+          >
+            <input
+              autoFocus
+              value={joinForkName}
+              onChange={e => setJoinForkName(e.target.value)}
+              placeholder="Your username"
+              maxLength={32}
+              className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+            />
+            <button
+              type="submit"
+              disabled={!joinForkName.trim()}
+              className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-40 px-3 py-1 text-xs rounded transition-colors`}
+            >
+              Join →
+            </button>
+            <button
+              type="button"
+              onClick={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+            >
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setJoinForkStep('naming')}
+              className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
+            >
+              Join managed session{forkCountdown !== null && forkCountdown > 0 && ` (${forkCountdown}s)`} →
+            </button>
+            <button
+              onClick={onDismiss}
+              className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors`}
+            >
+              Dismiss
+            </button>
+          </div>
+        )
+      ) : (
+        <div className="flex items-center gap-2">
+          <p className={`text-xs ${TEXT_COLOR.muted} flex-1`}>
+            You were not present when this fork was created — no invite slot is available.
+          </p>
+          <button
+            onClick={onDismiss}
+            className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors flex-shrink-0`}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ForkNameForm({
+  managedName, setManagedName, onForkToManaged, onCancel, label,
+}: {
+  managedName: string;
+  setManagedName: (v: string) => void;
+  onForkToManaged: (name: string) => void;
+  onCancel: () => void;
+  label?: string;
+}) {
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const name = managedName.trim();
+        if (!name) return;
+        onForkToManaged(name);
+        setManagedName('');
+      }}
+      className="space-y-2"
+    >
+      <label className={`block text-xs ${label ? TEXT_COLOR.muted : 'text-gray-300'}`}>
+        {label ?? <>Your username <span className="text-gray-500">(visible to all members)</span></>}
+      </label>
+      <input
+        type="text"
+        value={managedName}
+        onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
+        placeholder="Enter your username"
+        maxLength={30}
+        autoFocus
+        className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={!managedName.trim()}
+          className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 px-3 py-1.5 text-xs rounded transition-colors`}
+        >
+          Fork to managed
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

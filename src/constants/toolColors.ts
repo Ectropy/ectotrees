@@ -67,10 +67,10 @@ export const TREE_STATE_COLOR = {
 
 export const CHIP_COLOR = {
   inactive:   'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200',
-  active:     'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
-  sortActive: 'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  active:     'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
+  sortActive: 'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
   needs:      'bg-amber-500/20 border border-amber-500 text-white font-semibold hover:bg-amber-500/30',
-  has:        'bg-green-500/20 border border-green-500 text-white font-semibold hover:bg-green-500/30',
+  has:        'bg-green-400/20 border border-green-400 text-white font-semibold hover:bg-green-400/30',
 } as const;
 
 /** General UI text hierarchy */
@@ -111,7 +111,7 @@ export const STATUS_TEXT_COLORS: Record<SessionStatus, string> = {
 
 /** Member role display colors and labels (MemberPanel + SessionView) */
 export const ROLE_COLORS = {
-  owner:     'text-amber-400',
+  owner:     'text-yellow-400',
   moderator: 'text-blue-400',
   scout:     'text-green-400',
   viewer:    'text-gray-400',
@@ -122,6 +122,22 @@ export const ROLE_LABELS = {
   moderator: 'Mod',
   scout:     'Scout',
   viewer:    'Viewer',
+} as const;
+
+/** Alt1 Scout plugin link color (button outline + token code display) */
+export const ALT1_COLOR = {
+  text:        'text-cyan-400',          // personal token code display
+  border:      'border border-cyan-400', // bordered button style
+  label:       BUTTON_LABEL_COLOR,       // label color on bordered button
+  borderHover: 'hover:bg-cyan-400/20',   // subtle fill on hover
+} as const;
+
+/** Managed/fork session button and banner color (yellow — matches P2P world card border) */
+export const MANAGED_COLOR = {
+  border:      'border border-yellow-500',    // bordered button style
+  label:       BUTTON_LABEL_COLOR,            // label color on bordered button
+  borderHover: 'hover:bg-yellow-500/20',      // subtle fill on hover
+  panelBorder: 'border border-yellow-500/50', // banner panel border
 } as const;
 
 /** Base classes for secondary (gray) action buttons.

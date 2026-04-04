@@ -1,23 +1,22 @@
 import { useState } from 'react';
 import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import { extractSessionCode, buildSessionUrl, buildInviteUrl, validateSessionCode } from '../lib/sessionUrl';
+import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
-  activeLocalCount: number;
   onCreateSession: () => Promise<string | null>;
-  onJoinSession: (code: string) => boolean;
-  onRequestSessionJoin: (code: string) => Promise<void>;
   onRejoinSession: (code: string) => void;
   onDismissError: () => void;
   onOpenSession: () => void;
-  onRequestPersonalToken: () => void;
+  onRequestIdentityToken: () => void;
   onLinkWithAlt1: () => Promise<string | null>;
+  onOpenBrowser: () => void;
+  forkDismissed: boolean;
 }
 
 
@@ -33,39 +32,16 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   );
 }
 
-export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinSession, onRequestSessionJoin, onRejoinSession, onDismissError, onOpenSession, onRequestPersonalToken, onLinkWithAlt1 }: SessionBarProps) {
-  const [joinCode, setJoinCode] = useState('');
-  const [showJoinInput, setShowJoinInput] = useState(false);
+export function SessionBar({ session, onCreateSession, onRejoinSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
   const [loading, setLoading] = useState(false);
   const { copied, copy: copyCode } = useCopyFeedback(1500);
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const countdown = useCountdown(session.reconnectAt ?? null);
-  const [badPaste, setBadPaste] = useState(false);
 
   async function handleCreate() {
     setLoading(true);
     await onCreateSession();
     setLoading(false);
-  }
-
-  async function handleJoin() {
-    const code = joinCode.trim().toUpperCase();
-    if (!validateSessionCode(code)) return;
-    if (activeLocalCount > 0) {
-      setJoinCode('');
-      setShowJoinInput(false);
-      setLoading(true);
-      await onRequestSessionJoin(code);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const ok = onJoinSession(code);
-    setLoading(false);
-    if (ok) {
-      setJoinCode('');
-      setShowJoinInput(false);
-    }
   }
 
   async function handleCopyCode() {
@@ -104,10 +80,10 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         {session.managed ? (
           <button
             onClick={onOpenSession}
-            className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
+            className={`font-bold ${session.sessionName ? '' : 'font-mono'} ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
             title="Open session panel"
           >
-            {session.code}
+            {session.sessionName ?? session.code}
           </button>
         ) : (
           <button
@@ -134,19 +110,19 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         )}
 
         {/* Alt1 Scout link — token display when connected and have token */}
-        {isConnected && !canRejoin && session.personalToken && (
+        {isConnected && !canRejoin && session.identityToken && (
           <span className="flex items-center gap-1.5">
             <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
             <span className="text-gray-400 text-xs">Alt1 code:</span>
             <button
-              onClick={() => { copyToken(buildInviteUrl(session.personalToken!)); onOpenSession(); }}
-              className="font-mono font-bold text-amber-300 tracking-widest hover:opacity-80 transition-opacity"
+              onClick={() => { copyToken(buildInviteUrl(session.identityToken!)); onOpenSession(); }}
+              className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest hover:opacity-80 transition-opacity`}
               title="Copy Alt1 link & open session panel"
             >
-              {session.personalToken}
+              {session.identityToken}
             </button>
             <button
-              onClick={() => copyToken(buildInviteUrl(session.personalToken!))}
+              onClick={() => copyToken(buildInviteUrl(session.identityToken!))}
               className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
               title="Copy Alt1 link"
             >
@@ -159,10 +135,10 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         )}
 
         {/* Link with Alt1 button — when no personal token and not in managed mode */}
-        {!session.personalToken && !session.managed && (
+        {!session.identityToken && !session.managed && (
           <button
-            onClick={isConnected ? onRequestPersonalToken : onLinkWithAlt1}
-            className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            onClick={isConnected ? onRequestIdentityToken : onLinkWithAlt1}
+            className={`text-xs px-1.5 py-0.5 bg-transparent ${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} rounded transition-colors`}
             title="Get a code to link your Ectotrees Scout Alt1 plugin"
           >
             Link with Alt1
@@ -183,14 +159,14 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
         )}
 
         {/* Fork invite indicator */}
-        {session.forkInvite && !session.managed && (
+        {session.forkInvite && session.forkInvite.selfRegisterToken && !session.managed && !forkDismissed && (
           <button
             onClick={onOpenSession}
-            className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-900/40 border border-amber-700/50 hover:bg-amber-900/60 text-amber-300 text-xs rounded transition-colors flex-shrink-0"
-            title={`${session.forkInvite.initiatorName} created a managed fork — click to view`}
+            className={`flex items-center gap-1.5 px-2 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} text-xs rounded transition-colors flex-shrink-0`}
+            title={`${session.forkInvite.initiatorName} created a managed fork of this session. Click to view or join.`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-            Managed fork available
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse flex-shrink-0" />
+            Managed session available
           </button>
         )}
 
@@ -214,70 +190,27 @@ export function SessionBar({ session, activeLocalCount, onCreateSession, onJoinS
     );
   }
 
-  // Disconnected state
+  // No active session
   return (
     <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0">
       <button
         onClick={handleCreate}
         disabled={loading}
-        className="px-2 py-0.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded transition-colors"
+        className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-50 text-white rounded transition-colors`}
       >
         {loading ? '...' : 'Create Session'}
       </button>
 
-      {showJoinInput ? (
-        <>
-        <form
-          className="flex items-center gap-1"
-          onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
-        >
-          <input
-            type="text"
-            value={joinCode}
-            onChange={(e) => {
-              const x = extractSessionCode(e.target.value);
-              if (x.length > 6) {
-                setJoinCode('');
-                setBadPaste(true);
-                setTimeout(() => setBadPaste(false), 2500);
-              } else {
-                setJoinCode(x);
-                setBadPaste(false);
-              }
-            }}
-            placeholder="CODE"
-            className="w-20 px-1.5 py-0.5 bg-gray-700 text-white rounded font-mono text-center uppercase placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={loading || !/^[A-HJ-NP-Z2-9]{6}$/.test(joinCode.trim())}
-            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded transition-colors"
-          >
-            {loading ? '...' : 'Join'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowJoinInput(false); setJoinCode(''); }}
-            className="text-gray-400 hover:text-gray-300"
-          >
-            Cancel
-          </button>
-        </form>
-        {badPaste && <span className="text-xs text-red-400">Not a valid code or link</span>}
-        </>
-      ) : (
-        <button
-          onClick={() => setShowJoinInput(true)}
-          className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-        >
-          Join Session
-        </button>
-      )}
+      <button
+        onClick={onOpenBrowser}
+        className={`px-2 py-0.5 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} rounded transition-colors`}
+      >
+        Join a Session
+      </button>
 
       <button
         onClick={onLinkWithAlt1}
-        className="text-xs px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        className={`text-xs px-1.5 py-0.5 bg-transparent ${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} rounded transition-colors`}
         title="Create a session and get a code to link your Ectotrees Scout Alt1 plugin"
       >
         Link with Alt1

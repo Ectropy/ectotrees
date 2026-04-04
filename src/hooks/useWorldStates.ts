@@ -108,6 +108,7 @@ export function useWorldStates(sync?: SyncChannel | null) {
 
   // Flush pending lightning events from the ref into React state after every commit.
   // useLayoutEffect (no deps) fires synchronously after the DOM is committed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs every render; reads only from refs
   useLayoutEffect(() => {
     if (pendingLightningRef.current.length === 0) return;
     const pending = pendingLightningRef.current.splice(0);

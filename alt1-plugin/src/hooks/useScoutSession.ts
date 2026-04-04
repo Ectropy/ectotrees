@@ -9,7 +9,7 @@ const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;
 const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_KEY = 'evilTree_sessionCode';
-const INVITE_TOKEN_KEY = 'evilTree_inviteToken';
+const IDENTITY_TOKEN_KEY = 'evilTree_identityToken';
 const FATAL_ERRORS = new Set([
   'Session is full.',
   'Session not found.',
@@ -24,7 +24,7 @@ interface PendingMutation {
 export interface ScoutSessionState {
   status: SessionStatus;
   code: string | null;
-  inviteToken: string | null;
+  identityToken: string | null;
   error: string | null;
   memberName: string | null;
   memberRole: string | null;
@@ -42,7 +42,7 @@ function buildWsUrl(): string {
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 }
 
-function extractInviteToken(raw: string): string | null {
+function extractIdentityToken(raw: string): string | null {
   const trimmed = raw.trim();
   try {
     const url = new URL(trimmed);
@@ -72,19 +72,19 @@ function persistCode(code: string | null) {
   } catch { /* ignore */ }
 }
 
-function loadInviteToken(): string | null {
+function loadIdentityToken(): string | null {
   try {
-    const raw = localStorage.getItem(INVITE_TOKEN_KEY);
+    const raw = localStorage.getItem(IDENTITY_TOKEN_KEY);
     if (!raw) return null;
     const upper = raw.trim().toUpperCase();
     return /^[A-HJ-NP-Z2-9]{12}$/.test(upper) ? upper : null;
   } catch { return null; }
 }
 
-function persistInviteToken(token: string | null) {
+function persistIdentityToken(token: string | null) {
   try {
-    if (token) localStorage.setItem(INVITE_TOKEN_KEY, token);
-    else localStorage.removeItem(INVITE_TOKEN_KEY);
+    if (token) localStorage.setItem(IDENTITY_TOKEN_KEY, token);
+    else localStorage.removeItem(IDENTITY_TOKEN_KEY);
   } catch { /* ignore */ }
 }
 
@@ -94,7 +94,7 @@ export function useScoutSession() {
   const [state, setState] = useState<ScoutSessionState>(() => ({
     status: 'disconnected',
     code: loadCode(),
-    inviteToken: loadInviteToken(),
+    identityToken: loadIdentityToken(),
     error: null,
     memberName: null,
     memberRole: null,
@@ -105,7 +105,7 @@ export function useScoutSession() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const codeRef = useRef<string | null>(state.code);
-  const inviteTokenRef = useRef<string | null>(state.inviteToken);
+  const identityTokenRef = useRef<string | null>(state.identityToken);
   const intentionalCloseRef = useRef(false);
   const lastServerErrorRef = useRef<string | null>(null);
   const snapshotReceivedRef = useRef(false);
@@ -152,7 +152,7 @@ export function useScoutSession() {
     }
   }
 
-  function connectWs(code: string | null, inviteToken?: string) {
+  function connectWs(code: string | null, identityToken?: string) {
     intentionalCloseRef.current = true;
     cleanup();
     intentionalCloseRef.current = false;
@@ -168,8 +168,8 @@ export function useScoutSession() {
       reconnectAttemptRef.current = 0;
       lastServerErrorRef.current = null;
       setState(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
-      if (inviteToken) {
-        ws.send(JSON.stringify({ type: 'authInvite', token: inviteToken }));
+      if (identityToken) {
+        ws.send(JSON.stringify({ type: 'authIdentity', token: identityToken }));
       } else if (code) {
         ws.send(JSON.stringify({ type: 'authSession', code }));
       }
@@ -182,10 +182,10 @@ export function useScoutSession() {
 
       switch (msg.type) {
         case 'authSuccess':
-          if (msg.personalToken) {
-            inviteTokenRef.current = msg.personalToken;
-            persistInviteToken(msg.personalToken);
-            setState(prev => ({ ...prev, inviteToken: msg.personalToken! }));
+          if (msg.identityToken) {
+            identityTokenRef.current = msg.identityToken;
+            persistIdentityToken(msg.identityToken);
+            setState(prev => ({ ...prev, identityToken: msg.identityToken! }));
           }
           if (msg.sessionCode && codeRef.current !== msg.sessionCode) {
             codeRef.current = msg.sessionCode;
@@ -206,13 +206,13 @@ export function useScoutSession() {
           break;
 
         case 'authError':
-          if (inviteTokenRef.current) {
-            inviteTokenRef.current = null;
-            persistInviteToken(null);
+          if (identityTokenRef.current) {
+            identityTokenRef.current = null;
+            persistIdentityToken(null);
           }
           intentionalCloseRef.current = true;
           lastServerErrorRef.current = msg.reason;
-          setState(prev => ({ ...prev, error: msg.reason, status: 'disconnected', inviteToken: null, reconnectAttempt: 0, reconnectAt: null }));
+          setState(prev => ({ ...prev, error: msg.reason, status: 'disconnected', identityToken: null, reconnectAttempt: 0, reconnectAt: null }));
           ws.close();
           break;
 
@@ -232,10 +232,10 @@ export function useScoutSession() {
           }
           break;
 
-        case 'personalToken':
-          inviteTokenRef.current = msg.token;
-          persistInviteToken(msg.token);
-          setState(prev => ({ ...prev, inviteToken: msg.token }));
+        case 'identityToken':
+          identityTokenRef.current = msg.token;
+          persistIdentityToken(msg.token);
+          setState(prev => ({ ...prev, identityToken: msg.token }));
           break;
 
         case 'redirect':
@@ -243,7 +243,7 @@ export function useScoutSession() {
           persistCode(msg.code);
           clearPending();
           setState(prev => ({ ...prev, code: msg.code }));
-          connectWs(msg.code, inviteTokenRef.current ?? undefined);
+          connectWs(msg.code, identityTokenRef.current ?? undefined);
           break;
 
         case 'pong':
@@ -312,7 +312,7 @@ export function useScoutSession() {
 
       reconnectTimerRef.current = setTimeout(() => {
         setState(prev => ({ ...prev, reconnectAt: null }));
-        if (inviteTokenRef.current) connectWs(null, inviteTokenRef.current);
+        if (identityTokenRef.current) connectWs(null, identityTokenRef.current);
         else if (codeRef.current) connectWs(codeRef.current);
       }, delay);
     };
@@ -322,7 +322,7 @@ export function useScoutSession() {
 
   // Auto-resume on mount; cleanup on unmount
   useEffect(() => {
-    if (inviteTokenRef.current) connectWs(null, inviteTokenRef.current);
+    if (identityTokenRef.current) connectWs(null, identityTokenRef.current);
     else if (codeRef.current) connectWs(codeRef.current);
 
     return () => {
@@ -353,14 +353,14 @@ export function useScoutSession() {
     cleanup();
     codeRef.current = null;
     persistCode(null);
-    inviteTokenRef.current = null;
-    persistInviteToken(null);
+    identityTokenRef.current = null;
+    persistIdentityToken(null);
     reconnectAttemptRef.current = 0;
     clearPending();
     setState({
       status: 'disconnected',
       code: null,
-      inviteToken: null,
+      identityToken: null,
       error: null,
       memberName: null,
       memberRole: null,
@@ -391,13 +391,13 @@ export function useScoutSession() {
   }, []);
 
   const joinWithToken = useCallback((tokenOrUrl: string): boolean => {
-    const token = extractInviteToken(tokenOrUrl);
+    const token = extractIdentityToken(tokenOrUrl);
     if (!token) return false;
-    inviteTokenRef.current = token;
-    persistInviteToken(token);
+    identityTokenRef.current = token;
+    persistIdentityToken(token);
     clearPending();
     reconnectAttemptRef.current = 0;
-    setState(prev => ({ ...prev, error: null, inviteToken: token, reconnectAttempt: 0 }));
+    setState(prev => ({ ...prev, error: null, identityToken: token, reconnectAttempt: 0 }));
     connectWs(null, token);
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps

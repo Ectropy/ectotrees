@@ -6,7 +6,7 @@ import type { TreeType } from '../constants/evilTree';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
 
 interface Props {
-  code: string;
+  codeOrToken: string;
   localWorldStates: WorldStates;
   serverWorlds: WorldStates;
   onJoin: (localStates?: WorldStates) => void;
@@ -86,7 +86,9 @@ function Section({ title, count, description, accentClass, children }: SectionPr
   );
 }
 
-export function SessionJoinView({ code, localWorldStates, serverWorlds, onJoin, onCancel }: Props) {
+export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, onJoin, onCancel }: Props) {
+  const isToken = codeOrToken.length === 12;
+  const displayLabel = isToken ? 'Invite' : 'Code';
   const { toContribute, conflicts, alreadySynced, serverGains } = useMemo(() => {
     const localActive = Object.entries(localWorldStates)
       .filter(([, s]) => isLocalActive(s))
@@ -116,7 +118,7 @@ export function SessionJoinView({ code, localWorldStates, serverWorlds, onJoin, 
         <div>
           <h1 className={`text-xl font-bold ${TEXT_COLOR.prominent}`}>Join Session</h1>
           <p className={`text-sm ${TEXT_COLOR.muted} mt-0.5`}>
-            Code: <span className="font-mono font-bold text-amber-400">{code}</span>
+            {displayLabel}: <span className="font-mono font-bold text-amber-400">{codeOrToken}</span>
           </p>
         </div>
 

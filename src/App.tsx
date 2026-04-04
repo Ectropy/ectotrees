@@ -17,6 +17,7 @@ import { SettingsView } from './components/SettingsView';
 import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
 import { SessionView } from './components/SessionView';
+import { SessionBrowserView } from './components/SessionBrowserView';
 import { TipTicker } from './components/TipTicker';
 import { UpdateBanner } from './components/UpdateBanner';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
@@ -37,6 +38,7 @@ type ActiveView =
   | { kind: 'settings' }
   | { kind: 'session' }
   | { kind: 'session-join'; code: string }
+  | { kind: 'browse' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 const APP_VERSION = __APP_VERSION__;
@@ -51,7 +53,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, joinByInviteToken, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, requestPersonalToken } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowViewers, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
   saveToLocalStorageRef.current = saveToLocalStorage;
@@ -88,15 +90,39 @@ export default function App() {
     return joinSession(code);
   }, [joinSession]);
 
-  const handleRequestSessionJoin = useCallback(async (code: string): Promise<void> => {
+  const handleRequestSessionJoin = useCallback(async (code: string): Promise<boolean> => {
     const serverWorlds = await previewJoin(code);
-    if (!serverWorlds) return; // error already in session.error
+    if (!serverWorlds) return false; // error already in session.error
+
+    // Skip the join screen when it offers no decision: nothing to contribute and nothing being lost
+    const localActive = Object.entries(worldStatesRef.current).filter(
+      ([, s]) => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
+    );
+    const hasContribute = localActive.some(([id]) => !(Number(id) in serverWorlds));
+    const hasConflicts  = localActive.some(([id, s]) => {
+      const sv = serverWorlds[Number(id)];
+      return sv !== undefined
+        && (s.treeStatus         !== sv.treeStatus
+         || s.nextSpawnTarget    !== sv.nextSpawnTarget
+         || s.treeType           !== sv.treeType
+         || s.treeHint           !== sv.treeHint
+         || s.treeExactLocation  !== sv.treeExactLocation
+         || s.treeHealth         !== sv.treeHealth);
+    });
+
+    if (!hasContribute && !hasConflicts) {
+      confirmPreviewJoin(code, undefined);
+      setActiveView({ kind: 'session' });
+      return true;
+    }
+
     setActiveView({ kind: 'session-join', code });
-  }, [previewJoin]);
+    return true;
+  }, [previewJoin, confirmPreviewJoin]);
 
   const handleJoinFromView = useCallback((code: string, localStates?: WorldStates): void => {
     confirmPreviewJoin(code, localStates);
-    setActiveView({ kind: 'grid' });
+    setActiveView({ kind: 'session' });
   }, [confirmPreviewJoin]);
 
   const activeLocalCount = useMemo(() => {
@@ -110,31 +136,50 @@ export default function App() {
     leaveSession();
   }, [saveToLocalStorage, leaveSession]);
 
-  // Auto-join from hash fragment on first load: #join=CODE or #invite=TOKEN
-  useEffect(() => {
+  // Read the fragment code/token during state initialization so it survives React
+  // Strict Mode's mount→unmount→remount cycle. URL is cleaned immediately here
+  // (not in an effect) so it's gone by the time effects run.
+  const [fragmentJoinTarget] = useState<string | null>(() => {
     const hash = window.location.hash;
-    if (!hash) return;
-
+    if (!hash) return null;
     const joinMatch = hash.match(/^#join=([A-Za-z0-9]+)$/);
     if (joinMatch) {
       const code = joinMatch[1].trim().toUpperCase();
-      if (!validateSessionCode(code)) return;
+      if (!validateSessionCode(code)) return null; // leave URL unchanged
       history.replaceState(null, '', window.location.pathname + window.location.search);
-      handleJoinSession(code);
-      return;
+      return code;
     }
-
     const inviteMatch = hash.match(/^#invite=([A-Za-z0-9]+)$/);
     if (inviteMatch) {
       const token = inviteMatch[1].trim().toUpperCase();
-      if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return;
+      if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null; // leave URL unchanged
       history.replaceState(null, '', window.location.pathname + window.location.search);
-      joinByInviteToken(token);
+      return token;
     }
+    return null;
+  });
+
+  // Trigger preview join for fragment URLs. useEffect with [] re-fires on each
+  // Strict Mode remount — the first-mount attempt is cancelled by cleanup; the
+  // second succeeds (fragmentJoinTarget is preserved in state, not re-read).
+  useEffect(() => {
+    if (!fragmentJoinTarget) return;
+    handleRequestSessionJoin(fragmentJoinTarget);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [activeView, setActiveView] = useState<ActiveView>({ kind: 'grid' });
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_identityToken');
+    if (!hasSession) {
+      try {
+        const raw = localStorage.getItem('evilTree_settings');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const showBrowse = parsed?.showBrowseOnStartup !== false;
+        if (showBrowse) return { kind: 'browse' };
+      } catch { /* fall through */ }
+    }
+    return { kind: 'grid' };
+  });
   const { copied: discordCopied, copy: copyDiscord } = useCopyFeedback(1500);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
@@ -222,7 +267,7 @@ export default function App() {
       const { surface, sidebarSide } = getAnalyticsContext();
       trackUiEvent('ui_nav_action', {
         panel: activeView.kind,
-        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined,
+        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined,
         surface,
         sidebar_side: sidebarSide,
         action: 'close_view',
@@ -268,7 +313,7 @@ export default function App() {
     if (activeView.kind === 'grid') return;
 
     const panel = activeView.kind as UiPanel;
-    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join') ? activeView.worldId : undefined;
+    const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined;
     const surface: UiSurface = useSidebar ? 'sidebar' : 'fullscreen';
     const sidebarSide: UiSidebarSide = useSidebar ? settings.sidebarSide : 'none';
     const key = `${panel}:${worldId ?? 'none'}:${surface}:${sidebarSide}`;
@@ -285,8 +330,15 @@ export default function App() {
     });
   }, [activeView, useSidebar, settings.sidebarSide]);
 
-  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join'
-    ? { activeKind: activeView.kind, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
+  // If a viewer somehow lands on an edit tool view (e.g. role changed mid-session), redirect to detail
+  useEffect(() => {
+    if (!canEdit && (activeView.kind === 'spawn' || activeView.kind === 'tree' || activeView.kind === 'dead')) {
+      setActiveView({ kind: 'detail', worldId: (activeView as { worldId: number }).worldId });
+    }
+  }, [canEdit, activeView]);
+
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse'
+    ? { activeKind: activeView.kind, canEdit, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
   // Render the current tool/detail/settings view component
@@ -294,33 +346,63 @@ export default function App() {
     if (activeView.kind === 'settings')
       return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
 
-    if (activeView.kind === 'session')
-      return <SessionView
+    if (activeView.kind === 'browse')
+      return <SessionBrowserView
         session={session}
         activeLocalCount={activeLocalCount}
         onCreateSession={handleCreateSession}
         onJoinSession={handleJoinSession}
         onRequestSessionJoin={handleRequestSessionJoin}
+        onOpenJoin={openJoin}
+        onDismissError={dismissError}
+        showOnStartup={settings.showBrowseOnStartup}
+        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
+        onBack={handleBack}
+        onSessionStarted={() => setActiveView({ kind: 'session' })}
+      />;
+
+    if (activeView.kind === 'session') {
+      if (!session.code) return <SessionBrowserView
+        session={session}
+        activeLocalCount={activeLocalCount}
+        onCreateSession={handleCreateSession}
+        onJoinSession={handleJoinSession}
+        onRequestSessionJoin={handleRequestSessionJoin}
+        onOpenJoin={openJoin}
+        onDismissError={dismissError}
+        showOnStartup={settings.showBrowseOnStartup}
+        onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
+        onBack={handleBack}
+        onSessionStarted={() => setActiveView({ kind: 'session' })}
+      />;
+      return <SessionView
+        session={session}
         onRejoinSession={rejoinSession}
         onLeaveSession={handleLeaveSession}
         onDismissError={dismissError}
         onForkToManaged={forkToManaged}
         onJoinManagedFork={joinManagedFork}
         onCreateInvite={createInvite}
+        onKickMember={kickMember}
         onBanMember={banMember}
         onRenameMember={renameMember}
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowViewers={setAllowViewers}
-        onRequestPersonalToken={requestPersonalToken}
+        onSetAllowOpenJoin={setAllowOpenJoin}
+        onUpdateSessionSettings={updateSessionSettings}
+        onRequestIdentityToken={requestIdentityToken}
         onBack={handleBack}
         followScout={settings.followScout}
         onFollowScoutChange={v => updateSettings({ followScout: v })}
+        forkDismissed={forkDismissed}
+        onDismissFork={dismissForkInvite}
       />;
+    }
 
     if (activeView.kind === 'session-join')
       return <SessionJoinView
-        code={activeView.code}
+        codeOrToken={activeView.code}
         localWorldStates={worldStates}
         serverWorlds={previewWorlds ?? {}}
         onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}
@@ -500,29 +582,29 @@ export default function App() {
             Ectotrees
             <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <div className="relative flex items-center">
-              <Search className="absolute left-1.5 h-3 w-3 text-gray-500 pointer-events-none" />
+              <Search className={`absolute left-1.5 h-3 w-3 ${TEXT_COLOR.muted} pointer-events-none`} />
               <input
                 type="text"
                 inputMode="numeric"
                 value={worldSearch}
                 onChange={e => setWorldSearch(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 placeholder="World"
-                className="w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 text-gray-200 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-500"
+                className={`w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 ${TEXT_COLOR.prominent} rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-400`}
                 aria-label="Search worlds by number"
               />
               {worldSearch && (
                 <button
                   onClick={() => setWorldSearch('')}
-                  className="absolute right-1 text-gray-400 hover:text-gray-200"
+                  className={`absolute right-1 ${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}`}
                   aria-label="Clear search"
                 >
                   <X className="h-3 w-3" />
                 </button>
               )}
             </div>
-            <span className="text-[10px] text-gray-500">{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            <span className={`text-xs ${TEXT_COLOR.prominent}`}>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
                 const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
@@ -536,7 +618,7 @@ export default function App() {
                     const msg = buildDiscordMessage(intelWorlds, worldStates);
                     copyDiscord(msg);
                   }}
-                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 cursor-not-allowed'}`}
+                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? `${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}` : `${TEXT_COLOR.ghost} cursor-not-allowed`}`}
                   title="Copy intel to clipboard in Discord-friendly format"
                   aria-label="Copy intel to clipboard"
                 >
@@ -559,7 +641,7 @@ export default function App() {
                 });
                 setActiveView({ kind: 'settings' });
               }}
-              className="text-gray-400 hover:text-gray-200 transition-colors text-base leading-none"
+              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none`}
               title="Settings"
               aria-label="Open settings"
             ><Settings className="h-4 w-4" /></button>
@@ -568,15 +650,14 @@ export default function App() {
 
         <SessionBar
           session={session}
-          activeLocalCount={activeLocalCount}
           onCreateSession={handleCreateSession}
-          onJoinSession={handleJoinSession}
-          onRequestSessionJoin={handleRequestSessionJoin}
           onRejoinSession={rejoinSession}
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
-          onRequestPersonalToken={requestPersonalToken}
-        onLinkWithAlt1={handleLinkWithAlt1}
+          onRequestIdentityToken={requestIdentityToken}
+          onLinkWithAlt1={handleLinkWithAlt1}
+          onOpenBrowser={() => setActiveView({ kind: 'browse' })}
+          forkDismissed={forkDismissed}
         />
 
         <SortFilterBar
@@ -652,6 +733,8 @@ const NAV_ITEMS = [
   { kind: 'tree'   as const, icon: TreeDeciduous,   label: 'Tree',  activeColor: TREE_COLOR.text,   hoverBg: TREE_COLOR.borderHover,  underline: TREE_COLOR.underline  },
   { kind: 'dead'   as const, icon: Skull,           label: 'Dead',  activeColor: DEAD_COLOR.text,   hoverBg: DEAD_COLOR.borderHover,  underline: DEAD_COLOR.underline  },
 ];
+// Viewers in managed sessions only see the detail nav button — edit tools are hidden
+const VIEWER_NAV_ITEMS = NAV_ITEMS.filter(item => item.kind === 'detail');
 
 function NavButton({ item, isActive, onClick, variant }: {
   item: typeof NAV_ITEMS[number];
@@ -692,7 +775,7 @@ function SidebarWrapper({
   onChangeSide: (side: 'left' | 'right') => void;
   onExpand: () => void;
   onClose: () => void;
-  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; canEdit: boolean; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
@@ -728,7 +811,7 @@ function SidebarWrapper({
         </div>
         {/* Center: world nav buttons */}
         <div className="flex items-center justify-center gap-0.5">
-          {worldNav && NAV_ITEMS.map(item => (
+          {worldNav && (worldNav.canEdit ? NAV_ITEMS : VIEWER_NAV_ITEMS).map(item => (
             <NavButton
               key={item.kind}
               item={item}
@@ -771,7 +854,7 @@ function FullscreenWrapper({
   showDockControls: boolean;
   onDockLeft: () => void;
   onDockRight: () => void;
-  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
+  worldNav?: { activeKind: 'detail' | 'spawn' | 'tree' | 'dead'; canEdit: boolean; onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => void };
   children: React.ReactNode;
 }) {
   return (
@@ -799,7 +882,7 @@ function FullscreenWrapper({
           )}
           {/* Nav buttons: left-aligned on mobile, absolutely centered on desktop */}
           <div className="flex items-center gap-0.5 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
-            {worldNav && NAV_ITEMS.map(item => (
+            {worldNav && (worldNav.canEdit ? NAV_ITEMS : VIEWER_NAV_ITEMS).map(item => (
               <NavButton
                 key={item.kind}
                 item={item}

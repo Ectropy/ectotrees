@@ -6,20 +6,26 @@ export function validateSessionCode(code: string): boolean {
 }
 
 /**
- * Extracts a session code from either a raw code string or a full join URL.
+ * Extracts a session code or invite token from either a raw string or a full URL.
  *
  * Accepts:
- *   - Plain code:  "ABC123"                        → "ABC123"
- *   - Join URL:    "https://…#join=ABC123"          → "ABC123"
+ *   - Plain code:     "ABC123"                        → "ABC123"
+ *   - Plain token:    "SQ8BKS5JGAU2"                  → "SQ8BKS5JGAU2"
+ *   - Join URL:       "https://…#join=ABC123"         → "ABC123"
+ *   - Invite URL:     "https://…#invite=SQ8BKS5JGAU2" → "SQ8BKS5JGAU2"
  *
- * Always returns the value uppercased. Does not validate the code format —
- * use validateSessionCode() to check the result.
+ * Always returns the value uppercased. Does not validate the code/token format —
+ * use validateSessionCode() for codes or check token length for tokens.
  */
 export function extractSessionCode(raw: string): string {
   try {
     const url = new URL(raw.trim());
-    const hashMatch = url.hash.match(/^#join=(.*)$/);
-    if (hashMatch) return hashMatch[1].toUpperCase();
+    // Try #join= first (session code)
+    const joinMatch = url.hash.match(/^#join=(.*)$/);
+    if (joinMatch) return joinMatch[1].toUpperCase();
+    // Then try #invite= (invite token)
+    const inviteMatch = url.hash.match(/^#invite=(.*)$/);
+    if (inviteMatch) return inviteMatch[1].toUpperCase();
   } catch { /* not a URL — fall through */ }
   return raw.trim().toUpperCase();
 }
