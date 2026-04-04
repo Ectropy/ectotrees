@@ -774,7 +774,7 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   const member: Member = {
     name: sanitized,
     identityToken,
-    role: 'viewer',
+    role: 'scout',
     banned: false,
     connections: new Set(),
     currentWorld: null,

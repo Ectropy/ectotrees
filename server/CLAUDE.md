@@ -38,7 +38,7 @@ Security response headers applied to all HTTP responses:
 | `POST` | `/api/session` | Create a new session. Returns `{ code }` |
 | `POST` | `/api/session/:code/self-invite` | Self-register into a managed session during a fork invite window. Body: `{ name: string; selfRegisterToken: string }`. Returns `{ inviteToken }` or an error. |
 | `GET` | `/api/sessions` | Returns `{ sessions: SessionSummary[] }` — only sessions with `listed: true` |
-| `POST` | `/api/session/:code/open-join` | Self-issue a viewer invite token for an open-join session. Body: `{ name: string }`. Returns `{ inviteToken }` or an error. |
+| `POST` | `/api/session/:code/open-join` | Self-issue a scout invite token for an open-join session. Body: `{ name: string }`. Returns `{ inviteToken }` or an error. |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
 
 REST endpoints (except `/api/health`) are rate-limited to 20 requests/minute per IP.
@@ -72,7 +72,7 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `transferOwnership` | `inviteToken: string` — transfers owner role to another member |
 | `kickMember` | `inviteToken: string` — disconnects a member without permanently revoking their token (admin only) |
 | `setAllowViewers` | `allow: boolean` — toggles whether anonymous viewers can join a managed session (admin only) |
-| `setAllowOpenJoin` | `allow: boolean` — toggles whether anyone can self-issue a viewer invite via `POST /api/session/:code/open-join` (admin only) |
+| `setAllowOpenJoin` | `allow: boolean` — toggles whether anyone can self-issue a scout invite via `POST /api/session/:code/open-join` (admin only) |
 | `updateSessionSettings` | `settings: { name?: string; description?: string; listed?: boolean }` — updates session metadata for the session browser (admin only) |
 | `selfRegister` | `name: string; selfRegisterToken: string; personalToken?: string` — WebSocket-based self-registration into a managed session during fork invite window |
 | `ping` | (no payload, no `msgId`) |
