@@ -6,11 +6,16 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 
 - **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Shield`, `Users`, `Copy`, `ExternalLink` used in session UI; `RefreshCw`, `Lock` used in `SessionBrowserView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw`, `Lock` used in `SessionBrowserView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **obscenity** — profanity filter used server-side to sanitize member names and session descriptions (`server/profanity.ts`)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
 - **@radix-ui/react-tooltip** — tooltip primitive wrapped in `ui/tooltip.tsx`
+- **@radix-ui/react-popover** — Popover primitive wrapped in `ui/popover.tsx`
+- **@radix-ui/react-switch** — Switch primitive wrapped in `ui/switch.tsx`
+- **react-resizable-panels** — resizable panel layout wrapped in `ui/resizable.tsx`
+- **gsap** — animation library used in `SparkEffect`
+- **@tailwindcss/container-queries** + **tailwindcss-animate** — Tailwind CSS plugins
 - **Express 5** + **ws** — backend server for real-time multi-user sync
 - **tsx** — runs TypeScript server files directly
 - Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
