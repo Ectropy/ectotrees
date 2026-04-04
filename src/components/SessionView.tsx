@@ -6,7 +6,7 @@ import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, ROLE_COLORS, ROLE_LABELS } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
@@ -274,7 +274,7 @@ export function SessionView({
             </button>
             <button
               onClick={onLeaveSession}
-              className="px-4 py-2.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-medium rounded transition-colors"
+              className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
             >
               Leave Session
             </button>
@@ -519,7 +519,7 @@ export function SessionView({
           </button>
           <button
             onClick={onLeaveSession}
-            className="px-4 py-2.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-medium rounded transition-colors"
+            className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
           >
             Leave Session
           </button>
