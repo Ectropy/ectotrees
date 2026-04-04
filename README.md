@@ -25,10 +25,11 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 - **Hidden worlds** — hide any world from the grid via the EyeOff button on cards or detail views; hidden worlds are excluded by default but can be revealed with the Hidden filter chip
 - **Visual effects** — lightning bolt animations on auto health transitions, ember spark particles on dead trees (can be toggled in settings)
 - **Sidebar panel** (opt-in, available on screens ≥ 640px) — tool views and the detail view can open in a resizable panel beside the grid instead of replacing it, so you never lose sight of all 137 worlds. Dock left or right; drag the handle to resize; width is remembered across sessions and preserved when swapping sides. Enable in Settings (⚙). A toolbar above every view shows four quick-jump buttons (View · Timer · Tree · Dead) to switch tools without returning to the grid, plus dock controls: when in fullscreen use the panel-left/right icons to enter sidebar mode directly; when in sidebar use the expand icon to pop back to fullscreen or Close to return to the grid
-- **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, and sidebar mode
+- **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, sidebar mode, and whether the session browser opens automatically on startup
 - **Scrolling tip ticker** in the footer with gameplay tips and UI hints
 - **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket. Session management lives in a dedicated **Session panel** (fullscreen or docked in the sidebar) opened from the session bar in the header
-- **Managed sessions** — upgrade any session to invite-only mode: generate named invite links with roles (Owner / Moderator / Scout / Viewer), see a live member list, change roles, and ban members. Admins see invite tokens; world updates show who submitted them
+- **Session browser** — browse and join public managed sessions without a code; sessions opt in to visibility by setting a name and toggling **Listed** in the Session panel; the browser auto-refreshes every 15 seconds and shows each session's name, description, member count, active worlds, and last activity time; opens automatically on startup when you are not in a session (can be disabled in Settings)
+- **Managed sessions** — upgrade any session to invite-only mode: generate named invite links with roles (Owner / Moderator / Scout / Viewer), see a live member list, change roles, kick or ban members. Admins see invite tokens and copy-join-link buttons; world updates show who submitted them. Managed sessions can set a name that appears in the session bar
 - **Discord intel copy** — a copy button in the header formats all currently visible worlds with active intel into a Discord message using `<t:UNIX:R>` relative timestamps, respecting your active sort order and filters. Disabled when no intel is visible
 - State persists in `localStorage` between sessions; when in a sync session, the server is the source of truth
 - **Installable as a PWA** — add to home screen on mobile for a standalone app experience (HTTPS required; see deployment section)
@@ -49,13 +50,15 @@ Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session l
 
 ### Managed sessions
 
-Any member can **fork** the current session into a new **managed (invite-only) session** from the Session panel. Forking creates a fresh managed session and notifies everyone in the current session with an invite link — each person clicks the link to self-register and migrate over. The fork invite window is open for 10 minutes, with a 1-hour cooldown between forks.
+Any member can **fork** the current session into a new **managed (invite-only) session** from the Session panel. Forking creates a fresh managed session and notifies everyone in the current session with an invite link — each person clicks the link to self-register and migrate over. The fork invite window is open for 15 minutes, with a 15-minute cooldown between forks.
 
 - **Create invites** — give each member a name and a role: Scout (can submit updates) or Viewer (read-only)
-- **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites and ban members
-- **Member list** — see who is connected, their role, and (for admins) their invite token and link
-- **Admin controls** — change a member's role, rename them, ban them (disconnects + revokes token), or transfer ownership
+- **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites, kick, and ban members
+- **Member list** — see who is connected, their role, and (for admins) their invite token and copy-join-link button
+- **Admin controls** — change a member's role, rename them, kick them (temporary disconnect — token stays valid), ban them (disconnects + revokes token), or transfer ownership
 - **Allow viewers** toggle — admins can open the session to anonymous read-only viewers who join by session code
+- **Open join** — enable self-service named joins from the session browser; anyone can enter their name and join as a Viewer without needing an admin-generated invite token. Both open-join and anonymous viewer mode can be active simultaneously
+- **Session visibility** — set a session name, optional description, and toggle **Listed** to appear in the public session browser; a session must have at least one open access mode (open-join or anonymous viewers) to be listed
 - World updates in managed sessions show the submitter's name and role
 
 ## Alt1 Scout Plugin *(beta)*
