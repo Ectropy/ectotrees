@@ -56,6 +56,8 @@ export function SessionView({
   const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
   const [joinForkName, setJoinForkName] = useState('');
   const [alt1Expanded, setAlt1Expanded] = useState(false);
+  const [leaveStep, setLeaveStep] = useState<'idle' | 'confirming'>('idle');
+  const { copied: leaveLinkCopied, copy: copyLeaveLink } = useCopyFeedback(1500);
 
   // Managed session settings (inline — replaces SessionSettingsPanel)
   const [nameInput, setNameInput] = useState(session.sessionName ?? '');
@@ -512,18 +514,59 @@ export function SessionView({
           </button>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-2">
-          <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
-            Close
-          </button>
-          <button
-            onClick={onLeaveSession}
-            className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
-          >
-            Leave Session
-          </button>
-        </div>
+        {/* Actions / Leave confirmation */}
+        {leaveStep === 'confirming' ? (
+          <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
+            <p className="text-yellow-300 text-sm font-medium">Leave managed session?</p>
+            <p className="text-gray-300 text-xs">
+              {session.memberRole === 'owner'
+                ? "You're the owner of this session! Please save your identity link before leaving. Without it, you cannot rejoin as the owner of this session."
+                : "Coming back later? Save your identity link before leaving. Without it, you cannot rejoin with the same username."}
+            </p>
+            {session.identityToken && (
+              <div className="space-y-1">
+                <p className="text-gray-400 text-xs">Your personal link</p>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={buildInviteUrl(session.identityToken)}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 truncate"
+                  />
+                  <button
+                    onClick={() => copyLeaveLink(buildInviteUrl(session.identityToken!))}
+                    className={`px-3 py-1 text-xs rounded border ${leaveLinkCopied ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-300 hover:border-gray-500'} transition-colors flex items-center gap-1`}
+                  >
+                    {leaveLinkCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {leaveLinkCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setLeaveStep('idle')} className={`flex-1 ${BUTTON_SECONDARY} py-2`}>
+                Cancel
+              </button>
+              <button
+                onClick={onLeaveSession}
+                className={`px-4 py-2 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm font-medium rounded transition-colors`}
+              >
+                Leave Session
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
+              Close
+            </button>
+            <button
+              onClick={() => setLeaveStep('confirming')}
+              className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
+            >
+              Leave Session
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
