@@ -15,7 +15,7 @@ src/
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
-    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), buildInviteUrl(token), validateSessionCode(code) — #join=CODE and #invite=TOKEN fragment URL parsing, generation, and validation
+    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), buildIdentityUrl(token), validateSessionCode(code) — #join=CODE and #identity=TOKEN fragment URL parsing, generation, and validation
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
@@ -163,7 +163,7 @@ Exposes `createSession`, `joinSession`, `rejoinSession`, `leaveSession`, a previ
 
 Key behaviors:
 - **localStorage**: session code → `evilTree_sessionCode`; invite/personal token → `evilTree_inviteToken`. Both are auto-resumed on page reload.
-- **URL fragments**: `#join=CODE` auto-joins on load; `#invite=TOKEN` triggers an invite-based join. Fragments are removed from history after use.
+- **URL fragments**: `#join=CODE` auto-joins on load; `#identity=TOKEN` triggers an identity-based join. Fragments are removed from history after use.
 - **Reconnection**: exponential backoff via `shared/reconnect.ts` (`[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts). Fatal errors (`Session is full.`, `Session not found.`) skip reconnection. On reconnect, invite token takes priority over session code for auth.
 - **Ping/pong**: ping every 30s; socket force-closed if no pong within 8s.
 - **ACK system**: every mutation tagged with `msgId`; socket force-closed if no `ack` within 5s. Pending mutations replayed in order on reconnect.

@@ -354,7 +354,7 @@ function broadcastMemberList(session: Session) {
       online: member.connections.size > 0,
       currentWorld: member.currentWorld,
       identityToken: member.identityToken,
-      link: `${APP_URL}/#invite=${member.identityToken}`,
+      link: `${APP_URL}/#identity=${member.identityToken}`,
     });
   }
 
@@ -418,7 +418,7 @@ function setupManagedOwner(session: Session, name: string, existingToken?: strin
     identityToken: ownerToken,
     role: 'owner',
     banned: false,
-    connections: new Set(),   // no WS yet — owner joins via #invite= on the new session
+    connections: new Set(),   // no WS yet — owner joins via #identity= on the new session
     currentWorld: null,
     lastSeen: Date.now(),
   };
@@ -814,7 +814,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   session.members.set(identityToken, member);
   identityTokenIndex.set(identityToken, session.code);
 
-  const link = `${APP_URL}/#invite=${identityToken}`;
+  const link = `${APP_URL}/#identity=${identityToken}`;
   broadcastMemberList(session);
   return { type: 'inviteCreated', identityToken, name, link };
 }

@@ -6,13 +6,13 @@ export function validateSessionCode(code: string): boolean {
 }
 
 /**
- * Extracts a session code or invite token from either a raw string or a full URL.
+ * Extracts a session code or identity token from either a raw string or a full URL.
  *
  * Accepts:
- *   - Plain code:     "ABC123"                        → "ABC123"
- *   - Plain token:    "SQ8BKS5JGAU2"                  → "SQ8BKS5JGAU2"
- *   - Join URL:       "https://…#join=ABC123"         → "ABC123"
- *   - Invite URL:     "https://…#invite=SQ8BKS5JGAU2" → "SQ8BKS5JGAU2"
+ *   - Plain code:      "ABC123"                          → "ABC123"
+ *   - Plain token:     "SQ8BKS5JGAU2"                   → "SQ8BKS5JGAU2"
+ *   - Join URL:        "https://…#join=ABC123"           → "ABC123"
+ *   - Identity URL:    "https://…#identity=SQ8BKS5JGAU2" → "SQ8BKS5JGAU2"
  *
  * Always returns the value uppercased. Does not validate the code/token format —
  * use validateSessionCode() for codes or check token length for tokens.
@@ -23,9 +23,9 @@ export function extractSessionCode(raw: string): string {
     // Try #join= first (session code)
     const joinMatch = url.hash.match(/^#join=(.*)$/);
     if (joinMatch) return joinMatch[1].toUpperCase();
-    // Then try #invite= (invite token)
-    const inviteMatch = url.hash.match(/^#invite=(.*)$/);
-    if (inviteMatch) return inviteMatch[1].toUpperCase();
+    // Then try #identity= (identity token)
+    const identityMatch = url.hash.match(/^#identity=(.*)$/);
+    if (identityMatch) return identityMatch[1].toUpperCase();
   } catch { /* not a URL — fall through */ }
   return raw.trim().toUpperCase();
 }
@@ -35,7 +35,7 @@ export function buildSessionUrl(code: string): string {
   return `${window.location.origin}${window.location.pathname}#join=${code}`;
 }
 
-/** Builds a shareable invite URL for the given invite/personal token. */
-export function buildInviteUrl(token: string): string {
-  return `${window.location.origin}${window.location.pathname}#invite=${token}`;
+/** Builds a shareable identity URL for the given identity token. */
+export function buildIdentityUrl(token: string): string {
+  return `${window.location.origin}${window.location.pathname}#identity=${token}`;
 }

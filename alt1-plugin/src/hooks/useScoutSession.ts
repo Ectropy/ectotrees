@@ -46,7 +46,7 @@ function extractIdentityToken(raw: string): string | null {
   const trimmed = raw.trim();
   try {
     const url = new URL(trimmed);
-    const hashMatch = url.hash.match(/^#invite=([A-Za-z0-9]+)$/);
+    const hashMatch = url.hash.match(/^#identity=([A-Za-z0-9]+)$/);
     if (hashMatch && /^[A-HJ-NP-Z2-9]{12}$/.test(hashMatch[1].toUpperCase())) {
       return hashMatch[1].toUpperCase();
     }

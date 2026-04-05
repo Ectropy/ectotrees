@@ -35,11 +35,11 @@ export function SessionPanel({
   const hasDroppedToken = status === 'disconnected' && identityToken !== null;
 
   function handleInput(raw: string) {
-    // If the input is a URL with a recognized fragment (#invite=, #personal=),
+    // If the input is a URL with a recognized fragment (#identity=),
     // extract just the token from it rather than showing the whole URL.
     try {
       const url = new URL(raw.trim());
-      const hashMatch = url.hash.match(/^#(?:invite|personal)=([A-Za-z0-9]+)$/);
+      const hashMatch = url.hash.match(/^#identity=([A-Za-z0-9]+)$/);
       if (hashMatch) {
         setInputCode(hashMatch[1].toUpperCase());
         return;
@@ -51,7 +51,7 @@ export function SessionPanel({
   function handleJoin() {
     const raw = inputCode.trim();
     if (!onJoinWithToken(raw)) {
-      onError('Enter a valid 12-char invite code or invite URL.');
+      onError('Enter a valid 12-char identity code or identity URL.');
       return;
     }
     setInputCode('');

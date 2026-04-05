@@ -2,13 +2,82 @@ import { useState } from 'react';
 import { Link2, Users, Copy, Check, ExternalLink, HelpCircle } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
-import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
+import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+
+interface LeaveConfirmPanelProps {
+  leaveStep: 'idle' | 'confirming';
+  onConfirm: () => void;
+  onCancel: () => void;
+  onLeave: () => void;
+  onBack: () => void;
+  panelBorderClass: string;
+  title: string;
+  body: string;
+  link?: string;
+  linkLabel?: string;
+  linkCopied: boolean;
+  onCopyLink: () => void;
+}
+
+function LeaveConfirmPanel({ leaveStep, onConfirm, onCancel, onLeave, onBack, panelBorderClass, title, body, link, linkLabel, linkCopied, onCopyLink }: LeaveConfirmPanelProps) {
+  if (leaveStep === 'confirming') {
+    return (
+      <div className={`${panelBorderClass} rounded p-3 space-y-2`}>
+        <p className="text-yellow-300 text-sm font-medium">{title}</p>
+        <p className="text-gray-400 text-xs">{body}</p>
+        {link && (
+          <div className="space-y-1">
+            <p className="text-gray-500 text-xs">{linkLabel}</p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={link}
+                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 truncate"
+              />
+              <button
+                onClick={onCopyLink}
+                className={`px-3 py-1 text-xs rounded border ${linkCopied ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-300 hover:border-gray-500'} transition-colors flex items-center gap-1`}
+              >
+                {linkCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {linkCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2 pt-1">
+          <button onClick={onCancel} className={`flex-1 ${BUTTON_SECONDARY} py-2`}>
+            Cancel
+          </button>
+          <button
+            onClick={onLeave}
+            className={`px-4 py-2 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm font-medium rounded transition-colors`}
+          >
+            Leave Session
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-2">
+      <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
+        Close
+      </button>
+      <button
+        onClick={onConfirm}
+        className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
+      >
+        Leave Session
+      </button>
+    </div>
+  );
+}
 
 interface SessionViewProps {
   session: SessionState;
@@ -269,18 +338,23 @@ export function SessionView({
             </button>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
-              Close
-            </button>
-            <button
-              onClick={onLeaveSession}
-              className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
-            >
-              Leave Session
-            </button>
-          </div>
+          {/* Actions / Leave confirmation */}
+          <LeaveConfirmPanel
+            leaveStep={leaveStep}
+            onConfirm={() => setLeaveStep('confirming')}
+            onCancel={() => setLeaveStep('idle')}
+            onLeave={onLeaveSession}
+            onBack={onBack}
+            panelBorderClass={MANAGED_COLOR.panelBorder}
+            title="Leave session?"
+            body={session.identityToken
+              ? "Save your personal link to rejoin as the same person later."
+              : "Save this link to rejoin this session later."}
+            link={session.identityToken ? buildIdentityUrl(session.identityToken) : buildSessionUrl(session.code!)}
+            linkLabel={session.identityToken ? "Your personal link" : "Session link"}
+            linkCopied={leaveLinkCopied}
+            onCopyLink={() => copyLeaveLink(session.identityToken ? buildIdentityUrl(session.identityToken!) : buildSessionUrl(session.code!))}
+          />
         </div>
       </div>
     );
@@ -515,58 +589,22 @@ export function SessionView({
         )}
 
         {/* Actions / Leave confirmation */}
-        {leaveStep === 'confirming' ? (
-          <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
-            <p className="text-yellow-300 text-sm font-medium">Leave managed session?</p>
-            <p className="text-gray-300 text-xs">
-              {session.memberRole === 'owner'
-                ? "You're the owner of this session! Please save your identity link before leaving. Without it, you cannot rejoin as the owner of this session."
-                : "Coming back later? Save your identity link before leaving. Without it, you cannot rejoin with the same username."}
-            </p>
-            {session.identityToken && (
-              <div className="space-y-1">
-                <p className="text-gray-400 text-xs">Your personal link</p>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={buildInviteUrl(session.identityToken)}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 truncate"
-                  />
-                  <button
-                    onClick={() => copyLeaveLink(buildInviteUrl(session.identityToken!))}
-                    className={`px-3 py-1 text-xs rounded border ${leaveLinkCopied ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-300 hover:border-gray-500'} transition-colors flex items-center gap-1`}
-                  >
-                    {leaveLinkCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {leaveLinkCopied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setLeaveStep('idle')} className={`flex-1 ${BUTTON_SECONDARY} py-2`}>
-                Cancel
-              </button>
-              <button
-                onClick={onLeaveSession}
-                className={`px-4 py-2 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm font-medium rounded transition-colors`}
-              >
-                Leave Session
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={onBack} className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}>
-              Close
-            </button>
-            <button
-              onClick={() => setLeaveStep('confirming')}
-              className={`px-4 py-2.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded transition-colors`}
-            >
-              Leave Session
-            </button>
-          </div>
-        )}
+        <LeaveConfirmPanel
+          leaveStep={leaveStep}
+          onConfirm={() => setLeaveStep('confirming')}
+          onCancel={() => setLeaveStep('idle')}
+          onLeave={onLeaveSession}
+          onBack={onBack}
+          panelBorderClass={MANAGED_COLOR.panelBorder}
+          title="Leave managed session?"
+          body={session.memberRole === 'owner'
+            ? "You're the owner of this session! Please save your identity link before leaving. Without it, you cannot rejoin as the owner of this session."
+            : "Coming back later? Save your identity link before leaving. Without it, you cannot rejoin with the same username."}
+          link={session.identityToken ? buildIdentityUrl(session.identityToken) : undefined}
+          linkLabel="Your personal link"
+          linkCopied={leaveLinkCopied}
+          onCopyLink={() => session.identityToken && copyLeaveLink(buildIdentityUrl(session.identityToken))}
+        />
       </div>
     </div>
   );
@@ -590,7 +628,7 @@ function Alt1LinkedSection({
         <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 code:</span>
         <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{identityToken}</span>
         <button
-          onClick={() => copyToken(buildInviteUrl(identityToken))}
+          onClick={() => copyToken(buildIdentityUrl(identityToken))}
           className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
         >
           {tokenCopied

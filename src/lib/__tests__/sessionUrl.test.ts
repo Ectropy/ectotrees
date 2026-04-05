@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSessionCode, buildInviteUrl } from '../sessionUrl';
+import { extractSessionCode, buildIdentityUrl } from '../sessionUrl';
 
 describe('extractSessionCode', () => {
   // ── Plain codes ────────────────────────────────────────────────────────────
@@ -65,8 +65,8 @@ describe('extractSessionCode', () => {
   });
 });
 
-describe('buildInviteUrl', () => {
-  it('builds a fragment-based invite URL', () => {
+describe('buildIdentityUrl', () => {
+  it('builds a fragment-based identity URL', () => {
     // Provide a minimal window.location for the test environment
     const origLocation = globalThis.window?.location;
     Object.defineProperty(globalThis, 'window', {
@@ -75,8 +75,8 @@ describe('buildInviteUrl', () => {
       configurable: true,
     });
     try {
-      const url = buildInviteUrl('ABCD1234EF56');
-      expect(url).toBe('https://ectotrees.app/#invite=ABCD1234EF56');
+      const url = buildIdentityUrl('ABCD1234EF56');
+      expect(url).toBe('https://ectotrees.app/#identity=ABCD1234EF56');
     } finally {
       if (origLocation) {
         Object.defineProperty(globalThis.window, 'location', { value: origLocation, writable: true, configurable: true });

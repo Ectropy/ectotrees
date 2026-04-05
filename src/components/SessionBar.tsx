@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link2, Copy, Check } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
-import { buildSessionUrl, buildInviteUrl } from '../lib/sessionUrl';
+import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
@@ -115,14 +115,14 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
             <Link2 className={`w-3 h-3 ${session.scoutWorld !== null ? CONNECTION_COLOR.connectedText : 'text-gray-500'}`} />
             <span className="text-gray-400 text-xs">Alt1 code:</span>
             <button
-              onClick={() => { copyToken(buildInviteUrl(session.identityToken!)); onOpenSession(); }}
+              onClick={() => { copyToken(buildIdentityUrl(session.identityToken!)); onOpenSession(); }}
               className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest hover:opacity-80 transition-opacity`}
               title="Copy Alt1 link & open session panel"
             >
               {session.identityToken}
             </button>
             <button
-              onClick={() => copyToken(buildInviteUrl(session.identityToken!))}
+              onClick={() => copyToken(buildIdentityUrl(session.identityToken!))}
               className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
               title="Copy Alt1 link"
             >

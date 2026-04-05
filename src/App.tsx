@@ -149,7 +149,7 @@ export default function App() {
       history.replaceState(null, '', window.location.pathname + window.location.search);
       return code;
     }
-    const inviteMatch = hash.match(/^#invite=([A-Za-z0-9]+)$/);
+    const inviteMatch = hash.match(/^#identity=([A-Za-z0-9]+)$/);
     if (inviteMatch) {
       const token = inviteMatch[1].trim().toUpperCase();
       if (!/^[A-HJ-NP-Z2-9]{12}$/.test(token)) return null; // leave URL unchanged
