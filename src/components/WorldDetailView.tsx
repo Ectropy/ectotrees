@@ -196,7 +196,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                           ? `Dead (${TREE_TYPE_LABELS[state.treeType]})`
                           : 'Dead'}
                       </span>
-                    ) : hasActiveTree ? (
+                    ) : hasActiveTree && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeType')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
                         <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
@@ -221,7 +221,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                   </EditRow>
                 ) : (state.treeHint || hasActiveTree || hasSpawnTimer || isDeadTree) && (
                   <Row label="Location Hint">
-                    {(hasActiveTree || hasSpawnTimer || isDeadTree) ? (
+                    {(hasActiveTree || hasSpawnTimer || isDeadTree) && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeHint')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
                         <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
@@ -259,7 +259,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                   </EditRow>
                 ) : (state.treeHint || state.treeExactLocation || isDeadTree) && (
                   <Row label="Exact location">
-                    {(hasActiveTree || hasSpawnTimer || isDeadTree) ? (
+                    {(hasActiveTree || hasSpawnTimer || isDeadTree) && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeExactLocation')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
                         <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
                         <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
