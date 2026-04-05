@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // World 1 is a P2P world guaranteed to exist in worlds.json
 const W = 1;
@@ -207,43 +207,47 @@ test('#join= valid code: session code appears in bar when WS connects', async ({
 
   await page.goto(`/#join=${JOIN_CODE}`);
 
-  // Preview flow: SessionJoinView appears — confirm the join
-  await page.getByRole('button', { name: 'Join session' }).click();
-
-  // The session bar button showing the code confirms a successful join
-  await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
+  // With no local world data and an empty server snapshot there is nothing to
+  // compare, so the preview screen is skipped and the join is confirmed
+  // automatically.  The app navigates to SessionView — wait for its heading.
+  await expect(page.locator('h1')).toContainText('Session');
+  // The session code is displayed in SessionView
+  await expect(page.locator(`text=${JOIN_CODE}`).first()).toBeVisible();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Join input: paste validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('join input: URL with no #join= clears the field and shows error', async ({ page }) => {
+test('join input: URL without a valid fragment is truncated and shows error', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a Session' }).click();
-  const input = page.getByPlaceholder('Code, token, or link');
+  const input = page.getByPlaceholder('Join code or link');
 
+  // extractSessionCode returns the uppercased raw value for URLs without a
+  // matching #join= or #identity= fragment.  The handler truncates anything
+  // over 12 chars to the first 12 characters.
   await input.fill('http://localhost:8080');
 
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveValue('HTTP://LOCAL');
   await expect(page.locator('text=Not a valid code or link')).toBeVisible();
 });
 
-test('join input: string longer than 12 chars clears the field and shows error', async ({ page }) => {
+test('join input: string longer than 12 chars is truncated and shows error', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a Session' }).click();
-  const input = page.getByPlaceholder('Code, token, or link');
+  const input = page.getByPlaceholder('Join code or link');
 
   await input.fill('ABCDEFGHIJKLMNO'); // 15 chars — not a valid code (6) or token (12)
 
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveValue('ABCDEFGHIJKL'); // truncated to 12
   await expect(page.locator('text=Not a valid code or link')).toBeVisible();
 });
 
 test('join input: full URL with valid #join= extracts the code', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a Session' }).click();
-  const input = page.getByPlaceholder('Code, token, or link');
+  const input = page.getByPlaceholder('Join code or link');
 
   await input.fill('http://localhost:5173/#join=ABCD23');
 
@@ -254,7 +258,7 @@ test('join input: full URL with valid #join= extracts the code', async ({ page }
 test('join input: plain 6-char code is accepted without modification', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a Session' }).click();
-  const input = page.getByPlaceholder('Code, token, or link');
+  const input = page.getByPlaceholder('Join code or link');
 
   await input.fill('ABCD23');
 
@@ -348,13 +352,13 @@ test('ws race: authError on join surfaces error message', async ({ page }) => {
 
   await page.goto('/');
 
-  // Open join input and submit a code
+  // Open the SessionBrowserView and submit a code
   await page.getByRole('button', { name: 'Join a Session' }).click();
-  const input = page.getByPlaceholder('Code, token, or link');
+  const input = page.getByPlaceholder('Join code or link');
   await input.fill(JOIN_CODE);
   // Auto-trigger fires after ~100ms and attempts the join — no button click needed
 
-  // The authError reason should be visible in the session bar
+  // The authError reason should be visible in the session browser
   await expect(page.locator('text=This is a private session')).toBeVisible();
 });
 
@@ -467,4 +471,183 @@ test('detail view: opens world status and back returns to grid', async ({ page }
 
   // Grid is visible again
   await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session leave confirmation panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PERSONAL_TOKEN = 'AABBCCDDEEFF12';
+
+/**
+ * Seeds localStorage with a session code so the app auto-resumes the session
+ * on page load (bypasses the preview flow entirely).  Sets up a WS mock that
+ * responds to authSession with authSuccess + snapshot + clientCount.
+ * If `sendIdentityToken` is true, also sends an identityToken message after
+ * auth — simulating the "Link with Alt1" personal-token flow.
+ * Returns with SessionView open and ready for interaction.
+ */
+async function openConnectedAnonSessionView(page: Page, { sendIdentityToken = false } = {}) {
+  // addInitScript runs after beforeEach (which clears localStorage), so setting
+  // the session code here makes the app auto-resume on load without a preview.
+  await page.addInitScript((code) => {
+    localStorage.setItem('evilTree_sessionCode', code);
+  }, JOIN_CODE);
+
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code }));
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
+          if (sendIdentityToken) {
+            ws.send(JSON.stringify({ type: 'identityToken', token: PERSONAL_TOKEN }));
+          }
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
+
+  // Open the session panel by clicking the code button in the session bar
+  await page.getByRole('button', { name: JOIN_CODE }).click();
+  await expect(page.locator('h1')).toContainText('Session');
+}
+
+test('leave panel: anon session without identity token shows session join link', async ({ page }) => {
+  await openConnectedAnonSessionView(page);
+
+  // Click "Leave Session" in idle state → enters confirming state
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+
+  // Confirming panel: correct title and body text
+  await expect(page.locator('text=Leave session?')).toBeVisible();
+  await expect(page.locator('text=Save this link to rejoin this session later.')).toBeVisible();
+  await expect(page.locator('text=Session link')).toBeVisible();
+
+  // The link input is readonly — select it specifically to avoid strict-mode
+  // violations from other text inputs on the page
+  const linkInput = page.locator('input[readonly]');
+  await expect(linkInput).toHaveValue(new RegExp(`#join=${JOIN_CODE}`));
+});
+
+test('leave panel: anon session with identity token shows personal identity link', async ({ page }) => {
+  await openConnectedAnonSessionView(page, { sendIdentityToken: true });
+
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+
+  await expect(page.locator('text=Leave session?')).toBeVisible();
+  await expect(page.locator('text=Save your personal link to rejoin as the same person later.')).toBeVisible();
+  await expect(page.getByText('Your personal link', { exact: true })).toBeVisible();
+
+  // The link input is readonly — select it specifically to avoid strict-mode
+  // violations from other text inputs on the page
+  const linkInput = page.locator('input[readonly]');
+  await expect(linkInput).toHaveValue(new RegExp(`#identity=${PERSONAL_TOKEN}`));
+});
+
+test('leave panel: cancel resets from confirming back to idle state', async ({ page }) => {
+  await openConnectedAnonSessionView(page);
+
+  // Enter confirming state
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+  await expect(page.locator('text=Leave session?')).toBeVisible();
+
+  // Cancel — should return to idle (confirming panel disappears)
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('text=Leave session?')).not.toBeVisible();
+
+  // Idle state shows "Leave Session" button again
+  await expect(page.getByRole('button', { name: 'Leave Session' })).toBeVisible();
+});
+
+test('leave panel: confirming leave disconnects the session', async ({ page }) => {
+  let wsClosed = false;
+  await page.addInitScript((code) => {
+    localStorage.setItem('evilTree_sessionCode', code);
+  }, JOIN_CODE);
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authSession') {
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code }));
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+    ws.onClose(() => { wsClosed = true; });
+  });
+
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
+  await page.getByRole('button', { name: JOIN_CODE }).click();
+  await expect(page.locator('h1')).toContainText('Session');
+
+  // Enter confirming state, then click Leave Session
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+  await expect(page.locator('text=Leave session?')).toBeVisible();
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+
+  // After leaving, the fullscreen view switches to SessionBrowserView (session
+  // code is null so App.tsx renders the browser instead of SessionView).
+  // The WS is also closed by this point.
+  await expect(page.locator('h1')).toContainText('Sessions');
+  expect(wsClosed).toBe(true);
+});
+
+test('leave panel: managed owner session shows owner warning with identity link', async ({ page }) => {
+  await page.addInitScript((token) => {
+    localStorage.setItem('evilTree_sessionCode', 'ABCD23');
+    localStorage.setItem('evilTree_identityToken', token);
+  }, PERSONAL_TOKEN);
+
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authIdentity') {
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: 'ABCD23' }));
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
+          // identity message marks this as a managed session and sets the member's role
+          ws.send(JSON.stringify({ type: 'identity', name: 'Ectropy', role: 'owner' }));
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+  });
+
+  await page.goto('/');
+
+  // Session auto-resumes from localStorage — wait for the code button to appear
+  await expect(page.getByRole('button', { name: 'ABCD23' })).toBeVisible();
+  await page.getByRole('button', { name: 'ABCD23' }).click();
+  await expect(page.locator('h1')).toContainText('Session');
+
+  // Enter confirming state
+  await page.getByRole('button', { name: 'Leave Session' }).click();
+
+  await expect(page.locator('text=Leave managed session?')).toBeVisible();
+  await expect(page.locator("text=You're the owner of this session!")).toBeVisible();
+  await expect(page.getByText('Your personal link', { exact: true })).toBeVisible();
+
+  const linkInput = page.locator('input[readonly]');
+  await expect(linkInput).toHaveValue(new RegExp(`#identity=${PERSONAL_TOKEN}`));
 });
