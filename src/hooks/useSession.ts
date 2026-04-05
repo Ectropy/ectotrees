@@ -20,6 +20,8 @@ export interface SessionState {
   clientCount: number;
   scouts: number;
   dashboards: number;
+  identityViewers: number;
+  anonymousViewers: number;
   error: string | null;
   reconnectAttempt: number;
   reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
@@ -54,7 +56,7 @@ const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is
 
 function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
   return {
-    status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0,
+    status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, identityViewers: 0, anonymousViewers: 0,
     error: null, reconnectAttempt: 0, reconnectAt: null,
     recentOwnWorldId: null,
     identityToken: null, scoutWorld: null,
@@ -467,7 +469,7 @@ export function useSession(onSessionLost?: () => void) {
           setSession(defaultSessionState({ error: msg.reason }));
           break;
         case 'clientCount':
-          setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards }));
+          setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards, identityViewers: msg.identityViewers, anonymousViewers: msg.anonymousViewers }));
           break;
         case 'pong':
           if (pingAckTimerRef.current) {

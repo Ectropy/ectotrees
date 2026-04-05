@@ -369,30 +369,36 @@ function broadcastMemberList(session: Session) {
 }
 
 function broadcastClientCount(session: Session) {
-  // Count = online members (deduplicated by identity token) + unidentified connections.
-  // Works for both managed and anonymous sessions — anonymous sessions may have members
-  // with identity tokens (for Alt1 scout linking), so deduplication applies there too.
-  let onlineMembers = 0;
-  let scouts = 0, dashboards = 0;
+  // count        — unique people online (deduplicated by identity token)
+  // scouts       — unique people with ≥1 scout (Alt1) connection
+  // dashboards   — unique people with ≥1 dashboard connection
+  // identityViewers  — online members with role 'viewer' (managed only)
+  // anonymousViewers — connections with no identity token (no dedup possible)
+  let count = 0, scouts = 0, dashboards = 0, identityViewers = 0, anonymousViewers = 0;
   for (const member of session.members.values()) {
     if (member.banned || member.connections.size === 0) continue;
-    onlineMembers++;
+    count++;
+    if (member.role === 'viewer') identityViewers++;
+    let hasScout = false, hasDashboard = false;
     for (const ws of member.connections) {
       const t = session.clientTypes.get(ws) ?? 'unknown';
-      if (t === 'scout') scouts++;
-      else if (t === 'dashboard') dashboards++;
+      if (t === 'scout') hasScout = true;
+      if (t === 'dashboard') hasDashboard = true;
     }
+    if (hasScout) scouts++;
+    if (hasDashboard) dashboards++;
   }
-  // Also count connections without an identity token
+  // Connections without an identity token — each counts as its own person
   for (const ws of session.clients) {
     if (!session.wsToIdentityToken?.has(ws)) {
-      onlineMembers++;
+      count++;
+      anonymousViewers++;
       const t = session.clientTypes.get(ws) ?? 'unknown';
       if (t === 'scout') scouts++;
       else if (t === 'dashboard') dashboards++;
     }
   }
-  broadcast(session, { type: 'clientCount', count: onlineMembers, scouts, dashboards });
+  broadcast(session, { type: 'clientCount', count, scouts, dashboards, identityViewers, anonymousViewers });
 }
 
 /**

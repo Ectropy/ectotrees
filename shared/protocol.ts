@@ -58,7 +58,7 @@ export type ServerMessage =
   | { type: 'authError';      reason: string; code?: 'invalid' | 'expired' | 'full' | 'banned' | 'timeout' }
   | { type: 'snapshot';       worlds: WorldStates }
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null; ownUpdate?: boolean; source?: { name: string; role: string } }
-  | { type: 'clientCount';    count: number; scouts: number; dashboards: number }
+  | { type: 'clientCount';    count: number; scouts: number; dashboards: number; identityViewers: number; anonymousViewers: number }
   | { type: 'peerWorld';      worldId: number | null }
   | { type: 'identity';       name: string; role: MemberRole; sessionCode: string }
   | { type: 'managedEnabled'; identityToken: string }
