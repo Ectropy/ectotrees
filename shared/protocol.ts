@@ -66,8 +66,8 @@ export type ServerMessage =
   | { type: 'forkInviteExpired' }
   | { type: 'forkCreated';  managedCode: string; identityToken: string }
   | { type: 'inviteCreated';  identityToken: string; name: string; link: string }
-  | { type: 'memberJoined';   name: string }
-  | { type: 'memberLeft';     name: string }
+  | { type: 'memberJoined';   name: string; clientType: 'scout' | 'dashboard' | 'unknown' }
+  | { type: 'memberLeft';     name: string; clientType: 'scout' | 'dashboard' | 'unknown' }
   | { type: 'memberList';     members: MemberInfo[] }
   | { type: 'kicked' }
   | { type: 'banned';         reason: string }

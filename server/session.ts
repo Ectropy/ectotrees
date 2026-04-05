@@ -95,18 +95,6 @@ function broadcast(session: Session, msg: ServerMessage) {
   }
 }
 
-export function broadcastClientCount(session: Session) {
-  let scouts = 0, dashboards = 0;
-
-  for (const ws of session.clients) {
-    const t = session.clientTypes.get(ws) ?? 'unknown';
-    if (t === 'scout') scouts++;
-    else if (t === 'dashboard') dashboards++;
-  }
-
-  broadcast(session, { type: 'clientCount', count: session.clients.size, scouts, dashboards });
-}
-
 export function createSession(): { code: string } | { error: string } {
   if (sessions.size >= MAX_SESSIONS) {
     return { error: 'Maximum number of active sessions reached. Try again later.' };
@@ -232,6 +220,13 @@ export function getClientId(session: Session, ws: WebSocket): number | undefined
 
 export function setClientType(session: Session, ws: WebSocket, type: 'scout' | 'dashboard'): void {
   session.clientTypes.set(ws, type);
+  if (session.managed) {
+    const token = session.wsToIdentityToken.get(ws);
+    const member = token ? session.members.get(token) : undefined;
+    if (member) {
+      broadcast(session, { type: 'memberJoined', name: member.name, clientType: type });
+    }
+  }
   broadcastClientCount(session);
 }
 
@@ -239,6 +234,8 @@ export function removeClient(session: Session, ws: WebSocket) {
   if (!session.clients.has(ws)) {
     return false;
   }
+  // Save type before removing — needed for memberLeft clientType
+  const clientType = session.clientTypes.get(ws) ?? 'unknown';
   session.clients.delete(ws);
   session.clientIds.delete(ws);
   session.clientTypes.delete(ws);
@@ -251,8 +248,8 @@ export function removeClient(session: Session, ws: WebSocket) {
     if (member) {
       member.connections.delete(ws);
       member.lastSeen = Date.now();
-      if (session.managed && member.connections.size === 0) {
-        broadcast(session, { type: 'memberLeft', name: member.name });
+      if (session.managed) {
+        broadcast(session, { type: 'memberLeft', name: member.name, clientType });
       }
     }
   }
@@ -260,11 +257,9 @@ export function removeClient(session: Session, ws: WebSocket) {
   if (session.clients.size === 0) {
     session.emptySince = Date.now();
   }
+  broadcastClientCount(session);
   if (session.managed) {
-    broadcastManagedClientCount(session);
     broadcastMemberList(session);
-  } else {
-    broadcastClientCount(session);
   }
   return true;
 }
@@ -373,12 +368,10 @@ function broadcastMemberList(session: Session) {
   }
 }
 
-function broadcastManagedClientCount(session: Session) {
-  if (!session.managed || !session.members) {
-    broadcastClientCount(session);
-    return;
-  }
-  // In managed mode, count = online members (not connections)
+function broadcastClientCount(session: Session) {
+  // Count = online members (deduplicated by identity token) + unidentified connections.
+  // Works for both managed and anonymous sessions — anonymous sessions may have members
+  // with identity tokens (for Alt1 scout linking), so deduplication applies there too.
   let onlineMembers = 0;
   let scouts = 0, dashboards = 0;
   for (const member of session.members.values()) {
@@ -390,7 +383,7 @@ function broadcastManagedClientCount(session: Session) {
       else if (t === 'dashboard') dashboards++;
     }
   }
-  // Also count anonymous viewers (connections without an identity token)
+  // Also count connections without an identity token
   for (const ws of session.clients) {
     if (!session.wsToIdentityToken?.has(ws)) {
       onlineMembers++;
@@ -664,11 +657,11 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
       ws.send(JSON.stringify(enabledMsg));
     }
 
-    broadcastManagedClientCount(session);
+    broadcastClientCount(session);
     broadcastMemberList(session);
-    broadcast(session, { type: 'memberJoined', name: member.name });
+    // memberJoined is broadcast from setClientType once the client declares its type
   } else {
-    // Anonymous session: just update the client count
+    // Anonymous session: update the client count (deduplicates by identity token)
     broadcastClientCount(session);
   }
 
@@ -854,7 +847,7 @@ export function banMember(session: Session, ws: WebSocket, identityToken: string
   identityTokenIndex.delete(identityToken);
 
   broadcastMemberList(session);
-  broadcastManagedClientCount(session);
+  broadcastClientCount(session);
   return null; // success, no error
 }
 
@@ -890,7 +883,7 @@ export function kickMember(session: Session, ws: WebSocket, identityToken: strin
   if (session.clients.size === 0) session.emptySince = Date.now();
 
   broadcastMemberList(session);
-  broadcastManagedClientCount(session);
+  broadcastClientCount(session);
   return null;
 }
 
