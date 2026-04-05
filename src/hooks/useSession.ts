@@ -495,6 +495,9 @@ export function useSession(onSessionLost?: () => void) {
               `Protocol files differ. Restart both dev server and client, or hard-refresh in production.`
             );
           }
+          // Treat server error as a nack — discard pending mutations so
+          // their ACK timers don't fire and force-close the connection.
+          clearPending();
           lastServerErrorRef.current = msg.message;
           setSession(prev => ({ ...prev, error: msg.message }));
           break;
