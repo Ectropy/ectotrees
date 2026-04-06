@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2, Copy, Check } from 'lucide-react';
+import { Link2, Copy, Check, XCircle } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
@@ -62,19 +62,14 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
 
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0 flex-wrap">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+        {canRejoin
+          ? <XCircle className="w-3 h-3 flex-shrink-0 text-red-400" />
+          : <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+        }
 
         {reconnectText && (
           <span className={`${STATUS_TEXT_COLORS[session.status]} text-xs flex-shrink-0`}>{reconnectText}</span>
         )}
-
-        {canRejoin && (
-          <span className={`${STATUS_TEXT_COLORS[session.status]} text-xs flex-shrink-0`}>
-            Disconnected.
-          </span>
-        )}
-
-        <span className={`${STATUS_TEXT_COLORS[session.status]} opacity-60`}>Session:</span>
 
         {/* Code — clickable to copy + open session panel */}
         {session.managed ? (
