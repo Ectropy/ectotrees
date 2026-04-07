@@ -3,7 +3,7 @@ import { Users, RefreshCw, TreeDeciduous, Lock } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
-import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 
 interface SessionBrowserViewProps {
   session: SessionState;
@@ -154,11 +154,11 @@ export function SessionBrowserView({
                 />
               </div>
             </div>
-            {badPaste && <p className="text-xs text-red-400 mt-1">Not a valid code or link</p>}
+            {badPaste && <p className={`text-xs ${ERROR_COLOR.text} mt-1`}>Not a valid code or link</p>}
             {session.error && (
               <button
                 onClick={onDismissError}
-                className="mt-1 text-red-400 text-xs hover:text-red-300 transition-colors"
+                className={`mt-1 ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors`}
                 title={`${session.error} (click to dismiss)`}
               >
                 {session.error === 'Session not found.' && joinCode.length > 0
@@ -176,7 +176,7 @@ export function SessionBrowserView({
 
             {browseError && (
               <div className="text-center py-8 space-y-3">
-                <p className="text-sm text-red-400">{browseError}</p>
+                <p className={`text-sm ${ERROR_COLOR.text}`}>{browseError}</p>
                 <button
                   onClick={fetchSessions}
                   className="text-sm text-blue-400 hover:text-blue-300 transition-colors"

@@ -91,6 +91,7 @@ export const CONNECTION_COLOR = {
   connectingText:   'text-yellow-500 hover:text-yellow-400', // session label while reconnecting
   disconnectedDot:  'bg-red-500',                          // status dot when disconnected / error
   disconnectedText: 'text-red-500 hover:text-red-400',     // session label when disconnected
+  disconnectedIcon: 'text-red-500',                        // XCircle icon when disconnected
 } as const;
 
 type SessionStatus = 'connected' | 'connecting' | 'disconnected';
@@ -138,6 +139,13 @@ export const MANAGED_COLOR = {
   label:       BUTTON_LABEL_COLOR,            // label color on bordered button
   borderHover: 'hover:bg-yellow-500/20',      // subtle fill on hover
   panelBorder: 'border border-yellow-500/50', // banner panel border
+} as const;
+
+/** Inline error messages and error panel styling */
+export const ERROR_COLOR = {
+  text:        'text-red-500',
+  textHover:   'hover:text-red-400',
+  panelBorder: 'border border-red-500/50',  // thin red border, no bg — mirrors MANAGED_COLOR.panelBorder style
 } as const;
 
 /** Base classes for secondary (gray) action buttons.

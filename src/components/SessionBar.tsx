@@ -5,7 +5,7 @@ import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -24,7 +24,7 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
   return (
     <button
       onClick={onDismiss}
-      className="text-red-400 text-xs hover:text-red-300 transition-colors"
+      className={`${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors`}
       title={`${message} (click to dismiss)`}
     >
       {message}
@@ -63,7 +63,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0 flex-wrap">
         {canRejoin
-          ? <XCircle className="w-3 h-3 flex-shrink-0 text-red-400" />
+          ? <XCircle className={`w-3 h-3 flex-shrink-0 ${CONNECTION_COLOR.disconnectedIcon}`} />
           : <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
         }
 

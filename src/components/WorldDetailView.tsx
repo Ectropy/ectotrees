@@ -6,7 +6,7 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { TREE_TYPE_LABELS, LOCATION_HINTS, locationsForHint, resolveExactLocation, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
@@ -140,7 +140,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     else setShowHideHint(false);
                     onToggleHidden();
                   }}
-                  className={`transition-colors ${isHidden ? 'text-red-400' : 'text-gray-600 hover:text-gray-400'}`}
+                  className={`transition-colors ${isHidden ? ERROR_COLOR.text : 'text-gray-600 hover:text-gray-400'}`}
                 >
                   <EyeOff className="h-4 w-4" />
                 </button>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation, hintForLocation } from '../constants/evilTree';
-import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useSettings } from '../hooks/useSettings';
 import { ToolView } from './ToolView';
@@ -100,7 +100,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           {/* Tree type */}
           <div>
-            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>Tree Type <span className="text-red-400">*</span></label>
+            <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>Tree Type <span className={ERROR_COLOR.text}>*</span></label>
             <SelectCombobox
               items={TREE_TYPE_GROUPS}
               itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
@@ -141,7 +141,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Location hint */}
           <div>
             <label className={`text-xs ${TEXT_COLOR.muted} block mb-2 font-semibold`}>
-              Location hint <span className="text-red-400">*</span>
+              Location hint <span className={ERROR_COLOR.text}>*</span>
             </label>
             <SelectCombobox
               items={LOCATION_HINTS.map(lh => lh.hint)}

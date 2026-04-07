@@ -6,7 +6,7 @@ import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
@@ -192,7 +192,7 @@ export function SessionView({
           )}
           {canRejoin && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-red-400">Connection lost.</span>
+              <span className={`text-xs ${ERROR_COLOR.text}`}>Connection lost.</span>
               <button
                 onClick={() => onRejoinSession(session.code!)}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
@@ -331,7 +331,7 @@ export function SessionView({
           {session.error && (
             <button
               onClick={onDismissError}
-              className="w-full text-left text-red-400 text-xs hover:text-red-300 transition-colors bg-red-900/20 border border-red-800/30 rounded p-3"
+              className={`w-full text-left ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors ${ERROR_COLOR.panelBorder} rounded p-3`}
               title="Click to dismiss"
             >
               {session.error}

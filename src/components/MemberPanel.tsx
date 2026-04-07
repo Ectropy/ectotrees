@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { copyToClipboard } from '../lib/utils';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
-import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS, MANAGED_COLOR } from '../constants/toolColors';
+import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS, MANAGED_COLOR, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface MemberPanelProps {
@@ -131,10 +131,10 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                     {/* Ban with confirmation */}
                     {validConfirmBan === m.identityToken ? (
                       <>
-                        <span className="text-red-400 text-[10px]">Ban?</span>
+                        <span className={`${ERROR_COLOR.text} text-[10px]`}>Ban?</span>
                         <button
                           onClick={() => { onBanMember(m.identityToken!); setConfirmBan(null); }}
-                          className="text-red-500 hover:text-red-400 text-[10px] font-medium transition-colors"
+                          className={`${DEAD_COLOR.text} ${ERROR_COLOR.textHover} text-[10px] font-medium transition-colors`}
                         >
                           Yes
                         </button>
@@ -150,7 +150,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => setConfirmBan(m.identityToken!)}
-                            className="text-red-500 hover:text-red-400 text-[10px] transition-colors"
+                            className={`${DEAD_COLOR.text} ${ERROR_COLOR.textHover} text-[10px] transition-colors`}
                           >
                             Ban
                           </button>

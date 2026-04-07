@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Star, EyeOff } from 'lucide-react';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
 import { SpawnTimerTool } from './SpawnTimerTool';
@@ -99,7 +99,7 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           {isHidden && (
             <button
               onClick={e => { e.stopPropagation(); onToggleHidden(); }}
-              className="text-[11px] leading-none text-red-400 hover:text-red-300 transition-colors"
+              className={`text-[11px] leading-none ${ERROR_COLOR.text} ${ERROR_COLOR.textHover} transition-colors`}
             >
               <EyeOff className="h-2.5 w-2.5" />
             </button>
