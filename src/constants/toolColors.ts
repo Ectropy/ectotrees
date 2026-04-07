@@ -110,6 +110,27 @@ export const STATUS_TEXT_COLORS: Record<SessionStatus, string> = {
   disconnected: CONNECTION_COLOR.disconnectedText,
 };
 
+/** Pre-built status → border color map (SessionBar compound status button) */
+export const STATUS_BORDER_COLORS: Record<SessionStatus, string> = {
+  connected:    'border-green-400',
+  connecting:   'border-yellow-400',
+  disconnected: DEAD_COLOR.alertBorder,  // matches Leave Session button (red-500)
+};
+
+/** Pre-built status → hover background map (SessionBar compound status button) */
+export const STATUS_HOVER_BG: Record<SessionStatus, string> = {
+  connected:    'hover:bg-green-400/20',
+  connecting:   'hover:bg-yellow-400/20',
+  disconnected: DEAD_COLOR.borderHover,  // matches Leave Session button (red-500/20)
+};
+
+/** Pre-built status → divide color map (SessionBar compound status button divider) */
+export const STATUS_DIVIDE_COLORS: Record<SessionStatus, string> = {
+  connected:    'divide-green-400',
+  connecting:   'divide-yellow-400',
+  disconnected: 'divide-red-500',  // matches Leave Session button (red-500)
+};
+
 /** Member role display colors and labels (MemberPanel + SessionView) */
 export const ROLE_COLORS = {
   owner:     'text-yellow-400',

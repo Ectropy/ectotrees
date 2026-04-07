@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link2, Copy, Check, XCircle } from 'lucide-react';
+import { Link2, Copy, Check } from 'lucide-react';
+import { SplitButton, SplitButtonSegment } from './ui/split-button';
 import type { SessionState } from '../hooks/useSession';
 import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -62,47 +63,32 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
 
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0 flex-wrap">
-        {canRejoin
-          ? <XCircle className={`w-3 h-3 flex-shrink-0 ${CONNECTION_COLOR.disconnectedIcon}`} />
-          : <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-        }
-
-        {reconnectText && (
-          <span className={`${STATUS_TEXT_COLORS[session.status]} text-xs flex-shrink-0`}>{reconnectText}</span>
-        )}
-
-        {/* Code — clickable to copy + open session panel */}
-        {session.managed ? (
-          <button
-            onClick={onOpenSession}
-            className={`font-bold ${session.sessionName ? '' : 'font-mono'} ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
-            title="Open session panel"
-          >
-            {session.sessionName ?? session.code}
-          </button>
-        ) : (
-          <button
-            onClick={() => { handleCopyCode(); onOpenSession(); }}
-            className={`font-mono font-bold ${STATUS_TEXT_COLORS[session.status]} hover:opacity-80 transition-opacity`}
-            title="Copy session link & open session panel"
-          >
-            {session.code}
-          </button>
-        )}
-
-        {/* Copy icon — anon mode only */}
-        {!session.managed && (
-          <button
-            onClick={handleCopyCode}
-            className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors"
-            title="Copy session link"
-          >
+        {/* Compound status button: dot + name/code + copy icon */}
+        <SplitButton
+          borderClass={STATUS_BORDER_COLORS[session.status]}
+          divideClass={STATUS_DIVIDE_COLORS[session.status]}
+          hoverClass={STATUS_HOVER_BG[session.status]}
+        >
+          {session.managed ? (
+            <SplitButtonSegment onClick={onOpenSession} className="gap-1.5" title="Open session panel">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`font-bold text-white text-xs ${session.sessionName ? '' : 'font-mono'}`}>
+                {session.sessionName ?? session.code}
+              </span>
+            </SplitButtonSegment>
+          ) : (
+            <SplitButtonSegment onClick={() => { handleCopyCode(); onOpenSession(); }} className="gap-1.5" title="Copy session link & open session panel">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className="font-mono font-bold text-white text-xs">{session.code}</span>
+            </SplitButtonSegment>
+          )}
+          <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link">
             {copied
-              ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-              : <><Copy className="w-3 h-3" /><span>Copy</span></>
+              ? <Check className="w-3 h-3 text-green-400" />
+              : <Copy className="w-3 h-3 text-white" />
             }
-          </button>
-        )}
+          </SplitButtonSegment>
+        </SplitButton>
 
         {/* Alt1 Scout link — token display when connected and have token */}
         {isConnected && !canRejoin && session.identityToken && (
@@ -140,6 +126,10 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
           </button>
         )}
 
+        {reconnectText && (
+          <span className={`text-xs flex-shrink-0 ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</span>
+        )}
+
         {canRejoin && (
           <button
             onClick={() => onRejoinSession(session.code!)}
@@ -165,21 +155,13 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
           </button>
         )}
 
-        {/* Right side: member count + manage button */}
-        <span className="ml-auto flex items-center gap-2">
-          {!canRejoin && (
-            <span className="text-gray-500">
-              {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-              {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
-            </span>
-          )}
-          <button
-            onClick={onOpenSession}
-            className={`text-xs px-1.5 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} rounded transition-colors`}
-          >
-            Session Details
-          </button>
-        </span>
+        {/* Right side: member count */}
+        {!canRejoin && (
+          <span className="ml-auto text-gray-500">
+            {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
+            {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
+          </span>
+        )}
 
       </div>
     );
