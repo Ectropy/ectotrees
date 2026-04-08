@@ -8,6 +8,7 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
+import { MemberCount } from './MemberCount';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 interface LeaveConfirmPanelProps {
@@ -187,9 +188,7 @@ export function SessionView({
                   (Anonymous session)
                 </span>
               </div>
-              <span className={`text-xs ${TEXT_COLOR.muted}`}>
-                {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-              </span>
+              <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs" />
             </div>
           </div>
 
@@ -397,9 +396,7 @@ export function SessionView({
                 {session.sessionName || 'Managed Session'}
               </span>
             )}
-            <span className={`text-xs ${TEXT_COLOR.muted} flex-shrink-0`}>
-              {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-            </span>
+            <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs flex-shrink-0" />
           </div>
         </div>
 

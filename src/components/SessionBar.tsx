@@ -7,6 +7,7 @@ import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, ALT1_BORDER_COLOR, ALT1_DIVIDE_COLOR, ALT1_HOVER_BG, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { MemberCount } from './MemberCount';
 
 interface SessionBarProps {
   session: SessionState;
@@ -187,10 +188,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
 
         {/* Right side: member count */}
         {!canRejoin && (
-          <span className="ml-auto text-gray-500">
-            {session.clientCount} {session.clientCount === 1 ? 'member' : 'members'}
-            {session.scouts > 0 && ` · ${session.scouts} ${session.scouts === 1 ? 'scout' : 'scouts'}`}
-          </span>
+          <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="ml-auto" />
         )}
 
       </div>
