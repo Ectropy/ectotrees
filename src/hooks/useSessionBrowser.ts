@@ -20,6 +20,7 @@ export function useSessionBrowser() {
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load sessions');
+      setSessions([]);
     } finally {
       hasFetched.current = true;
       setLoading(false);
