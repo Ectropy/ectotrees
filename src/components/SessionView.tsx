@@ -124,7 +124,14 @@ export function SessionView({
   const [managedName, setManagedName] = useState('');
   const [joinForkStep, setJoinForkStep] = useState<'idle' | 'naming'>('idle');
   const [joinForkName, setJoinForkName] = useState('');
-  const [alt1Expanded, setAlt1Expanded] = useState(false);
+  const [alt1Expanded, setAlt1Expanded] = useState(() => !!session.identityToken);
+  const [prevIdentityToken, setPrevIdentityToken] = useState(session.identityToken);
+  if (session.identityToken !== prevIdentityToken) {
+    setPrevIdentityToken(session.identityToken);
+    if (session.identityToken && !prevIdentityToken) {
+      setAlt1Expanded(true);
+    }
+  }
   const [leaveStep, setLeaveStep] = useState<'idle' | 'confirming'>('idle');
   const { copied: leaveLinkCopied, copy: copyLeaveLink } = useCopyFeedback(1500);
 

@@ -390,7 +390,7 @@ export function useSession(onSessionLost?: () => void) {
           setSession(prev => ({ ...prev, scoutConnected: msg.connected, ...(msg.connected ? {} : { scoutWorld: null }) }));
           break;
         case 'identity':
-          setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role, identityToken: identityTokenRef.current }));
+          setSession(prev => ({ ...prev, memberName: msg.name, memberRole: msg.role, identityToken: identityTokenRef.current }));
           break;
         case 'managedEnabled':
           identityTokenRef.current = msg.identityToken;
