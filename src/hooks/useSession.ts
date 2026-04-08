@@ -23,6 +23,7 @@ export interface SessionState {
   identityViewers: number;
   anonymousViewers: number;
   error: string | null;
+  errorKind: 'connection' | 'application' | null;
   reconnectAttempt: number;
   reconnectAt: number | null;  // ms timestamp when next retry fires; null while not waiting
   recentOwnWorldId: number | null;
@@ -58,7 +59,7 @@ const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is
 function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
   return {
     status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, identityViewers: 0, anonymousViewers: 0,
-    error: null, reconnectAttempt: 0, reconnectAt: null,
+    error: null, errorKind: null, reconnectAttempt: 0, reconnectAt: null,
     recentOwnWorldId: null,
     identityToken: null, scoutConnected: false, scoutWorld: null,
     managed: false, allowViewers: false, allowOpenJoin: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
@@ -250,7 +251,7 @@ export function useSession(onSessionLost?: () => void) {
     intentionalCloseRef.current = false;
 
     snapshotReceivedRef.current = false;
-    setSession(prev => ({ ...prev, status: 'connecting', error: null, scoutConnected: false, scoutWorld: null }));
+    setSession(prev => ({ ...prev, status: 'connecting', error: null, errorKind: null, scoutConnected: false, scoutWorld: null }));
 
     const ws = new WebSocket(`${WS_BASE}/ws`);
     wsRef.current = ws;
@@ -259,7 +260,7 @@ export function useSession(onSessionLost?: () => void) {
       if (wsRef.current !== ws) return;
       reconnectAttemptRef.current = 0;
       lastServerErrorRef.current = null;
-      setSession(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
+      setSession(prev => ({ ...prev, status: 'connected', error: null, errorKind: null, reconnectAttempt: 0, reconnectAt: null }));
 
       // Send auth message first
       if (identityToken) {
@@ -324,7 +325,7 @@ export function useSession(onSessionLost?: () => void) {
             identityTokenRef.current = null;
             persistIdentityToken(null);
           }
-          setSession(prev => ({ ...prev, error: msg.reason, status: 'disconnected', reconnectAttempt: 0, reconnectAt: null }));
+          setSession(prev => ({ ...prev, error: msg.reason, errorKind: 'application', status: 'disconnected', reconnectAttempt: 0, reconnectAt: null }));
           ws.close();
           break;
 
@@ -462,7 +463,7 @@ export function useSession(onSessionLost?: () => void) {
         case 'kicked':
           intentionalCloseRef.current = true;
           clearPending();
-          setSession(prev => ({ ...prev, status: 'disconnected', error: 'You were kicked from the session.' }));
+          setSession(prev => ({ ...prev, status: 'disconnected', error: 'You were kicked from the session.', errorKind: 'application' }));
           break;
         case 'banned':
           intentionalCloseRef.current = true;
@@ -470,7 +471,7 @@ export function useSession(onSessionLost?: () => void) {
           codeRef.current = null;
           persistSessionCode(null);
           clearPending();
-          setSession(defaultSessionState({ error: msg.reason }));
+          setSession(defaultSessionState({ error: msg.reason, errorKind: 'application' }));
           break;
         case 'clientCount':
           setSession(prev => ({ ...prev, clientCount: msg.count, scouts: msg.scouts, dashboards: msg.dashboards, identityViewers: msg.identityViewers, anonymousViewers: msg.anonymousViewers }));
@@ -505,7 +506,7 @@ export function useSession(onSessionLost?: () => void) {
           // their ACK timers don't fire and force-close the connection.
           clearPending();
           lastServerErrorRef.current = msg.message;
-          setSession(prev => ({ ...prev, error: msg.message }));
+          setSession(prev => ({ ...prev, error: msg.message, errorKind: 'application' }));
           break;
         case 'sessionClosed':
           intentionalCloseRef.current = true;
@@ -513,7 +514,7 @@ export function useSession(onSessionLost?: () => void) {
           cleanup();
           codeRef.current = null;
           clearPending();
-          setSession(defaultSessionState({ error: msg.reason }));
+          setSession(defaultSessionState({ error: msg.reason, errorKind: 'application' }));
           break;
       }
     };
@@ -553,7 +554,7 @@ export function useSession(onSessionLost?: () => void) {
           ...prev,
           status: 'disconnected',
           code: null,
-          error: fatalMessage,
+          error: fatalMessage, errorKind: 'application',
           reconnectAttempt: 0,
           reconnectAt: null,
         }));
@@ -570,7 +571,7 @@ export function useSession(onSessionLost?: () => void) {
         setSession(prev => ({
           ...prev,
           status: 'disconnected',
-          error: 'Unable to reconnect.',
+          error: 'Unable to reconnect.', errorKind: 'connection',
           reconnectAttempt: attempt,
           code: lostCode,
           reconnectAt: null,
@@ -599,12 +600,12 @@ export function useSession(onSessionLost?: () => void) {
   }
 
   const createSession = useCallback(async (initialStates?: WorldStates): Promise<string | null> => {
-    setSession(prev => ({ ...prev, error: null }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null }));
     try {
       const res = await fetch(`${API_BASE}/session`, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } });
       const data = await res.json();
       if (!res.ok) {
-        setSession(prev => ({ ...prev, error: data.error ?? 'Failed to create session.' }));
+        setSession(prev => ({ ...prev, error: data.error ?? 'Failed to create session.', errorKind: 'application' }));
         return null;
       }
       const code = data.code as string;
@@ -616,7 +617,7 @@ export function useSession(onSessionLost?: () => void) {
       connectWs(code);
       return code;
     } catch {
-      setSession(prev => ({ ...prev, error: 'Network error creating session.' }));
+      setSession(prev => ({ ...prev, error: 'Network error creating session.', errorKind: 'application' }));
       return null;
     }
   }, []);
@@ -630,10 +631,10 @@ export function useSession(onSessionLost?: () => void) {
 
   const joinSession = useCallback((code: string, localStates?: WorldStates): boolean => {
     if (!validateSessionCode(code)) {
-      setSession(prev => ({ ...prev, error: 'Invalid session code.' }));
+      setSession(prev => ({ ...prev, error: 'Invalid session code.', errorKind: 'application' }));
       return false;
     }
-    setSession(prev => ({ ...prev, error: null }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null }));
     joinMergeStatesRef.current = localStates ?? null;
     codeRef.current = code;
     persistSessionCode(code);
@@ -646,7 +647,7 @@ export function useSession(onSessionLost?: () => void) {
   const joinByIdentityToken = useCallback((token: string): void => {
     identityTokenRef.current = token;
     persistIdentityToken(token);
-    setSession(prev => ({ ...prev, error: null, reconnectAttempt: 0 }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null, reconnectAttempt: 0 }));
     clearPending();
     connectWs(null, token);
   }, []);
@@ -672,7 +673,7 @@ export function useSession(onSessionLost?: () => void) {
     codeRef.current = code;
     persistSessionCode(code);
     clearPending();
-    setSession(prev => ({ ...prev, code, error: null, reconnectAttempt: 0 }));
+    setSession(prev => ({ ...prev, code, error: null, errorKind: null, reconnectAttempt: 0 }));
     // Use the invite token if available so managed-session members rejoin as themselves,
     // not as anonymous viewers (which would leave member.connections empty on the server).
     connectWs(code, identityTokenRef.current ?? undefined);
@@ -689,7 +690,7 @@ export function useSession(onSessionLost?: () => void) {
       previewResolveRef.current = null;
     }
 
-    setSession(prev => ({ ...prev, error: null }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null }));
 
     return new Promise<WorldStates | null>((resolve) => {
       previewResolveRef.current = resolve;
@@ -729,11 +730,11 @@ export function useSession(onSessionLost?: () => void) {
           });
         } else if (msg.type === 'error') {
           lastServerErrorRef.current = msg.message;
-          setSession(prev => ({ ...prev, error: msg.message }));
+          setSession(prev => ({ ...prev, error: msg.message, errorKind: 'application' }));
           // onclose fires next and will resolve null
         } else if (msg.type === 'authError') {
           lastServerErrorRef.current = msg.reason;
-          setSession(prev => ({ ...prev, error: msg.reason }));
+          setSession(prev => ({ ...prev, error: msg.reason, errorKind: 'application' }));
           // Resolve immediately — don't wait for onclose (which may race with the message)
           previewWsRef.current = null;
           const res = previewResolveRef.current;
@@ -767,7 +768,7 @@ export function useSession(onSessionLost?: () => void) {
     // The existing snapshot handler applies merge + contributeWorlds via joinMergeStatesRef
     joinMergeStatesRef.current = localStates ?? null;
     clearPending();
-    setSession(prev => ({ ...prev, reconnectAttempt: 0, error: null }));
+    setSession(prev => ({ ...prev, reconnectAttempt: 0, error: null, errorKind: null }));
 
     if (isToken) {
       // For identity tokens
@@ -836,7 +837,7 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const dismissError = useCallback(() => {
-    setSession(prev => ({ ...prev, error: null }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null }));
   }, []);
 
   const forkToManaged = useCallback((name: string) => {
@@ -844,7 +845,7 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const joinManagedFork = useCallback(async (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string): Promise<void> => {
-    setSession(prev => ({ ...prev, error: null }));
+    setSession(prev => ({ ...prev, error: null, errorKind: null }));
     try {
       const token = await new Promise<string>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -865,7 +866,7 @@ export function useSession(onSessionLost?: () => void) {
       setSession(prev => ({ ...defaultSessionState(), code: managedCode, status: prev.status }));
       connectWs(managedCode, token);
     } catch (err) {
-      setSession(prev => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to join managed session.' }));
+      setSession(prev => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to join managed session.', errorKind: 'application' }));
     }
   }, []);
 

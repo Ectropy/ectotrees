@@ -652,6 +652,7 @@ export default function App() {
           session={session}
           onCreateSession={handleCreateSession}
           onRejoinSession={rejoinSession}
+          onLeaveSession={handleLeaveSession}
           onDismissError={dismissError}
           onOpenSession={() => setActiveView({ kind: 'session' })}
           onRequestIdentityToken={requestIdentityToken}

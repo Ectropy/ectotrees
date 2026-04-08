@@ -12,6 +12,7 @@ interface SessionBarProps {
   session: SessionState;
   onCreateSession: () => Promise<string | null>;
   onRejoinSession: (code: string) => void;
+  onLeaveSession: () => void;
   onDismissError: () => void;
   onOpenSession: () => void;
   onRequestIdentityToken: () => void;
@@ -41,7 +42,7 @@ function StatusDot({ status }: { status: SessionStatus }) {
   return <CircleX className="w-3 h-3 flex-shrink-0 text-red-500" />;
 }
 
-export function SessionBar({ session, onCreateSession, onRejoinSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
+export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
   const [loading, setLoading] = useState(false);
   const { copied, copy: copyCode } = useCopyFeedback(1500);
   const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
@@ -83,19 +84,23 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
               <span className={`font-bold text-white text-xs ${session.sessionName ? '' : 'font-mono'}`}>
                 {session.sessionName ?? session.code}
               </span>
+              {canRejoin && <span className="text-red-400 font-normal">— Disconnected</span>}
             </SplitButtonSegment>
           ) : (
-            <SplitButtonSegment onClick={() => { handleCopyCode(); onOpenSession(); }} className="gap-1.5" title="Copy session link & open session panel">
+            <SplitButtonSegment onClick={() => { if (!canRejoin) { handleCopyCode(); } onOpenSession(); }} className="gap-1.5" title={canRejoin ? 'Open session panel' : 'Copy session link & open session panel'}>
               <StatusDot status={session.status} />
               <span className="font-mono font-bold text-white tracking-wider">{session.code}</span>
+              {canRejoin && <span className="text-red-400 font-normal font-sans tracking-normal">— Disconnected</span>}
             </SplitButtonSegment>
           )}
-          <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link">
-            {copied
-              ? <Check className="w-3 h-3 text-green-400" />
-              : <Copy className="w-3 h-3 text-white" />
-            }
-          </SplitButtonSegment>
+          {!canRejoin && (
+            <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link">
+              {copied
+                ? <Check className="w-3 h-3 text-green-400" />
+                : <Copy className="w-3 h-3 text-white" />
+              }
+            </SplitButtonSegment>
+          )}
         </SplitButton>
 
         {/* Alt1 Scout link — token display when connected and have token */}
@@ -132,7 +137,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
         )}
 
         {/* Link with Alt1 button — when no personal token and not in managed mode */}
-        {!session.identityToken && !session.managed && (
+        {isConnected && !session.identityToken && !session.managed && (
           <button
             onClick={isConnected ? onRequestIdentityToken : onLinkWithAlt1}
             className={`text-xs px-1.5 py-0.5 bg-transparent ${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} rounded transition-colors`}
@@ -146,16 +151,25 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
           <span className={`text-xs flex-shrink-0 ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</span>
         )}
 
+
         {canRejoin && (
-          <button
-            onClick={() => onRejoinSession(session.code!)}
-            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-          >
-            Rejoin?
-          </button>
+          <>
+            <button
+              onClick={() => onRejoinSession(session.code!)}
+              className="px-2 py-0.5 bg-transparent border border-yellow-400 text-yellow-400 hover:bg-yellow-400/20 text-xs rounded transition-colors flex-shrink-0"
+            >
+              Rejoin?
+            </button>
+            <button
+              onClick={onLeaveSession}
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+            >
+              Leave
+            </button>
+          </>
         )}
 
-        {session.error && (
+        {session.error && session.errorKind === 'application' && (
           <DismissableError message={session.error} onDismiss={onDismissError} />
         )}
 
