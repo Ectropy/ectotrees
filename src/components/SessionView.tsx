@@ -633,7 +633,7 @@ function Alt1LinkedSection({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 code:</span>
-        <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-widest text-lg`}>{identityToken}</span>
+        <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-wider text-base`}>{identityToken}</span>
         <button
           onClick={() => copyToken(buildIdentityUrl(identityToken))}
           className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}

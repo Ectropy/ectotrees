@@ -79,7 +79,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
           ) : (
             <SplitButtonSegment onClick={() => { handleCopyCode(); onOpenSession(); }} className="gap-1.5" title="Copy session link & open session panel">
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-              <span className="font-mono font-bold text-white text-xs">{session.code}</span>
+              <span className="font-mono font-bold text-white tracking-wider">{session.code}</span>
             </SplitButtonSegment>
           )}
           <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link">
@@ -106,7 +106,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
                 ? <Link className={`w-3 h-3 ${ALT1_COLOR.text}`} />
                 : <Unlink className="w-3 h-3 text-gray-500" />
               }
-              <span className="font-mono font-bold text-white tracking-widest">
+              <span className="font-mono font-bold text-white tracking-wider">
                 {session.identityToken}
               </span>
             </SplitButtonSegment>
