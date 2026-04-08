@@ -228,6 +228,35 @@ export function setClientType(session: Session, ws: WebSocket, type: 'scout' | '
     }
   }
   broadcastClientCount(session);
+
+  // Notify peer connections about scout presence
+  const token = session.wsToIdentityToken.get(ws);
+  if (token) {
+    const member = session.members.get(token);
+    if (member) {
+      if (type === 'scout') {
+        // Scout just identified — notify peer dashboard connections
+        const connectMsg = JSON.stringify({ type: 'peerScout', connected: true } satisfies ServerMessage);
+        for (const conn of member.connections) {
+          if (conn !== ws && conn.readyState === 1 && session.clientTypes.get(conn) === 'dashboard') {
+            conn.send(connectMsg);
+            if (member.currentWorld !== null) {
+              conn.send(JSON.stringify({ type: 'peerWorld', worldId: member.currentWorld } satisfies ServerMessage));
+            }
+          }
+        }
+      } else if (type === 'dashboard') {
+        // Dashboard just identified — tell it if a scout is already connected for this member
+        const hasScout = [...member.connections].some(c => c !== ws && session.clientTypes.get(c) === 'scout');
+        if (hasScout) {
+          ws.send(JSON.stringify({ type: 'peerScout', connected: true } satisfies ServerMessage));
+          if (member.currentWorld !== null) {
+            ws.send(JSON.stringify({ type: 'peerWorld', worldId: member.currentWorld } satisfies ServerMessage));
+          }
+        }
+      }
+    }
+  }
 }
 
 export function removeClient(session: Session, ws: WebSocket) {
@@ -250,6 +279,19 @@ export function removeClient(session: Session, ws: WebSocket) {
       member.lastSeen = Date.now();
       if (session.managed) {
         broadcast(session, { type: 'memberLeft', name: member.name, clientType });
+      }
+      // If the last scout connection for this member disconnected, notify peer dashboards
+      if (clientType === 'scout') {
+        const hasRemainingScout = [...member.connections].some(c => session.clientTypes.get(c) === 'scout');
+        if (!hasRemainingScout) {
+          member.currentWorld = null;
+          const msg = JSON.stringify({ type: 'peerScout', connected: false } satisfies ServerMessage);
+          for (const conn of member.connections) {
+            if (conn.readyState === 1 && session.clientTypes.get(conn) === 'dashboard') {
+              conn.send(msg);
+            }
+          }
+        }
       }
     }
   }

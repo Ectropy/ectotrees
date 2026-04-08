@@ -60,6 +60,7 @@ export type ServerMessage =
   | { type: 'worldUpdate';    worldId: number; state: WorldState | null; ownUpdate?: boolean; source?: { name: string; role: string } }
   | { type: 'clientCount';    count: number; scouts: number; dashboards: number; identityViewers: number; anonymousViewers: number }
   | { type: 'peerWorld';      worldId: number | null }
+  | { type: 'peerScout';     connected: boolean }
   | { type: 'identity';       name: string; role: MemberRole; sessionCode: string }
   | { type: 'managedEnabled'; identityToken: string }
   | { type: 'forkInvite';   managedCode: string; inviteLink: string; initiatorName: string; expiresAt: number; selfRegisterToken?: string; identityToken?: string }

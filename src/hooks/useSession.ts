@@ -28,6 +28,7 @@ export interface SessionState {
   recentOwnWorldId: number | null;
   // Identity token (uniquely identifies this user for auth, scout linking, and attribution)
   identityToken: string | null;
+  scoutConnected: boolean;          // true when a peerWorld message has been received since last connect
   scoutWorld: number | null;        // world the linked scout is currently on (via peerWorld)
   // Managed session
   managed: boolean;
@@ -59,7 +60,7 @@ function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
     status: 'disconnected', code: null, clientCount: 0, scouts: 0, dashboards: 0, identityViewers: 0, anonymousViewers: 0,
     error: null, reconnectAttempt: 0, reconnectAt: null,
     recentOwnWorldId: null,
-    identityToken: null, scoutWorld: null,
+    identityToken: null, scoutConnected: false, scoutWorld: null,
     managed: false, allowViewers: false, allowOpenJoin: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
     sessionName: null, sessionDescription: null, sessionListed: false,
     ...overrides,
@@ -249,7 +250,7 @@ export function useSession(onSessionLost?: () => void) {
     intentionalCloseRef.current = false;
 
     snapshotReceivedRef.current = false;
-    setSession(prev => ({ ...prev, status: 'connecting', error: null }));
+    setSession(prev => ({ ...prev, status: 'connecting', error: null, scoutConnected: false, scoutWorld: null }));
 
     const ws = new WebSocket(`${WS_BASE}/ws`);
     wsRef.current = ws;
@@ -384,6 +385,9 @@ export function useSession(onSessionLost?: () => void) {
         }
         case 'peerWorld':
           setSession(prev => ({ ...prev, scoutWorld: msg.worldId }));
+          break;
+        case 'peerScout':
+          setSession(prev => ({ ...prev, scoutConnected: msg.connected, ...(msg.connected ? {} : { scoutWorld: null }) }));
           break;
         case 'identity':
           setSession(prev => ({ ...prev, managed: true, memberName: msg.name, memberRole: msg.role, identityToken: identityTokenRef.current }));

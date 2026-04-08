@@ -146,6 +146,11 @@ export const ROLE_LABELS = {
   viewer:    'Viewer',
 } as const;
 
+/** Alt1 SplitButton color tokens (token display in SessionBar) */
+export const ALT1_BORDER_COLOR = 'border-cyan-400';
+export const ALT1_DIVIDE_COLOR = 'divide-cyan-400';
+export const ALT1_HOVER_BG     = 'hover:bg-cyan-400/20';
+
 /** Alt1 Scout plugin link color (button outline + token code display) */
 export const ALT1_COLOR = {
   text:        'text-cyan-400',          // personal token code display
