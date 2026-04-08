@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Link, Unlink, Copy, Check } from 'lucide-react';
+import { Circle, LoaderCircle, CircleX, Link, Unlink, Copy, Check } from 'lucide-react';
 import { SplitButton, SplitButtonSegment } from './ui/split-button';
-import type { SessionState } from '../hooks/useSession';
+import type { SessionState, SessionStatus } from '../hooks/useSession';
 import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, ALT1_BORDER_COLOR, ALT1_DIVIDE_COLOR, ALT1_HOVER_BG, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, ALT1_BORDER_COLOR, ALT1_DIVIDE_COLOR, ALT1_HOVER_BG, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 
 interface SessionBarProps {
   session: SessionState;
@@ -31,6 +31,14 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
       {message}
     </button>
   );
+}
+
+function StatusDot({ status }: { status: SessionStatus }) {
+  if (status === 'connected')
+    return <Circle className="w-3 h-3 flex-shrink-0 fill-current text-green-500" />;
+  if (status === 'connecting')
+    return <LoaderCircle className="w-3 h-3 flex-shrink-0 text-yellow-500 animate-spin" />;
+  return <CircleX className="w-3 h-3 flex-shrink-0 text-red-500" />;
 }
 
 export function SessionBar({ session, onCreateSession, onRejoinSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
@@ -71,14 +79,14 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onDismis
         >
           {session.managed ? (
             <SplitButtonSegment onClick={onOpenSession} className="gap-1.5" title="Open session panel">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <StatusDot status={session.status} />
               <span className={`font-bold text-white text-xs ${session.sessionName ? '' : 'font-mono'}`}>
                 {session.sessionName ?? session.code}
               </span>
             </SplitButtonSegment>
           ) : (
             <SplitButtonSegment onClick={() => { handleCopyCode(); onOpenSession(); }} className="gap-1.5" title="Copy session link & open session panel">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <StatusDot status={session.status} />
               <span className="font-mono font-bold text-white tracking-wider">{session.code}</span>
             </SplitButtonSegment>
           )}
