@@ -620,10 +620,10 @@ test('leave panel: managed owner session shows owner warning with identity link'
       try {
         const msg = JSON.parse(raw as string);
         if (msg.type === 'authIdentity') {
-          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: 'ABCD23' }));
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: 'ABCD23', managed: true }));
           ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
           ws.send(JSON.stringify({ type: 'clientCount', count: 1 }));
-          // identity message marks this as a managed session and sets the member's role
+          // identity message sets the member's name and role for this managed session
           ws.send(JSON.stringify({ type: 'identity', name: 'Ectropy', role: 'owner' }));
         } else if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));
