@@ -240,7 +240,7 @@ app.get('/api/health', (_req, res) => {
 
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
-  app.get(/^\/(?!api|ws).*/, (_req, res) => {
+  app.get(/^\/(?!api|ws).*/, httpRateLimitMiddleware, (_req, res) => {
     res.sendFile(path.join(DIST_DIR, 'index.html'));
   });
 }
