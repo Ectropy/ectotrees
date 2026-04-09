@@ -603,7 +603,9 @@ export function SessionView({
           title="Leave managed session?"
           body={session.memberRole === 'owner'
             ? "You're the owner of this session! Please save your identity link before leaving. Without it, you cannot rejoin as the owner of this session."
-            : "Coming back later? Save your identity link before leaving. Without it, you cannot rejoin with the same username."}
+            : session.identityToken
+              ? "Coming back later? Save your identity link before leaving. Without it, you cannot rejoin with the same username."
+              : "Are you sure you want to leave this session?"}
           link={session.identityToken ? buildIdentityUrl(session.identityToken) : undefined}
           linkLabel="Your personal link"
           linkCopied={leaveLinkCopied}
