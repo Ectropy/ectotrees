@@ -65,6 +65,7 @@ src/
     ui/tooltip.tsx       # Radix UI tooltip wrapper
     ui/combobox.tsx      # @base-ui/react Combobox primitives (base layer for SelectCombobox)
     ui/select-combobox.tsx # High-level combobox: desktop uses combobox.tsx, mobile falls back to native <select>
+    ui/split-button.tsx  # Horizontal split button with contextual hover styling per segment; used in SessionBar for paired actions
 ```
 
 ## Layout

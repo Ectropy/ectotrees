@@ -6,6 +6,8 @@ A separate Vite app (served at `/alt1`) for scouts to submit spawn intel from in
 
 ```
 alt1-plugin/src/
+  main.tsx              # Entry point: mounts React root, sets up Alt1 API
+  index.css             # Base styles imported by main.tsx
   App.tsx               # Root component: orchestrates session, world, scan, and form state
   scanner.ts            # Alt1 pixel scanning logic: reads spawn timer and location hint from dialog
   parser.ts             # Parses raw dialog text into { hours, minutes, hint }
@@ -18,7 +20,8 @@ alt1-plugin/src/
     WorldInput.tsx      # World number field with manual scan button + auto-world toggle
     ReportForm.tsx      # Spawn timer (hr/min) + hint field + scan/auto-scan/auto-submit controls
     DebugPanel.tsx      # Dev-only debug overlay (rendered in development mode only)
-    ui/tooltip.tsx      # Tooltip primitive (local copy)
+    ui/tooltip.tsx      # Tooltip primitive wrapping @radix-ui/react-tooltip
+  shims/empty-module.ts # Empty module shim for build compatibility
 ```
 
 ## Features
