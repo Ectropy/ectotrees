@@ -1,4 +1,5 @@
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -59,8 +60,6 @@ const MAX_MESSAGE_SIZE = 4096;           // 4 KB (normal messages)
 const MAX_INIT_MESSAGE_SIZE = 64 * 1024; // 64 KB (initializeState)
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 10;
-const HTTP_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute sliding window
-const HTTP_RATE_LIMIT_MAX = 20;           // requests per window per IP
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
 const AUTH_TIMEOUT_MS = 10_000; // 10 seconds
@@ -103,11 +102,6 @@ function isOriginAllowed(origin: string | undefined): boolean {
 
 // --- Rate limiting ---
 
-interface RateState {
-  count: number;
-  windowStart: number;
-}
-
 function checkRateLimit(ws: WebSocket): boolean {
   const now = Date.now();
   const extensions = wsExtensions.get(ws);
@@ -120,28 +114,14 @@ function checkRateLimit(ws: WebSocket): boolean {
   return extensions.rateLimitMessages.length <= RATE_LIMIT_MAX;
 }
 
-// HTTP: per-IP sliding window, applied to session REST endpoints
-const httpRateLimits = new Map<string, RateState>();
-
-function checkHttpRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const state = httpRateLimits.get(ip);
-  if (!state || now - state.windowStart > HTTP_RATE_LIMIT_WINDOW_MS) {
-    httpRateLimits.set(ip, { count: 1, windowStart: now });
-    return true;
-  }
-  state.count++;
-  return state.count <= HTTP_RATE_LIMIT_MAX;
-}
-
-function httpRateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-  if (!checkHttpRateLimit(ip)) {
-    res.status(429).json({ error: 'Too many requests.' });
-    return;
-  }
-  next();
-}
+// HTTP: per-IP rate limit applied to REST endpoints and SPA catch-all
+const httpRateLimitMiddleware = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests.' },
+});
 
 // --- Express app ---
 
@@ -778,13 +758,6 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
 
 setInterval(() => {
   cleanupExpiredSessions();
-  // Evict stale HTTP rate limit entries (IPs whose window has long expired)
-  const now = Date.now();
-  for (const [ip, state] of httpRateLimits) {
-    if (now - state.windowStart > HTTP_RATE_LIMIT_WINDOW_MS) {
-      httpRateLimits.delete(ip);
-    }
-  }
 }, CLEANUP_INTERVAL_MS);
 
 // --- Start ---
