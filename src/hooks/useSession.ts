@@ -54,7 +54,7 @@ const ACK_TIMEOUT_MS = 5_000;
 const SESSION_CODE_STORAGE_KEY = 'evilTree_sessionCode';
 const IDENTITY_TOKEN_STORAGE_KEY = 'evilTree_identityToken';
 
-const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is a private session. You need an invite link to join.']);
+const FATAL_ERRORS = new Set(['Session is full.', 'Session not found.', 'This is a private session. You need an invite link to join.', 'Invalid identity token.']);
 
 function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
   return {
@@ -325,7 +325,15 @@ export function useSession(onSessionLost?: () => void) {
             identityTokenRef.current = null;
             persistIdentityToken(null);
           }
-          setSession(prev => ({ ...prev, error: msg.reason, errorKind: 'application', status: 'disconnected', reconnectAttempt: 0, reconnectAt: null }));
+          if (FATAL_ERRORS.has(msg.reason)) {
+            // Session is permanently gone — clear code so we don't retry it on reload
+            codeRef.current = null;
+            persistSessionCode(null);
+            clearPending();
+            setSession(defaultSessionState({ error: msg.reason, errorKind: 'application' }));
+          } else {
+            setSession(prev => ({ ...prev, error: msg.reason, errorKind: 'application', status: 'disconnected', reconnectAttempt: 0, reconnectAt: null }));
+          }
           ws.close();
           break;
 
