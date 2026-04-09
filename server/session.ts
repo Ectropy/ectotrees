@@ -70,10 +70,9 @@ const sessions = new Map<string, Session>();
 const identityTokenIndex = new Map<string, string>();
 
 function generateToken(length: number): string {
-  const bytes = crypto.randomBytes(length);
   let token = '';
   for (let i = 0; i < length; i++) {
-    token += CODE_CHARS[bytes[i] % CODE_CHARS.length];
+    token += CODE_CHARS[crypto.randomInt(CODE_CHARS.length)];
   }
   return token;
 }
