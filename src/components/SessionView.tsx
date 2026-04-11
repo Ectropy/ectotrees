@@ -93,7 +93,6 @@ interface SessionViewProps {
   onRenameMember: (identityToken: string, name: string) => void;
   onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (identityToken: string) => void;
-  onSetAllowViewers: (allow: boolean) => void;
   onSetAllowOpenJoin: (allow: boolean) => void;
   onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
   onRequestIdentityToken: () => void;
@@ -112,7 +111,7 @@ export function SessionView({
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
-  onSetAllowViewers, onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
+  onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
   forkDismissed, onDismissFork,
 }: SessionViewProps) {
@@ -467,7 +466,6 @@ export function SessionView({
                   checked={listedInput}
                   onCheckedChange={v => {
                     setListedInput(v);
-                    if (v && !session.allowViewers) onSetAllowViewers(true);
                     onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
                   }}
                   disabled={!nameInput.trim()}

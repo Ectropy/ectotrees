@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Users, RefreshCw, TreeDeciduous, Lock } from 'lucide-react';
+import { Users, RefreshCw, TreeDeciduous } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
@@ -262,25 +262,18 @@ export function SessionBrowserView({
                           Join as Scout
                         </button>
                       )}
-                      {s.allowViewers && (
-                        <button
-                          onClick={async () => {
-                            if (activeLocalCount > 0) {
-                              await onRequestSessionJoin(s.code);
-                            } else {
-                              if (onJoinSession(s.code)) onSessionStarted();
-                            }
-                          }}
-                          className={`w-full px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
-                        >
-                          Join as Viewer
-                        </button>
-                      )}
-                      {!s.allowOpenJoin && !s.allowViewers && (
-                        <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.faint}`}>
-                          <Lock className="w-3 h-3" /> Invite required
-                        </span>
-                      )}
+                      <button
+                        onClick={async () => {
+                          if (activeLocalCount > 0) {
+                            await onRequestSessionJoin(s.code);
+                          } else {
+                            if (onJoinSession(s.code)) onSessionStarted();
+                          }
+                        }}
+                        className={`w-full px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
+                      >
+                        Join as Viewer
+                      </button>
                     </div>
                   )}
                 </div>

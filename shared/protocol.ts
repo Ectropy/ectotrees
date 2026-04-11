@@ -16,7 +16,6 @@ export interface SessionSummary {
   name: string;
   description?: string;
   managed: boolean;
-  allowViewers: boolean;
   allowOpenJoin: boolean;
   clientCount: number;
   memberCount: number;
@@ -46,7 +45,6 @@ export type ClientMessage =
   | { type: 'renameMember'; identityToken: string; name: string }
   | { type: 'setMemberRole'; identityToken: string; role: 'moderator' | 'scout' | 'viewer' }
   | { type: 'transferOwnership'; identityToken: string }
-  | { type: 'setAllowViewers'; allow: boolean }
   | { type: 'setAllowOpenJoin'; allow: boolean }
   | { type: 'selfRegister'; name: string; selfRegisterToken: string; identityToken?: string }
   | { type: 'requestIdentityToken' }
@@ -72,7 +70,6 @@ export type ServerMessage =
   | { type: 'memberList';     members: MemberInfo[] }
   | { type: 'kicked' }
   | { type: 'banned';         reason: string }
-  | { type: 'allowViewers';    allow: boolean }
   | { type: 'allowOpenJoin';  allow: boolean }
   | { type: 'identityToken';  token: string }
   | { type: 'selfRegistered'; identityToken: string }

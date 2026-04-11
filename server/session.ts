@@ -45,8 +45,7 @@ export interface Session {
   // Managed session fields (undefined when anonymous)
   managed?: boolean;
   ownerToken?: string;
-  allowViewers?: boolean;              // when true, ?code= connections are admitted as read-only viewers
-  allowOpenJoin?: boolean;             // when true, anyone can self-issue a viewer invite via POST /api/session/:code/open-join
+  allowOpenJoin?: boolean;             // when true, anyone can self-issue a scout invite via POST /api/session/:code/open-join
   // Fork-to-managed fields (anonymous sessions only)
   pendingFork?: {
     managedCode: string;
@@ -690,10 +689,7 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   ws.send(JSON.stringify(identityMsg));
 
   if (session.managed) {
-    // Send allowViewers / allowOpenJoin settings
-    if (session.allowViewers) {
-      ws.send(JSON.stringify({ type: 'allowViewers', allow: true } satisfies ServerMessage));
-    }
+    // Send allowOpenJoin setting
     if (session.allowOpenJoin) {
       ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: true } satisfies ServerMessage));
     }
@@ -778,23 +774,9 @@ export function requestIdentityToken(session: Session, ws: WebSocket): ServerMes
   return { type: 'identityToken', token };
 }
 
-export function setAllowViewers(session: Session, ws: WebSocket, allow: boolean): ServerMessage | null {
-  if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
-  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
-  if (!allow && session.listed && !session.allowOpenJoin) {
-    return { type: 'error', message: 'Cannot disable while session is listed. Enable "Open join" first.' };
-  }
-  session.allowViewers = allow;
-  broadcast(session, { type: 'allowViewers', allow });
-  return null;
-}
-
 export function setAllowOpenJoin(session: Session, ws: WebSocket, allow: boolean): ServerMessage | null {
   if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
-  if (!allow && session.listed && !session.allowViewers) {
-    return { type: 'error', message: 'Cannot disable while session is listed. Enable "Allow viewers" first.' };
-  }
   session.allowOpenJoin = allow;
   broadcast(session, { type: 'allowOpenJoin', allow });
   return null;
@@ -1059,7 +1041,6 @@ export function getListedSessions(): SessionSummary[] {
       name: session.name,
       description: session.description,
       managed: !!session.managed,
-      allowViewers: !!session.allowViewers,
       allowOpenJoin: !!session.allowOpenJoin,
       clientCount: session.clients.size,
       memberCount,
@@ -1091,11 +1072,6 @@ export function updateSessionSettings(
   if (session.listed && !session.name) {
     session.listed = false;
     return { type: 'error', message: 'A session name is required to be listed.' };
-  }
-
-  if (session.listed && !session.allowViewers && !session.allowOpenJoin) {
-    session.listed = false;
-    return { type: 'error', message: 'Enable "Allow viewers" or "Open join" before listing your session.' };
   }
 
   broadcast(session, {

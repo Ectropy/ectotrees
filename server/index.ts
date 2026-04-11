@@ -38,7 +38,6 @@ import {
   renameMember,
   setMemberRole,
   transferOwnership,
-  setAllowViewers,
   setAllowOpenJoin,
   createOpenJoinInvite,
   requestIdentityToken,
@@ -327,7 +326,7 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authIden
   }
 
   // Check if managed session allows anonymous connections
-  if (validatedSession.managed && !member && !validatedSession.allowViewers) {
+  if (validatedSession.managed && !member && !validatedSession.listed) {
     ws.send(JSON.stringify({ type: 'authError', reason: 'This is a private session. You need an invite link to join.', code: 'banned' }));
     ws.close(1008, 'Invite required');
     return;
@@ -642,13 +641,6 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       break;
     }
 
-    case 'setAllowViewers': {
-      const err = setAllowViewers(session, ws, msg.allow);
-      if (err) ws.send(JSON.stringify(err));
-      else log(`[managed] ${session.code} ${c} setAllowViewers ${msg.allow}`);
-      break;
-    }
-
     case 'setAllowOpenJoin': {
       const err = setAllowOpenJoin(session, ws, msg.allow);
       if (err) ws.send(JSON.stringify(err));
@@ -746,7 +738,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
   }
 
   // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowViewers', 'setAllowOpenJoin', 'updateSessionSettings']);
+  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowOpenJoin', 'updateSessionSettings']);
   const msgId = (msg as { msgId?: number }).msgId;
   if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };

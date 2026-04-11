@@ -203,11 +203,6 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     return { type: 'setMemberRole', identityToken: token, role };
   }
 
-  if (type === 'setAllowViewers') {
-    if (typeof raw.allow !== 'boolean') return { error: 'allow must be a boolean.' };
-    return { type: 'setAllowViewers', allow: raw.allow };
-  }
-
   if (type === 'setAllowOpenJoin') {
     if (typeof raw.allow !== 'boolean') return { error: 'allow must be a boolean.' };
     return { type: 'setAllowOpenJoin', allow: raw.allow };

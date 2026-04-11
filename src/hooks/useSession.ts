@@ -33,7 +33,6 @@ export interface SessionState {
   scoutWorld: number | null;        // world the linked scout is currently on (via peerWorld)
   // Managed session
   managed: boolean;
-  allowViewers: boolean;
   allowOpenJoin: boolean;
   memberName: string | null;
   memberRole: MemberRole | null;
@@ -62,7 +61,7 @@ function defaultSessionState(overrides?: Partial<SessionState>): SessionState {
     error: null, errorKind: null, reconnectAttempt: 0, reconnectAt: null,
     recentOwnWorldId: null,
     identityToken: null, scoutConnected: false, scoutWorld: null,
-    managed: false, allowViewers: false, allowOpenJoin: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
+    managed: false, allowOpenJoin: false, memberName: null, memberRole: null, members: [], lastInvite: null, forkInvite: null,
     sessionName: null, sessionDescription: null, sessionListed: false,
     ...overrides,
   };
@@ -431,9 +430,6 @@ export function useSession(onSessionLost?: () => void) {
           break;
         case 'memberList':
           setSession(prev => ({ ...prev, members: msg.members }));
-          break;
-        case 'allowViewers':
-          setSession(prev => ({ ...prev, allowViewers: msg.allow }));
           break;
         case 'allowOpenJoin':
           setSession(prev => ({ ...prev, allowOpenJoin: msg.allow }));
@@ -902,10 +898,6 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'transferOwnership', identityToken });
   }, []);
 
-  const setAllowViewersAction = useCallback((allow: boolean) => {
-    sendWsMessage({ type: 'setAllowViewers', allow });
-  }, []);
-
   const setAllowOpenJoinAction = useCallback((allow: boolean) => {
     sendWsMessage({ type: 'setAllowOpenJoin', allow });
   }, []);
@@ -985,7 +977,6 @@ export function useSession(onSessionLost?: () => void) {
     renameMember: renameMemberAction,
     setMemberRole: setMemberRoleAction,
     transferOwnership: transferOwnershipAction,
-    setAllowViewers: setAllowViewersAction,
     setAllowOpenJoin: setAllowOpenJoinAction,
     openJoin,
     updateSessionSettings: updateSessionSettingsAction,
