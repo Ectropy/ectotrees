@@ -187,9 +187,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
         )}
 
         {/* Right side: member count */}
-        {!canRejoin && (
-          <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="ml-auto" />
-        )}
+        <MemberCount clientCount={session.clientCount} scouts={session.scouts} connected={session.status === 'connected'} className="ml-auto" />
 
       </div>
     );

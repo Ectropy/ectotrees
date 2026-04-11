@@ -183,11 +183,12 @@ export function SessionView({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className={`font-mono font-bold text-base ${TEXT_COLOR.prominent} tracking-wider`}>{session.code}</span>
-                <span className={`text-xs ${TEXT_COLOR.muted}`}>
-                  (Anonymous session)
-                </span>
+                {canRejoin
+                  ? <span className="text-red-400 text-xs">— Disconnected</span>
+                  : <span className={`text-xs ${TEXT_COLOR.muted}`}>(Anonymous session)</span>
+                }
               </div>
-              <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs" />
+              <MemberCount clientCount={session.clientCount} scouts={session.scouts} connected={isConnected} className="text-xs" />
             </div>
           </div>
 
@@ -196,15 +197,12 @@ export function SessionView({
             <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
           )}
           {canRejoin && (
-            <div className="flex items-center gap-2">
-              <span className={`text-xs ${ERROR_COLOR.text}`}>Connection lost.</span>
-              <button
-                onClick={() => onRejoinSession(session.code!)}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
-              >
-                Rejoin
-              </button>
-            </div>
+            <button
+              onClick={() => onRejoinSession(session.code!)}
+              className="px-2 py-0.5 bg-transparent border border-yellow-400 text-yellow-400 hover:bg-yellow-400/20 text-xs rounded transition-colors"
+            >
+              Rejoin?
+            </button>
           )}
 
           {/* Copy buttons + share text */}
@@ -383,7 +381,7 @@ export function SessionView({
               <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              {isAdmin ? (
+              {isAdmin && isConnected ? (
                 <input
                   type="text"
                   value={nameInput}
@@ -393,11 +391,14 @@ export function SessionView({
                   maxLength={50}
                 />
               ) : (
-                <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
-                  {session.sessionName || 'Managed Session'}
-                </span>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
+                    {session.sessionName || 'Managed Session'}
+                  </span>
+                  {canRejoin && <span className="text-red-400 text-xs font-normal flex-shrink-0">— Disconnected</span>}
+                </div>
               )}
-              <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs flex-shrink-0" />
+              <MemberCount clientCount={session.clientCount} scouts={session.scouts} connected={isConnected} className="text-xs flex-shrink-0" />
             </div>
           </div>
 
@@ -406,15 +407,12 @@ export function SessionView({
             <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
           )}
           {canRejoin && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-red-400">Connection lost.</span>
-              <button
-                onClick={() => onRejoinSession(session.code!)}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
-              >
-                Rejoin
-              </button>
-            </div>
+            <button
+              onClick={() => onRejoinSession(session.code!)}
+              className="px-2 py-0.5 bg-transparent border border-yellow-400 text-yellow-400 hover:bg-yellow-400/20 text-xs rounded transition-colors"
+            >
+              Rejoin?
+            </button>
           )}
 
           {/* Description (admin only) */}

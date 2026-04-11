@@ -4,10 +4,12 @@ import { TEXT_COLOR } from '../constants/toolColors';
 interface MemberCountProps {
   clientCount: number;
   scouts: number;
+  connected: boolean;
   className?: string;
 }
 
-export function MemberCount({ clientCount, scouts, className }: MemberCountProps) {
+export function MemberCount({ clientCount, scouts, connected, className }: MemberCountProps) {
+  if (!connected) return null;
   return (
     <span className={`flex items-center gap-1.5 ${TEXT_COLOR.prominent}${className ? ` ${className}` : ''}`}>
       <Users className="w-3 h-3" />
