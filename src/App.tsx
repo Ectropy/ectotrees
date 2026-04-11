@@ -357,7 +357,6 @@ export default function App() {
         onDismissError={dismissError}
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
-        onBack={handleBack}
         onSessionStarted={() => setActiveView({ kind: 'session' })}
       />;
 
@@ -372,7 +371,6 @@ export default function App() {
         onDismissError={dismissError}
         showOnStartup={settings.showBrowseOnStartup}
         onShowOnStartupChange={v => updateSettings({ showBrowseOnStartup: v })}
-        onBack={handleBack}
         onSessionStarted={() => setActiveView({ kind: 'session' })}
       />;
       return <SessionView

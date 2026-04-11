@@ -146,12 +146,14 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   if (type === 'forkToManaged') {
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };
+    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
     return { type: 'forkToManaged', name };
   }
 
   if (type === 'selfRegister') {
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };
+    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
     const selfRegisterToken = sanitizeString(raw.selfRegisterToken);
     if (!selfRegisterToken) return { error: 'Self-registration token is required.' };
     let identityToken: string | undefined;
@@ -166,6 +168,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   if (type === 'createInvite') {
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };
+    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
     const role = raw.role;
     if (role !== undefined && role !== 'scout' && role !== 'viewer') {
       return { error: 'Invalid role.' };
@@ -190,6 +193,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     if (!token) return { error: 'Invalid identityToken.' };
     const name = sanitizeString(raw.name);
     if (!name) return { error: 'Name is required.' };
+    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
     return { type: 'renameMember', identityToken: token, name };
   }
 

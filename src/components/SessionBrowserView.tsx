@@ -15,7 +15,6 @@ interface SessionBrowserViewProps {
   onDismissError: () => void;
   showOnStartup: boolean;
   onShowOnStartupChange: (value: boolean) => void;
-  onBack: () => void;
   onSessionStarted: () => void;
 }
 

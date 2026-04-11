@@ -3,6 +3,7 @@ import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
 import type { ServerMessage, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
+import { containsProfanity } from './profanity.ts';
 import { log, warn } from './log.ts';
 
 const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
@@ -162,10 +163,6 @@ export function getSession(code: string): Session | undefined {
   return sessions.get(code);
 }
 
-export function getSessionEntries(): IterableIterator<[string, Session]> {
-  return sessions.entries();
-}
-
 export function addClient(session: Session, ws: WebSocket): number | false {
   if (session.clients.size >= MAX_CLIENTS_PER_SESSION) {
     return false;
@@ -210,10 +207,6 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   }
 
   return clientId;
-}
-
-export function getClientId(session: Session, ws: WebSocket): number | undefined {
-  return session.clientIds.get(ws);
 }
 
 export function setClientType(session: Session, ws: WebSocket, type: 'scout' | 'dashboard'): void {
@@ -627,7 +620,7 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
 }
 
 /** Look up an identity token to its session + member (for WS upgrade). */
-export function lookupIdentityToken(token: string): { session: Session; member: Member } | null {
+function lookupIdentityToken(token: string): { session: Session; member: Member } | null {
   const code = identityTokenIndex.get(token);
   if (!code) return null;
   const session = sessions.get(code);
@@ -790,6 +783,7 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   // eslint-disable-next-line no-control-regex
   const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 200);
   if (!sanitized) return { error: 'Name is required.' };
+  if (containsProfanity(sanitized)) return { error: 'Name contains inappropriate language.' };
 
   // Enforce name uniqueness (case-insensitive)
   for (const m of session.members.values()) {
