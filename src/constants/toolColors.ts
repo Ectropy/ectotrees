@@ -157,6 +157,7 @@ export const ALT1_COLOR = {
   border:      'border border-cyan-400', // bordered button style
   label:       BUTTON_LABEL_COLOR,       // label color on bordered button
   borderHover: 'hover:bg-cyan-400/20',   // subtle fill on hover
+  panelBorder: 'border border-cyan-400/50', // panel border
 } as const;
 
 /** Managed/fork session button and banner color (yellow — matches P2P world card border) */

@@ -149,7 +149,7 @@ export function SessionView({
     setListedInput(session.sessionListed);
   }
 
-  const hasSettingsChanges = nameInput !== (session.sessionName ?? '') || descInput !== (session.sessionDescription ?? '') || listedInput !== session.sessionListed;
+  const hasSettingsChanges = nameInput !== (session.sessionName ?? '') || descInput !== (session.sessionDescription ?? '');
 
   function getReconnectText(): string | null {
     if (session.status !== 'connecting') return null;
@@ -375,51 +375,51 @@ export function SessionView({
           <Users className="h-5 w-5" /> Session
         </h1>
 
-        {/* Session name line */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
-            <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
+        {/* Session panel */}
+        <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-3`}>
+          {/* Session name line */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {isAdmin ? (
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value.slice(0, 50))}
+                  placeholder="Give your session a name..."
+                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                  maxLength={50}
+                />
+              ) : (
+                <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
+                  {session.sessionName || 'Managed Session'}
+                </span>
+              )}
+              <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs flex-shrink-0" />
+            </div>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            {isAdmin ? (
-              <input
-                type="text"
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value.slice(0, 50))}
-                placeholder="Give your session a name..."
-                className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                maxLength={50}
-              />
-            ) : (
-              <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
-                {session.sessionName || 'Managed Session'}
-              </span>
-            )}
-            <MemberCount clientCount={session.clientCount} scouts={session.scouts} className="text-xs flex-shrink-0" />
-          </div>
-        </div>
 
-        {/* Connection issues */}
-        {reconnectText && (
-          <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
-        )}
-        {canRejoin && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-red-400">Connection lost.</span>
-            <button
-              onClick={() => onRejoinSession(session.code!)}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
-            >
-              Rejoin
-            </button>
-          </div>
-        )}
+          {/* Connection issues */}
+          {reconnectText && (
+            <p className={`text-xs ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</p>
+          )}
+          {canRejoin && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-400">Connection lost.</span>
+              <button
+                onClick={() => onRejoinSession(session.code!)}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+              >
+                Rejoin
+              </button>
+            </div>
+          )}
 
-        {/* Description + Settings (admin only) */}
-        {isConnected && isAdmin && (
-          <div className="space-y-3">
-            {/* Description */}
+          {/* Description (admin only) */}
+          {isConnected && isAdmin && (
             <div>
               <label className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Description <span className={TEXT_COLOR.faint}>(optional)</span></label>
               <textarea
@@ -430,38 +430,66 @@ export function SessionView({
                 maxLength={200}
               />
             </div>
+          )}
 
-            {/* Listed toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm ${TEXT_COLOR.prominent}`}>List in Session Browser</p>
-                <p className={`text-xs ${TEXT_COLOR.faint}`}>Others can find and join as viewers</p>
-              </div>
-              <Switch
-                checked={listedInput}
-                onCheckedChange={v => setListedInput(v)}
-                disabled={!nameInput.trim()}
-                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-              />
+          {/* Save button (when name/desc changed) */}
+          {isConnected && isAdmin && hasSettingsChanges && (
+            <button
+              onClick={() => {
+                onUpdateSessionSettings({ name: nameInput, description: descInput, listed: session.sessionListed });
+              }}
+              className={`w-full ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-sm py-1.5 rounded transition-colors`}
+            >
+              Save Settings
+            </button>
+          )}
+
+          {/* Non-admin: read-only description */}
+          {isConnected && session.managed && !isAdmin && session.sessionDescription && (
+            <div>
+              <span className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Description</span>
+              <p className={`text-sm ${TEXT_COLOR.prominent}`}>{session.sessionDescription}</p>
             </div>
+          )}
 
-            {/* Save button (when settings changed) */}
-            {hasSettingsChanges && (
-              <button
-                onClick={() => {
-                  if (listedInput && !session.allowViewers) onSetAllowViewers(true);
-                  onUpdateSessionSettings({ name: nameInput, description: descInput, listed: listedInput });
-                }}
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded transition-colors"
-              >
-                Save Settings
-              </button>
-            )}
+          {/* Visibility & Access (admin only) */}
+          {isConnected && isAdmin && (
+            <>
+              <hr className="border-gray-700" />
 
-            {/* Conditional sharing section — visible when listed */}
-            {listedInput && (
-              <div className="space-y-3 border-t border-gray-700 pt-3">
-                {/* Copy buttons */}
+              {/* Listed toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-sm ${TEXT_COLOR.prominent}`}>List in Session Browser</p>
+                  <p className={`text-xs ${TEXT_COLOR.faint}`}>Others can find and join as viewers</p>
+                </div>
+                <Switch
+                  checked={listedInput}
+                  onCheckedChange={v => {
+                    setListedInput(v);
+                    if (v && !session.allowViewers) onSetAllowViewers(true);
+                    onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
+                  }}
+                  disabled={!nameInput.trim()}
+                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                />
+              </div>
+
+              {/* Open Join toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-sm ${TEXT_COLOR.prominent}`}>Open Join</p>
+                  <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone can join as a scout, and self-report their name</p>
+                </div>
+                <Switch
+                  checked={session.allowOpenJoin}
+                  onCheckedChange={onSetAllowOpenJoin}
+                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                />
+              </div>
+
+              {/* Copy buttons — visible when listed */}
+              {listedInput && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <button
@@ -485,86 +513,69 @@ export function SessionView({
                   </div>
                   <p className={`text-xs ${TEXT_COLOR.faint}`}>Share to invite others to view this session.</p>
                 </div>
+              )}
+            </>
+          )}
+        </div>
 
-                {/* Open Join toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm ${TEXT_COLOR.prominent}`}>Open Join</p>
-                    <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone can join as a scout, and self-report their name</p>
-                  </div>
-                  <Switch
-                    checked={session.allowOpenJoin}
-                    onCheckedChange={onSetAllowOpenJoin}
-                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-                  />
-                </div>
+
+
+        {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
+        {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
+          <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
+            {alt1Expanded && session.identityToken ? (
+              <Alt1LinkedSection
+                identityToken={session.identityToken}
+                scoutWorld={session.scoutWorld}
+                followScout={followScout}
+                onFollowScoutChange={onFollowScoutChange}
+                tokenCopied={tokenCopied}
+                copyToken={copyToken}
+              />
+            ) : session.managed && session.identityToken ? (
+              /* Managed sessions auto-have a token (it's the invite token) — show linked state directly */
+              <Alt1LinkedSection
+                identityToken={session.identityToken}
+                scoutWorld={session.scoutWorld}
+                followScout={followScout}
+                onFollowScoutChange={onFollowScoutChange}
+                tokenCopied={tokenCopied}
+                copyToken={copyToken}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (session.identityToken) {
+                      setAlt1Expanded(true);
+                    } else if (!session.managed) {
+                      onRequestIdentityToken();
+                      setAlt1Expanded(true);
+                    }
+                  }}
+                  className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
+                >
+                  {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
+                </button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="right">
+                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
         )}
 
-        {/* Non-admin: read-only description */}
-        {isConnected && session.managed && !isAdmin && session.sessionDescription && (
-          <div>
-            <span className={`text-xs ${TEXT_COLOR.muted} block mb-1`}>Description</span>
-            <p className={`text-sm ${TEXT_COLOR.prominent}`}>{session.sessionDescription}</p>
-          </div>
-        )}
-
-        {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
-        {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
-          alt1Expanded && session.identityToken ? (
-            <Alt1LinkedSection
-              identityToken={session.identityToken}
-              scoutWorld={session.scoutWorld}
-              followScout={followScout}
-              onFollowScoutChange={onFollowScoutChange}
-              tokenCopied={tokenCopied}
-              copyToken={copyToken}
-            />
-          ) : session.managed && session.identityToken ? (
-            /* Managed sessions auto-have a token (it's the invite token) — show linked state directly */
-            <Alt1LinkedSection
-              identityToken={session.identityToken}
-              scoutWorld={session.scoutWorld}
-              followScout={followScout}
-              onFollowScoutChange={onFollowScoutChange}
-              tokenCopied={tokenCopied}
-              copyToken={copyToken}
-            />
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (session.identityToken) {
-                    setAlt1Expanded(true);
-                  } else if (!session.managed) {
-                    onRequestIdentityToken();
-                    setAlt1Expanded(true);
-                  }
-                }}
-                className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
-              >
-                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
-              </button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
-                    <HelpCircle className="w-4 h-4" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent side="right">
-                  <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                  <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )
-        )}
-
         {/* Members */}
         {isConnected && (
-          <div className="space-y-2">
+          <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
             <h2 className={`text-sm font-medium ${TEXT_COLOR.prominent} flex items-center gap-1.5`}>
               <Users className="w-4 h-4" /> Members
             </h2>
