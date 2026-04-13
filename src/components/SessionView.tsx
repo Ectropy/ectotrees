@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2, Users, Copy, Check, ExternalLink, HelpCircle } from 'lucide-react';
+import { Link, Unlink, Link2, Users, Copy, Check, ExternalLink, HelpCircle } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
 import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
@@ -232,47 +232,6 @@ export function SessionView({
             </div>
           )}
 
-          {/* Link with Alt1 */}
-          {isConnected && (
-            alt1Expanded && session.identityToken ? (
-              <Alt1LinkedSection
-                identityToken={session.identityToken}
-                scoutWorld={session.scoutWorld}
-                followScout={followScout}
-                onFollowScoutChange={onFollowScoutChange}
-                tokenCopied={tokenCopied}
-                copyToken={copyToken}
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (session.identityToken) {
-                      setAlt1Expanded(true);
-                    } else {
-                      onRequestIdentityToken();
-                      setAlt1Expanded(true);
-                    }
-                  }}
-                  className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
-                >
-                  Link with Alt1 →
-                </button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
-                      <HelpCircle className="w-4 h-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent side="right">
-                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )
-          )}
-
           {/* Fork to Managed Session */}
           {isConnected && (
             session.forkInvite && session.forkInvite.selfRegisterToken && !forkDismissed && (forkCountdown === null || forkCountdown > 0) ? (
@@ -315,6 +274,49 @@ export function SessionView({
                       <li>New members must join via a personal invite link</li>
                       <li>Each member has a username and role (Owner, Moderator, Scout, Viewer)</li>
                     </ul>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )
+          )}
+
+          {/* Link with Alt1 */}
+          {isConnected && (
+            alt1Expanded && session.identityToken ? (
+              <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
+                <Alt1LinkedSection
+                  identityToken={session.identityToken}
+                  scoutWorld={session.scoutWorld}
+                  followScout={followScout}
+                  onFollowScoutChange={onFollowScoutChange}
+                  tokenCopied={tokenCopied}
+                  copyToken={copyToken}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (session.identityToken) {
+                      setAlt1Expanded(true);
+                    } else {
+                      onRequestIdentityToken();
+                      setAlt1Expanded(true);
+                    }
+                  }}
+                  className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
+                >
+                  Link with Alt1 →
+                </button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="right">
+                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -518,8 +520,8 @@ export function SessionView({
 
         {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
         {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
-          <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
-            {alt1Expanded && session.identityToken ? (
+          session.identityToken && (alt1Expanded || session.managed) ? (
+            <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
               <Alt1LinkedSection
                 identityToken={session.identityToken}
                 scoutWorld={session.scoutWorld}
@@ -528,45 +530,35 @@ export function SessionView({
                 tokenCopied={tokenCopied}
                 copyToken={copyToken}
               />
-            ) : session.managed && session.identityToken ? (
-              /* Managed sessions auto-have a token (it's the invite token) — show linked state directly */
-              <Alt1LinkedSection
-                identityToken={session.identityToken}
-                scoutWorld={session.scoutWorld}
-                followScout={followScout}
-                onFollowScoutChange={onFollowScoutChange}
-                tokenCopied={tokenCopied}
-                copyToken={copyToken}
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (session.identityToken) {
-                      setAlt1Expanded(true);
-                    } else if (!session.managed) {
-                      onRequestIdentityToken();
-                      setAlt1Expanded(true);
-                    }
-                  }}
-                  className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
-                >
-                  {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
-                </button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
-                      <HelpCircle className="w-4 h-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent side="right">
-                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (session.identityToken) {
+                    setAlt1Expanded(true);
+                  } else if (!session.managed) {
+                    onRequestIdentityToken();
+                    setAlt1Expanded(true);
+                  }
+                }}
+                className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
+              >
+                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
+              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="right">
+                  <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+                  <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )
         )}
 
         {/* Members */}
@@ -637,16 +629,21 @@ function Alt1LinkedSection({
 }) {
   return (
     <div className="space-y-2">
+      <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
       <div className="flex items-center gap-2">
-        <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 code:</span>
+        {scoutWorld !== null
+          ? <Link className={`w-3.5 h-3.5 ${ALT1_COLOR.text}`} />
+          : <Unlink className="w-3.5 h-3.5 text-gray-500" />
+        }
         <span className={`font-mono font-bold ${ALT1_COLOR.text} tracking-wider text-base`}>{identityToken}</span>
         <button
           onClick={() => copyToken(buildIdentityUrl(identityToken))}
-          className={`flex items-center gap-1 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+          className={`flex items-center ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+          title="Copy Alt1 link"
         >
           {tokenCopied
-            ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-            : <><Copy className="w-3 h-3" /><span>Copy</span></>
+            ? <Check className="w-3 h-3 text-green-400" />
+            : <Copy className="w-3 h-3" />
           }
         </button>
       </div>

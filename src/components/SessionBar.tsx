@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Circle, LoaderCircle, CircleX, Link, Unlink, Copy, Check } from 'lucide-react';
+import { Circle, LoaderCircle, CircleX, Copy, Check } from 'lucide-react';
 import { SplitButton, SplitButtonSegment } from './ui/split-button';
+import { Alt1TokenButton } from './Alt1TokenButton';
 import type { SessionState, SessionStatus } from '../hooks/useSession';
 import { buildSessionUrl, buildIdentityUrl } from '../lib/sessionUrl';
 import { useCountdown } from '../hooks/useCountdown';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, ALT1_BORDER_COLOR, ALT1_DIVIDE_COLOR, ALT1_HOVER_BG, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { MemberCount } from './MemberCount';
 
 interface SessionBarProps {
@@ -106,35 +107,13 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
 
         {/* Alt1 Scout link — token display when connected and have token */}
         {isConnected && !canRejoin && session.identityToken && (
-          <SplitButton
-            borderClass={ALT1_BORDER_COLOR}
-            divideClass={ALT1_DIVIDE_COLOR}
-            hoverClass={ALT1_HOVER_BG}
-          >
-            <SplitButtonSegment
-              className="gap-1.5"
-              onClick={() => { copyToken(buildIdentityUrl(session.identityToken!)); onOpenSession(); }}
-              title="Copy Alt1 link & open session panel"
-            >
-              {session.scoutConnected
-                ? <Link className={`w-3 h-3 ${ALT1_COLOR.text}`} />
-                : <Unlink className="w-3 h-3 text-gray-500" />
-              }
-              <span className="font-mono font-bold text-white tracking-wider">
-                {session.identityToken}
-              </span>
-            </SplitButtonSegment>
-            <SplitButtonSegment
-              className="px-1.5"
-              onClick={() => copyToken(buildIdentityUrl(session.identityToken!))}
-              title="Copy Alt1 link"
-            >
-              {tokenCopied
-                ? <Check className="w-3 h-3 text-green-400" />
-                : <Copy className="w-3 h-3" />
-              }
-            </SplitButtonSegment>
-          </SplitButton>
+          <Alt1TokenButton
+            identityToken={session.identityToken}
+            scoutConnected={session.scoutConnected ?? false}
+            tokenCopied={tokenCopied}
+            onCopy={() => copyToken(buildIdentityUrl(session.identityToken!))}
+            onOpen={onOpenSession}
+          />
         )}
 
         {/* Link with Alt1 button — when no personal token and not in managed mode */}
