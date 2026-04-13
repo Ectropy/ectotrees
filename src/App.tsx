@@ -244,6 +244,16 @@ export default function App() {
     setActiveView({ kind: 'detail', worldId: currentScoutWorld });
   }, [currentScoutWorld, settings.followScout]);
 
+  // New identity token = new Alt1 link; opt the user back in to following the scout.
+  const prevIdentityTokenRef = useRef(session.identityToken);
+  useEffect(() => {
+    const prev = prevIdentityTokenRef.current;
+    prevIdentityTokenRef.current = session.identityToken;
+    if (session.identityToken !== null && session.identityToken !== prev && !settings.followScout) {
+      updateSettings({ followScout: true });
+    }
+  }, [session.identityToken, settings.followScout, updateSettings]);
+
   const sortedFilteredWorlds = useFilteredWorlds(worlds, worldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {

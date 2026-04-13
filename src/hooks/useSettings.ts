@@ -18,7 +18,7 @@ const DEFAULTS: AppSettings = {
   showBrowseOnStartup: true,
   sidebarEnabled: false,
   sidebarSide: 'right',
-  followScout: false,
+  followScout: true,
 };
 
 function loadSettings(): AppSettings {
@@ -36,7 +36,7 @@ function loadSettings(): AppSettings {
       showBrowseOnStartup: typeof p?.showBrowseOnStartup === 'boolean' ? p.showBrowseOnStartup : true,
       sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : false,
       sidebarSide: p?.sidebarSide === 'left' ? 'left' : 'right',
-      followScout: typeof p?.followScout === 'boolean' ? p.followScout : false,
+      followScout: typeof p?.followScout === 'boolean' ? p.followScout : true,
     };
   } catch { return DEFAULTS; }
 }
