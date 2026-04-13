@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { copyToClipboard } from '../lib/utils';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
 import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS, MANAGED_COLOR, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -21,6 +21,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'scout' | 'viewer'>('scout');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const { copy: copyLink } = useCopyFeedback(1500);
   const [confirmBan, setConfirmBan] = useState<string | null>(null);
   const isAdmin = myRole === 'owner' || myRole === 'moderator';
 
@@ -39,7 +40,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
   }
 
   async function handleCopyLink(link: string, token: string) {
-    const ok = await copyToClipboard(link);
+    const ok = await copyLink(link);
     if (ok) {
       setCopiedToken(token);
       setTimeout(() => setCopiedToken(prev => prev === token ? null : prev), 1500);
