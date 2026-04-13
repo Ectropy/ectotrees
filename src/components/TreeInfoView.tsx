@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { TreeDeciduous } from 'lucide-react';
-import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint, resolveExactLocation, hintForLocation } from '../constants/evilTree';
+import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint } from '../constants/evilTree';
 import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useLocationHint } from '../hooks/useLocationHint';
 import { useSettings } from '../hooks/useSettings';
 import { ToolView } from './ToolView';
 import { LightningEffect } from './LightningEffect';
@@ -31,8 +32,10 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const { settings } = useSettings();
 
   const [treeType, setTreeType] = useState<TreeType | null>(existingState?.treeType ?? null);
-  const [hint, setHint] = useState(existingState?.treeHint ?? '');
-  const [exactLocation, setExactLocation] = useState(existingState?.treeExactLocation ?? '');
+  const { hint, exactLocation, handleHintChange, handleExactLocationChange } = useLocationHint(
+    existingState?.treeHint ?? '',
+    existingState?.treeExactLocation ?? '',
+  );
   const [health, setHealth] = useState<number | null>(existingState?.treeHealth ?? null);
   const [lightningPreset, setLightningPreset] = useState<50 | 25 | undefined>(undefined);
   const [lightningSeq, setLightningSeq] = useState(0);
@@ -47,23 +50,6 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   const availableLocations = hint ? locationsForHint(hint) : allLocations;
   const isStrangeSapling = treeType != null && (treeType === 'sapling' || treeType.startsWith('sapling-'));
   const saplingTypeOptions = ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'];
-
-  function handleExactLocationChange(loc: string) {
-    setExactLocation(loc);
-    if (loc && !hint) {
-      const derived = hintForLocation(loc);
-      if (derived) setHint(derived);
-    }
-  }
-
-  function handleHintChange(newHint: string) {
-    setHint(newHint);
-    if (exactLocation && !locationsForHint(newHint).includes(exactLocation)) {
-      setExactLocation('');
-    } else {
-      setExactLocation(resolveExactLocation(newHint));
-    }
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
