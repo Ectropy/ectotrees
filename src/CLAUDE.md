@@ -37,9 +37,6 @@ src/
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden
     StatusSection.tsx    # Compact in-card status display with countdowns
-    SpawnTimerTool.tsx   # Timer icon button — navigates to SpawnTimerView
-    TreeInfoTool.tsx     # TreeDeciduous icon button — navigates to TreeInfoView
-    TreeDeadTool.tsx     # Skull icon button — navigates to TreeDeadView
     ViewHeader.tsx       # Shared view header: icon + title + "World {id} · type badge" subtitle
     SpawnTimerView.tsx   # Full-screen/sidebar: set spawn countdown + optional location hint
     TreeInfoView.tsx     # Full-screen/sidebar: record tree type, hint, exact location, health

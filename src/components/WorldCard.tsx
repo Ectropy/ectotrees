@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Star, EyeOff } from 'lucide-react';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { Star, EyeOff, Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, ERROR_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
 import { StatusSection } from './StatusSection';
-import { SpawnTimerTool } from './SpawnTimerTool';
-import { TreeInfoTool } from './TreeInfoTool';
-import { TreeDeadTool } from './TreeDeadTool';
+import { ToolButton } from './ToolButton';
 import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
 
@@ -122,9 +120,9 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           className="flex items-center justify-around px-1 pb-1 flex-shrink-0"
           onClick={e => e.stopPropagation()}
         >
-          <SpawnTimerTool onClick={() => onOpenTool('spawn')} />
-          <TreeInfoTool onClick={() => onOpenTool('tree')} />
-          <TreeDeadTool onClick={() => onOpenTool('dead')} />
+          <ToolButton icon={Timer} title="Set spawn timer" toolHover={SPAWN_COLOR.borderHover} toolHoverBorder={SPAWN_COLOR.borderHoverBorder} onClick={() => onOpenTool('spawn')} />
+          <ToolButton icon={TreeDeciduous} title="Set tree info" toolHover={TREE_COLOR.borderHover} toolHoverBorder={TREE_COLOR.borderHoverBorder} onClick={() => onOpenTool('tree')} />
+          <ToolButton icon={Skull} title="Mark tree as dead" toolHover={DEAD_COLOR.borderHover} toolHoverBorder={DEAD_COLOR.borderHoverBorder} onClick={() => onOpenTool('dead')} />
         </div>
       )}
       {lightningEvent && (effectsLightning ?? true) && (
