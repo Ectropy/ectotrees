@@ -29,26 +29,31 @@ function sanitizeString(s: unknown): string | null {
   return clean;
 }
 
-/** Empty string is allowed (clears the field). Non-empty must be a canonical hint. */
-function validateHint(s: unknown): string | null {
+/** Validates a required text field: must be non-empty after sanitization and contain no profanity. */
+function requireCleanText(raw: unknown, fieldLabel = 'Name'): string | { error: string } {
+  const clean = sanitizeString(raw);
+  if (!clean) return { error: `${fieldLabel} is required.` };
+  if (containsProfanity(clean)) return { error: `${fieldLabel} contains inappropriate language.` };
+  return clean;
+}
+
+/** Empty string is allowed (clears the field). Non-empty must exist in the allowlist. */
+function validateFromAllowlist(s: unknown, allowlist: Set<string>, fieldName: string): string | null {
   const clean = sanitizeString(s);
   if (clean === null) return null;
-  if (clean !== '' && !VALID_HINTS.has(clean)) {
-    warn(`[validation] rejected treeHint not in allowlist: "${String(s).slice(0, 100)}"`);
+  if (clean !== '' && !allowlist.has(clean)) {
+    warn(`[validation] rejected ${fieldName} not in allowlist: "${String(s).slice(0, 100)}"`);
     return null;
   }
   return clean;
 }
 
-/** Empty string is allowed (clears the field). Non-empty must be a canonical exact location. */
+function validateHint(s: unknown): string | null {
+  return validateFromAllowlist(s, VALID_HINTS, 'treeHint');
+}
+
 function validateExactLocation(s: unknown): string | null {
-  const clean = sanitizeString(s);
-  if (clean === null) return null;
-  if (clean !== '' && !VALID_EXACT_LOCATIONS.has(clean)) {
-    warn(`[validation] rejected treeExactLocation not in allowlist: "${String(s).slice(0, 100)}"`);
-    return null;
-  }
-  return clean;
+  return validateFromAllowlist(s, VALID_EXACT_LOCATIONS, 'treeExactLocation');
 }
 
 const VALID_TREE_STATUSES = new Set(['none', 'sapling', 'mature', 'alive', 'dead']);
@@ -144,16 +149,14 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   }
 
   if (type === 'forkToManaged') {
-    const name = sanitizeString(raw.name);
-    if (!name) return { error: 'Name is required.' };
-    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
+    const name = requireCleanText(raw.name);
+    if (typeof name !== 'string') return name;
     return { type: 'forkToManaged', name };
   }
 
   if (type === 'selfRegister') {
-    const name = sanitizeString(raw.name);
-    if (!name) return { error: 'Name is required.' };
-    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
+    const name = requireCleanText(raw.name);
+    if (typeof name !== 'string') return name;
     const selfRegisterToken = sanitizeString(raw.selfRegisterToken);
     if (!selfRegisterToken) return { error: 'Self-registration token is required.' };
     let identityToken: string | undefined;
@@ -166,9 +169,8 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   }
 
   if (type === 'createInvite') {
-    const name = sanitizeString(raw.name);
-    if (!name) return { error: 'Name is required.' };
-    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
+    const name = requireCleanText(raw.name);
+    if (typeof name !== 'string') return name;
     const role = raw.role;
     if (role !== undefined && role !== 'scout' && role !== 'viewer') {
       return { error: 'Invalid role.' };
@@ -191,9 +193,8 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   if (type === 'renameMember') {
     const token = validateIdentityToken(raw.identityToken);
     if (!token) return { error: 'Invalid identityToken.' };
-    const name = sanitizeString(raw.name);
-    if (!name) return { error: 'Name is required.' };
-    if (containsProfanity(name)) return { error: 'Name contains inappropriate language.' };
+    const name = requireCleanText(raw.name);
+    if (typeof name !== 'string') return name;
     return { type: 'renameMember', identityToken: token, name };
   }
 
