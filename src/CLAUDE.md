@@ -23,14 +23,12 @@ src/
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
-    useFavorites.ts     # Favorite worlds persisted to localStorage
     useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
     useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
     useCopyFeedback.ts  # Returns { copied, copy(text) } — copy writes to clipboard, copied flips true for 2s
-    useHiddenWorlds.ts  # Hidden worlds persisted to localStorage (evilTree_hiddenWorlds); toggle per-world visibility
-    useStoredSet.ts     # Generic localStorage-backed Set<number> hook (used by useFavorites, useHiddenWorlds)
+    useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
     useNow.ts           # Reactive timestamp primitive (returns Date.now() as state, re-ticks every interval ms)
     useSessionBrowser.ts # Fetches GET /api/sessions and returns sorted SessionSummary[]; sort modes: 'newest' | 'active' | 'members'

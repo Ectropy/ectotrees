@@ -5,8 +5,7 @@ import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/too
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
-import { useFavorites } from './hooks/useFavorites';
-import { useHiddenWorlds } from './hooks/useHiddenWorlds';
+import { useStoredSet } from './hooks/useStoredSet';
 import { useIsMobile } from './hooks/useIsMobile';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
@@ -70,8 +69,8 @@ export default function App() {
       (worldId: number, kind?: string) => triggerLightningRef.current(worldId, (kind ?? 'lightning1') as import('./hooks/useWorldStates').LightningKind);
     return () => { delete (window as unknown as Record<string, unknown>).__triggerLightning; };
   }, []);
-  const { favorites, toggleFavorite } = useFavorites();
-  const { hiddenWorlds, toggleHidden } = useHiddenWorlds();
+  const { set: favorites, toggle: toggleFavorite } = useStoredSet('evilTree_favorites');
+  const { set: hiddenWorlds, toggle: toggleHidden } = useStoredSet('evilTree_hiddenWorlds');
   const { settings, updateSettings } = useSettings();
   const isMobile = useIsMobile();
 
