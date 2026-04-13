@@ -836,12 +836,27 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   return { type: 'inviteCreated', identityToken, name, link };
 }
 
-export function banMember(session: Session, ws: WebSocket, identityToken: string): ServerMessage | null {
+/**
+ * Shared guard for admin member operations: verifies the session is managed,
+ * that the caller is an admin, and that the target member exists.
+ * Returns the member on success, or an error ServerMessage on failure.
+ */
+function ensureManagedAdmin(
+  session: Session,
+  ws: WebSocket,
+  identityToken: string,
+): { member: Member } | ServerMessage {
   if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
-
   const member = session.members.get(identityToken);
   if (!member) return { type: 'error', message: 'Member not found.' };
+  return { member };
+}
+
+export function banMember(session: Session, ws: WebSocket, identityToken: string): ServerMessage | null {
+  const guard = ensureManagedAdmin(session, ws, identityToken);
+  if ('type' in guard) return guard;
+  const { member } = guard;
 
   // Cannot ban the owner
   if (member.role === 'owner') return { type: 'error', message: 'Cannot ban the owner.' };
@@ -875,11 +890,9 @@ export function banMember(session: Session, ws: WebSocket, identityToken: string
 }
 
 export function kickMember(session: Session, ws: WebSocket, identityToken: string): ServerMessage | null {
-  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
-  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
-
-  const member = session.members.get(identityToken);
-  if (!member) return { type: 'error', message: 'Member not found.' };
+  const guard = ensureManagedAdmin(session, ws, identityToken);
+  if ('type' in guard) return guard;
+  const { member } = guard;
 
   if (member.role === 'owner') return { type: 'error', message: 'Cannot kick the owner.' };
 
@@ -911,11 +924,9 @@ export function kickMember(session: Session, ws: WebSocket, identityToken: strin
 }
 
 export function renameMember(session: Session, ws: WebSocket, identityToken: string, name: string): ServerMessage | null {
-  if (!session.managed || !session.members) return { type: 'error', message: 'Session is not managed.' };
-  if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
-
-  const member = session.members.get(identityToken);
-  if (!member) return { type: 'error', message: 'Member not found.' };
+  const guard = ensureManagedAdmin(session, ws, identityToken);
+  if ('type' in guard) return guard;
+  const { member } = guard;
 
   // Moderators cannot rename owner or other moderators
   const callerRole = getMemberRole(session, ws);
