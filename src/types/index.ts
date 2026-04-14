@@ -4,7 +4,6 @@ export type {
   WorldStates,
   TreeInfoPayload,
   TreeFieldsPayload,
-  SpawnTreeInfo,
 } from '../../shared/types.ts';
 
 export interface WorldConfig {

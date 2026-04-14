@@ -62,7 +62,3 @@ export interface TreeFieldsPayload {
   lightningPreset?: 50 | 25;
 }
 
-export interface SpawnTreeInfo {
-  treeHint?: string;
-  treeExactLocation?: string;
-}

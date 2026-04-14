@@ -5,7 +5,7 @@ import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColo
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ToolView } from './ToolView';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
-import type { WorldConfig, SpawnTreeInfo } from '../types';
+import type { WorldConfig } from '../types';
 import { SelectCombobox } from './ui/select-combobox';
 
 const HOUR_VALUES = Array.from({ length: 2 }, (_, i) => i);      // [0..1]
@@ -36,7 +36,7 @@ function commitNumericInput(text: string, fallback: number, validValues: number[
 
 interface Props {
   world: WorldConfig;
-  onSubmit: (msFromNow: number, treeInfo?: SpawnTreeInfo) => void;
+  onSubmit: (msFromNow: number, treeInfo?: { treeHint?: string; treeExactLocation?: string }) => void;
   onBack: () => void;
 }
 
@@ -95,7 +95,7 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
     const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
     if (totalMs <= 0) return;
     const resolved = hint ? resolveExactLocation(hint) : '';
-    const treeInfo: SpawnTreeInfo | undefined = hint
+    const treeInfo = hint
       ? { treeHint: hint, treeExactLocation: resolved || undefined }
       : undefined;
     onSubmit(totalMs, treeInfo);

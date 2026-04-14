@@ -1,4 +1,4 @@
-import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from './types.ts';
+import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload } from './types.ts';
 import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, ALIVE_TREE_TYPES, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from './types.ts';
 
 export function applyTransitions(states: WorldStates, now: number): WorldStates {
@@ -107,7 +107,7 @@ export function applySetSpawnTimer(
   worldId: number,
   msFromNow: number,
   now: number,
-  treeInfo?: SpawnTreeInfo,
+  treeInfo?: { treeHint?: string; treeExactLocation?: string },
 ): WorldStates {
   return {
     ...states,

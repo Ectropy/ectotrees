@@ -10,7 +10,7 @@ src/
   constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY)
   constants/__tests__/
     evilTree.test.ts     # Vitest unit tests for evilTree helpers
-  types/index.ts         # Re-exports from shared/types.ts (incl. SpawnTreeInfo)
+  types/index.ts         # Re-exports from shared/types.ts
   types/global.d.ts      # Global type declarations (e.g. __triggerLightning)
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)

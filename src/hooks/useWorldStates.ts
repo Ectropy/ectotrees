@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import type { WorldStates, TreeInfoPayload, TreeFieldsPayload, SpawnTreeInfo } from '../types';
+import type { WorldStates, TreeInfoPayload, TreeFieldsPayload } from '../types';
 import { HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from '../../shared/types.ts';
 import type { SyncChannel } from './useSession';
 import {
@@ -134,7 +134,7 @@ export function useWorldStates(sync?: SyncChannel | null) {
     });
   });
 
-  const setSpawnTimer = useCallback((worldId: number, msFromNow: number, treeInfo?: SpawnTreeInfo) => {
+  const setSpawnTimer = useCallback((worldId: number, msFromNow: number, treeInfo?: { treeHint?: string; treeExactLocation?: string }) => {
     setWorldStates(prev => applySetSpawnTimer(prev, worldId, msFromNow, Date.now(), treeInfo));
     sync?.sendMutation({ type: 'setSpawnTimer', worldId, msFromNow, treeInfo });
   }, [sync]);
