@@ -836,6 +836,14 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   return { type: 'inviteCreated', identityToken, name, link };
 }
 
+/** Sends a message to all open WebSocket connections belonging to a member. */
+function notifyMember(member: Member, msg: ServerMessage) {
+  const json = JSON.stringify(msg);
+  for (const ws of member.connections) {
+    if (ws.readyState === 1) ws.send(json);
+  }
+}
+
 /**
  * Shared guard for admin member operations: verifies the session is managed,
  * that the caller is an admin, and that the target member exists.
@@ -942,11 +950,7 @@ export function renameMember(session: Session, ws: WebSocket, identityToken: str
   member.name = name;
 
   // Notify the renamed member of their new identity
-  for (const memberWs of member.connections) {
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'identity', name, role: member.role, sessionCode: session.code } satisfies ServerMessage));
-    }
-  }
+  notifyMember(member, { type: 'identity', name, role: member.role, sessionCode: session.code });
 
   broadcastMemberList(session);
   return null;
@@ -975,11 +979,7 @@ export function setMemberRole(session: Session, ws: WebSocket, identityToken: st
   member.role = role;
 
   // Notify the member of their new role
-  for (const memberWs of member.connections) {
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'identity', name: member.name, role, sessionCode: session.code } satisfies ServerMessage));
-    }
-  }
+  notifyMember(member, { type: 'identity', name: member.name, role, sessionCode: session.code });
 
   broadcastMemberList(session);
   return null;
@@ -999,22 +999,14 @@ export function transferOwnership(session: Session, ws: WebSocket, identityToken
     const currentOwner = session.members.get(callerToken);
     if (currentOwner) {
       currentOwner.role = 'moderator';
-      for (const ownerWs of currentOwner.connections) {
-        if (ownerWs.readyState === 1) {
-          ownerWs.send(JSON.stringify({ type: 'identity', name: currentOwner.name, role: 'moderator', sessionCode: session.code } satisfies ServerMessage));
-        }
-      }
+      notifyMember(currentOwner, { type: 'identity', name: currentOwner.name, role: 'moderator', sessionCode: session.code });
     }
   }
 
   // Promote new owner
   newOwner.role = 'owner';
   session.ownerToken = identityToken;
-  for (const newOwnerWs of newOwner.connections) {
-    if (newOwnerWs.readyState === 1) {
-      newOwnerWs.send(JSON.stringify({ type: 'identity', name: newOwner.name, role: 'owner', sessionCode: session.code } satisfies ServerMessage));
-    }
-  }
+  notifyMember(newOwner, { type: 'identity', name: newOwner.name, role: 'owner', sessionCode: session.code });
 
   broadcastMemberList(session);
   return null;
