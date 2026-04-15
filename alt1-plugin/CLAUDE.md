@@ -16,7 +16,7 @@ alt1-plugin/src/
     useAlt1.ts          # Alt1 API access: isAlt1, hasPixel, hasGameState, scanWorld(), scanDialog()
     useCountdown.ts     # Countdown timer hook (local copy of main app's useCountdown)
   components/
-    SessionPanel.tsx    # Session connect/join/create UI + invite token input
+    SessionPanel.tsx    # Session connect/join/create UI + invite token input + identity-link copy button (uses shared-browser/useCopyFeedback, buildIdentityUrl with basePath='/')
     WorldInput.tsx      # World number field with manual scan button + auto-world toggle
     ReportForm.tsx      # Spawn timer (hr/min) + hint field + scan/auto-scan/auto-submit controls
     DebugPanel.tsx      # Dev-only debug overlay (rendered in development mode only)
@@ -33,3 +33,4 @@ alt1-plugin/src/
 - **Auto-scan** (toggleable, persisted as `scout_autoScan`): watches `alt1.rsLastActive` for RS clicks; retries scan every 300ms in the 150–800ms window after a click to catch the dialog as soon as it renders
 - **Auto-submit** (toggleable, persisted as `scout_autoSubmit`): starts a 10s countdown when world + timer + hint are all filled in; payload is snapshotted at countdown start so world hops during the countdown don't corrupt the submission; cancel by clicking the auto-submit button or clearing a field
 - **ACK-driven UX**: submit button shows "Submitting..." until server `ack` is received; disconnect before ack shows an error; fields auto-clear on successful ack (only if unchanged since submit)
+- **Copy identity link** (recovery): a `Copy` icon next to the connected member name copies the identity URL (`${origin}/#identity=TOKEN`) so users — especially session owners — can recover access without the dashboard. Pins the URL path to `/` via `buildIdentityUrl(token, '/')` so the copied link opens the dashboard root, not `/alt1/`.

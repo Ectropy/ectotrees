@@ -14,13 +14,15 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@shared-browser/*": ["../shared-browser/*"]
     }
   },
   "include": [
     "src/**/*",
     "../shared/types.ts",
-    "../shared/protocol.ts"
+    "../shared/protocol.ts",
+    "../shared-browser/**/*"
   ],
   "exclude": ["node_modules", "dist"]
 }

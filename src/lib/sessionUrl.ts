@@ -34,8 +34,3 @@ export function extractSessionCode(raw: string): string {
 export function buildSessionUrl(code: string): string {
   return `${window.location.origin}${window.location.pathname}#join=${code}`;
 }
-
-/** Builds a shareable identity URL for the given identity token. */
-export function buildIdentityUrl(token: string): string {
-  return `${window.location.origin}${window.location.pathname}#identity=${token}`;
-}

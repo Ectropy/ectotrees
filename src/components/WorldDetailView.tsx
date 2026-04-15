@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Star, EyeOff, Pencil, Timer, TreeDeciduous, Skull, Copy, Check } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { buildWorldIntel } from '../lib/intelCopy';
-import { useCopyFeedback } from '../hooks/useCopyFeedback';
+import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';

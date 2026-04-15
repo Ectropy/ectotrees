@@ -22,8 +22,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared-browser/*": ["./shared-browser/*"]
     }
   },
-  "include": ["src", "shared"]
+  "include": ["src", "shared", "shared-browser"]
 }

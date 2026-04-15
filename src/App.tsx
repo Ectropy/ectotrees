@@ -28,7 +28,7 @@ import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
 import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_KEY, FILTER_STORAGE_KEY } from './hooks/useFilteredWorlds';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
-import { useCopyFeedback } from './hooks/useCopyFeedback';
+import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 
 const worlds = worldsConfig.worlds as WorldConfig[];
 

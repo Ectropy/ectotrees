@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: [
         { find: '@shared', replacement: path.resolve(__dirname, '../shared') },
+        { find: '@shared-browser', replacement: path.resolve(__dirname, '../shared-browser') },
         { find: /^sharp(?:\/.*)?$/, replacement: emptyModule },
         { find: /^canvas(?:\/.*)?$/, replacement: emptyModule },
         { find: /^electron\/common$/, replacement: emptyModule },

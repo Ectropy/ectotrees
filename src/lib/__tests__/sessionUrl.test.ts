@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { extractSessionCode, buildIdentityUrl } from '../sessionUrl';
+import { extractSessionCode } from '../sessionUrl';
+import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 
 describe('extractSessionCode', () => {
   // ── Plain codes ────────────────────────────────────────────────────────────
@@ -66,23 +67,33 @@ describe('extractSessionCode', () => {
 });
 
 describe('buildIdentityUrl', () => {
-  it('builds a fragment-based identity URL', () => {
-    // Provide a minimal window.location for the test environment
-    const origLocation = globalThis.window?.location;
+  function withWindowLocation(origin: string, pathname: string, fn: () => void) {
+    const orig = globalThis.window?.location;
     Object.defineProperty(globalThis, 'window', {
-      value: { location: { origin: 'https://ectotrees.app', pathname: '/' } },
+      value: { location: { origin, pathname } },
       writable: true,
       configurable: true,
     });
     try {
-      const url = buildIdentityUrl('ABCD1234EF56');
-      expect(url).toBe('https://ectotrees.app/#identity=ABCD1234EF56');
+      fn();
     } finally {
-      if (origLocation) {
-        Object.defineProperty(globalThis.window, 'location', { value: origLocation, writable: true, configurable: true });
+      if (orig) {
+        Object.defineProperty(globalThis.window, 'location', { value: orig, writable: true, configurable: true });
       } else {
         delete (globalThis as Record<string, unknown>).window;
       }
     }
+  }
+
+  it('builds a fragment-based identity URL using window.location.pathname by default', () => {
+    withWindowLocation('https://ectotrees.app', '/', () => {
+      expect(buildIdentityUrl('ABCD1234EF56')).toBe('https://ectotrees.app/#identity=ABCD1234EF56');
+    });
+  });
+
+  it('overrides the path when basePath is passed (Alt1 plugin case)', () => {
+    withWindowLocation('https://ectotrees.app', '/alt1/', () => {
+      expect(buildIdentityUrl('ABCD1234EF56', '/')).toBe('https://ectotrees.app/#identity=ABCD1234EF56');
+    });
   });
 });

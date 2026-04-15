@@ -13,9 +13,9 @@ src/
   types/index.ts         # Re-exports from shared/types.ts
   types/global.d.ts      # Global type declarations (e.g. __triggerLightning)
   lib/
-    utils.ts            # cn() helper (clsx + tailwind-merge) + copyToClipboard(text): Promise<boolean> (navigator.clipboard with HTTP fallback)
+    utils.ts            # cn() helper (clsx + tailwind-merge). Clipboard helper lives in shared-browser/clipboard.ts
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
-    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), buildIdentityUrl(token), validateSessionCode(code) — #join=CODE and #identity=TOKEN fragment URL parsing, generation, and validation
+    sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — #join=CODE fragment URL parsing/generation. buildIdentityUrl lives in shared-browser/sessionUrl.ts (shared with alt1-plugin)
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
@@ -27,7 +27,6 @@ src/
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
     useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
-    useCopyFeedback.ts  # Returns { copied, copy(text) } — copy writes to clipboard, copied flips true for 2s
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
     useNow.ts           # Reactive timestamp primitive (returns Date.now() as state, re-ticks every interval ms)

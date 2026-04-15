@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { useCopyFeedback } from '../hooks/useCopyFeedback';
+import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import type { MemberInfo, MemberRole } from '../../shared/protocol.ts';
 import { TEXT_COLOR, ROLE_COLORS, ROLE_LABELS, MANAGED_COLOR, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';

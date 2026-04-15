@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import type { SessionStatus } from '../hooks/useScoutSession';
 import { useCountdown } from '../hooks/useCountdown';
+import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
+import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { formatReconnectMessage } from '@shared/reconnect';
 
 interface SessionPanelProps {
@@ -28,6 +31,7 @@ export function SessionPanel({
   onError,
 }: SessionPanelProps) {
   const countdown = useCountdown(reconnectAt);
+  const { copied: tokenCopied, copy: copyToken } = useCopyFeedback(1500);
   const [inputCode, setInputCode] = useState('');
   const connected = status === 'connected';
   const connecting = status === 'connecting';
@@ -79,6 +83,18 @@ export function SessionPanel({
               {memberName && <span className="text-foreground/70 ml-1">{memberName}</span>}
               {memberRole && memberRole !== 'scout' && <span className="text-warning ml-0.5">({memberRole})</span>}
             </span>
+            {identityToken && (
+              <button
+                onClick={() => copyToken(buildIdentityUrl(identityToken, '/'))}
+                className="shrink-0 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                title="Copy identity link"
+              >
+                {tokenCopied
+                  ? <Check className="w-3 h-3 text-success" />
+                  : <Copy className="w-3 h-3" />
+                }
+              </button>
+            )}
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
             <button

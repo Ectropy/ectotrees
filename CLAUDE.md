@@ -44,6 +44,7 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 | Directory | Purpose |
 |---|---|
 | `shared/` | Pure TS shared between client and server — types, protocol, mutations, hints |
+| `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (clipboard, `useCopyFeedback`, `buildIdentityUrl`). Not imported by server. |
 | `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync |
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |
