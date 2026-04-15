@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
         { find: /^canvas(?:\/.*)?$/, replacement: emptyModule },
         { find: /^electron\/common$/, replacement: emptyModule },
       ],
+      dedupe: ['react', 'react-dom'],
     },
     plugins: [react()],
     server: {
