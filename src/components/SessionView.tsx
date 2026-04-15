@@ -283,16 +283,15 @@ export function SessionView({
           {/* Link with Alt1 */}
           {isConnected && (
             alt1Expanded && session.identityToken ? (
-              <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
-                <Alt1LinkedSection
-                  identityToken={session.identityToken}
-                  scoutWorld={session.scoutWorld}
-                  followScout={followScout}
-                  onFollowScoutChange={onFollowScoutChange}
-                  tokenCopied={tokenCopied}
-                  copyToken={copyToken}
-                />
-              </div>
+              <Alt1LinkedSection
+                identityToken={session.identityToken}
+                scoutConnected={session.scoutConnected}
+                scoutWorld={session.scoutWorld}
+                followScout={followScout}
+                onFollowScoutChange={onFollowScoutChange}
+                tokenCopied={tokenCopied}
+                copyToken={copyToken}
+              />
             ) : (
               <div className="flex items-center gap-2">
                 <button
@@ -519,46 +518,16 @@ export function SessionView({
 
 
         {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
-        {isConnected && (!session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null)) && (
-          session.identityToken && (alt1Expanded || session.managed) ? (
-            <div className={`${ALT1_COLOR.panelBorder} rounded p-3`}>
-              <Alt1LinkedSection
-                identityToken={session.identityToken}
-                scoutWorld={session.scoutWorld}
-                followScout={followScout}
-                onFollowScoutChange={onFollowScoutChange}
-                tokenCopied={tokenCopied}
-                copyToken={copyToken}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (session.identityToken) {
-                    setAlt1Expanded(true);
-                  } else if (!session.managed) {
-                    onRequestIdentityToken();
-                    setAlt1Expanded(true);
-                  }
-                }}
-                className={`${ALT1_COLOR.border} ${ALT1_COLOR.label} ${ALT1_COLOR.borderHover} px-3 py-1.5 text-xs rounded transition-colors`}
-              >
-                {session.managed ? 'Your invite token is your Alt1 code' : 'Link with Alt1 →'}
-              </button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
-                    <HelpCircle className="w-4 h-4" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent side="right">
-                  <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                  <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )
+        {isConnected && session.memberRole !== 'viewer' && session.memberRole !== null && session.identityToken && (
+          <Alt1LinkedSection
+            identityToken={session.identityToken}
+            scoutConnected={session.scoutConnected}
+            scoutWorld={session.scoutWorld}
+            followScout={followScout}
+            onFollowScoutChange={onFollowScoutChange}
+            tokenCopied={tokenCopied}
+            copyToken={copyToken}
+          />
         )}
 
         {/* Members */}
@@ -618,9 +587,10 @@ export function SessionView({
 // ─── Sub-components ───
 
 function Alt1LinkedSection({
-  identityToken, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
+  identityToken, scoutConnected, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
 }: {
   identityToken: string;
+  scoutConnected: boolean;
   scoutWorld: number | null;
   followScout: boolean;
   onFollowScoutChange: (value: boolean) => void;
@@ -628,10 +598,10 @@ function Alt1LinkedSection({
   copyToken: (text: string) => Promise<boolean>;
 }) {
   return (
-    <div className="space-y-2">
+    <div className={`${ALT1_COLOR.panelBorder} rounded p-3 space-y-2`}>
       <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
       <div className="flex items-center gap-2">
-        {scoutWorld !== null
+        {scoutConnected
           ? <Link className={`w-3.5 h-3.5 ${ALT1_COLOR.text}`} />
           : <Unlink className="w-3.5 h-3.5 text-gray-500" />
         }
