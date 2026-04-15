@@ -1,4 +1,4 @@
-import { useNow } from './useNow';
+import { useNow } from '@shared-browser/useNow';
 
 /**
  * Returns the number of whole seconds remaining until `targetTime` (ms timestamp),

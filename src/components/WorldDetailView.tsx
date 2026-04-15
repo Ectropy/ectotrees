@@ -15,7 +15,7 @@ import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
 import { SelectCombobox } from './ui/select-combobox';
 import { trackUiEvent } from '../lib/analytics';
-import { useNow } from '../hooks/useNow';
+import { useNow } from '@shared-browser/useNow';
 
 interface Props {
   world: WorldConfig;

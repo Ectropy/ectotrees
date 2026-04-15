@@ -29,7 +29,6 @@ src/
     useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
-    useNow.ts           # Reactive timestamp primitive (returns Date.now() as state, re-ticks every interval ms)
     useSessionBrowser.ts # Fetches GET /api/sessions and returns sorted SessionSummary[]; sort modes: 'newest' | 'active' | 'members'
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden

@@ -1,7 +1,7 @@
 import type { WorldState } from '../types';
 import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
 import { TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
-import { useNow } from '../hooks/useNow';
+import { useNow } from '@shared-browser/useNow';
 
 interface Props {
   state: WorldState;
