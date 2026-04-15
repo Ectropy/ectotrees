@@ -26,7 +26,6 @@ src/
     useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
-    useCountdown.ts     # Returns whole seconds remaining until a ms timestamp; re-ticks every 500ms by default
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
     useSessionBrowser.ts # Fetches GET /api/sessions and returns sorted SessionSummary[]; sort modes: 'newest' | 'active' | 'members'

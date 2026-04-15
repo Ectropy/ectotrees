@@ -1,16 +1,4 @@
-import { useState, useEffect } from 'react';
-
-/**
- * Returns the current timestamp (ms) as reactive state, updating every `interval` ms.
- */
-function useNow(interval = 500): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), interval);
-    return () => clearInterval(id);
-  }, [interval]);
-  return now;
-}
+import { useNow } from './useNow';
 
 /**
  * Returns the number of whole seconds remaining until `targetTime` (ms timestamp),

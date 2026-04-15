@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import type { SessionStatus } from '../hooks/useScoutSession';
-import { useCountdown } from '../hooks/useCountdown';
+import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { formatReconnectMessage } from '@shared/reconnect';

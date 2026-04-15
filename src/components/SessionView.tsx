@@ -4,7 +4,7 @@ import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
 import { buildSessionUrl } from '../lib/sessionUrl';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
-import { useCountdown } from '../hooks/useCountdown';
+import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';

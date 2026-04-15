@@ -14,7 +14,6 @@ alt1-plugin/src/
   hooks/
     useScoutSession.ts  # WebSocket session management for the scout: create/join/leave, reconnection, mutations
     useAlt1.ts          # Alt1 API access: isAlt1, hasPixel, hasGameState, scanWorld(), scanDialog()
-    useCountdown.ts     # Countdown timer hook (local copy of main app's useCountdown)
   components/
     SessionPanel.tsx    # Session connect/join/create UI + invite token input + identity-link copy button (uses shared-browser/useCopyFeedback, buildIdentityUrl with basePath='/')
     WorldInput.tsx      # World number field with manual scan button + auto-world toggle

@@ -5,7 +5,7 @@ import { Alt1TokenButton } from './Alt1TokenButton';
 import type { SessionState, SessionStatus } from '../hooks/useSession';
 import { buildSessionUrl } from '../lib/sessionUrl';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
-import { useCountdown } from '../hooks/useCountdown';
+import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
