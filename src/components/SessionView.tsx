@@ -106,6 +106,14 @@ interface SessionViewProps {
 
 // window.location.origin is constant for the page lifetime
 const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfig.json`;
+const RUNESCAPE_USERNAME_INPUT_PROPS = {
+  type: 'text' as const,
+  autoComplete: 'off',
+  autoCorrect: 'off',
+  autoCapitalize: 'none',
+  spellCheck: false,
+  inputMode: 'text' as const,
+};
 
 export function SessionView({
   session,
@@ -661,6 +669,7 @@ function ForkInviteBanner({
       {session.forkInvite!.selfRegisterToken ? (
         joinForkStep === 'naming' ? (
           <form
+            autoComplete="off"
             className="flex gap-2"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -672,6 +681,8 @@ function ForkInviteBanner({
             }}
           >
             <input
+              {...RUNESCAPE_USERNAME_INPUT_PROPS}
+              name="managed-fork-alias"
               autoFocus
               value={joinForkName}
               onChange={e => setJoinForkName(e.target.value)}
@@ -738,6 +749,7 @@ function ForkNameForm({
 }) {
   return (
     <form
+      autoComplete="off"
       onSubmit={(e) => {
         e.preventDefault();
         const name = managedName.trim();
@@ -751,7 +763,8 @@ function ForkNameForm({
         {label ?? <>Your username <span className="text-gray-500">(visible to all members)</span></>}
       </label>
       <input
-        type="text"
+        {...RUNESCAPE_USERNAME_INPUT_PROPS}
+        name="managed-session-alias"
         value={managedName}
         onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
         placeholder="Enter your username"

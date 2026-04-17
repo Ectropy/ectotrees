@@ -5,6 +5,15 @@ import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
 import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 
+const RUNESCAPE_USERNAME_INPUT_PROPS = {
+  type: 'text' as const,
+  autoComplete: 'off',
+  autoCorrect: 'off',
+  autoCapitalize: 'none',
+  spellCheck: false,
+  inputMode: 'text' as const,
+};
+
 interface SessionBrowserViewProps {
   session: SessionState;
   activeLocalCount: number;
@@ -201,6 +210,7 @@ export function SessionBrowserView({
                     {/* Open-join inline form */}
                     {s.allowOpenJoin && openJoinCode === s.code && (
                       <form
+                        autoComplete="off"
                         className="flex gap-2 mb-2"
                         onSubmit={async (e) => {
                           e.preventDefault();
@@ -217,6 +227,8 @@ export function SessionBrowserView({
                         }}
                       >
                         <input
+                          {...RUNESCAPE_USERNAME_INPUT_PROPS}
+                          name="public-session-alias"
                           autoFocus
                           value={openJoinName}
                           onChange={e => setOpenJoinName(e.target.value)}
