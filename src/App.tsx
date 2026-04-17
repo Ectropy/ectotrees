@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search } from 'lucide-react';
+import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search, Map } from 'lucide-react';
 import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
@@ -17,6 +17,7 @@ import { SessionJoinView } from './components/SessionJoinView';
 import { SessionBar } from './components/SessionBar';
 import { SessionView } from './components/SessionView';
 import { SessionBrowserView } from './components/SessionBrowserView';
+import { MapView } from './components/MapView';
 import { TipTicker } from './components/TipTicker';
 import { UpdateBanner } from './components/UpdateBanner';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
@@ -38,6 +39,7 @@ type ActiveView =
   | { kind: 'session' }
   | { kind: 'session-join'; code: string }
   | { kind: 'browse' }
+  | { kind: 'map' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 
 const APP_VERSION = __APP_VERSION__;
@@ -275,8 +277,8 @@ export default function App() {
     if (activeView.kind !== 'grid') {
       const { surface, sidebarSide } = getAnalyticsContext();
       trackUiEvent('ui_nav_action', {
-        panel: activeView.kind,
-        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined,
+        panel: activeView.kind === 'map' ? 'grid' : activeView.kind,
+        world_id: (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse' && activeView.kind !== 'map') ? activeView.worldId : undefined,
         surface,
         sidebar_side: sidebarSide,
         action: 'close_view',
@@ -320,6 +322,7 @@ export default function App() {
 
   useEffect(() => {
     if (activeView.kind === 'grid') return;
+    if (activeView.kind === 'map') return; // PoC: skip analytics until map is promoted to UiPanel
 
     const panel = activeView.kind as UiPanel;
     const worldId = (activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse') ? activeView.worldId : undefined;
@@ -346,7 +349,7 @@ export default function App() {
     }
   }, [canEdit, activeView]);
 
-  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse'
+  const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse' && activeView.kind !== 'map'
     ? { activeKind: activeView.kind, canEdit, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
 
@@ -354,6 +357,9 @@ export default function App() {
   function renderViewContent() {
     if (activeView.kind === 'settings')
       return <SettingsView settings={settings} onUpdateSettings={updateSettings} onBack={handleBack} />;
+
+    if (activeView.kind === 'map')
+      return <MapView />;
 
     if (activeView.kind === 'browse')
       return <SessionBrowserView
@@ -635,6 +641,12 @@ export default function App() {
                 </button>
               );
             })()}
+            <button
+              onClick={() => setActiveView({ kind: 'map' })}
+              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none`}
+              title="Map (PoC)"
+              aria-label="Open map"
+            ><Map className="h-4 w-4" /></button>
             <button
               onClick={() => {
                 const { surface, sidebarSide } = getAnalyticsContext();
