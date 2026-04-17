@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ClientMessage, ServerMessage } from '@shared/protocol';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@shared/reconnect';
+import { extractIdentityToken } from '@shared-browser/sessionUrl';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -8,7 +9,6 @@ const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? '';
 const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;
 const ACK_TIMEOUT_MS = 5_000;
-const SESSION_CODE_KEY = 'evilTree_sessionCode';
 const IDENTITY_TOKEN_KEY = 'evilTree_identityToken';
 const FATAL_ERRORS = new Set([
   'Session is full.',
@@ -23,7 +23,6 @@ interface PendingMutation {
 
 export interface ScoutSessionState {
   status: SessionStatus;
-  code: string | null;
   identityToken: string | null;
   error: string | null;
   memberName: string | null;
@@ -40,36 +39,6 @@ function buildWsUrl(): string {
   return WS_BASE
     ? `${WS_BASE}/ws`
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-}
-
-function extractIdentityToken(raw: string): string | null {
-  const trimmed = raw.trim();
-  try {
-    const url = new URL(trimmed);
-    const hashMatch = url.hash.match(/^#identity=([A-Za-z0-9]+)$/);
-    if (hashMatch && /^[A-HJ-NP-Z2-9]{12}$/.test(hashMatch[1].toUpperCase())) {
-      return hashMatch[1].toUpperCase();
-    }
-  } catch { /* not a URL */ }
-  const upper = trimmed.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '');
-  if (/^[A-HJ-NP-Z2-9]{12}$/.test(upper)) return upper;
-  return null;
-}
-
-function loadCode(): string | null {
-  try {
-    const raw = localStorage.getItem(SESSION_CODE_KEY);
-    if (!raw) return null;
-    const code = raw.trim().toUpperCase();
-    return /^[A-HJ-NP-Z2-9]{6}$/.test(code) ? code : null;
-  } catch { return null; }
-}
-
-function persistCode(code: string | null) {
-  try {
-    if (code) localStorage.setItem(SESSION_CODE_KEY, code);
-    else localStorage.removeItem(SESSION_CODE_KEY);
-  } catch { /* ignore */ }
 }
 
 function loadIdentityToken(): string | null {
@@ -93,7 +62,6 @@ function persistIdentityToken(token: string | null) {
 export function useScoutSession() {
   const [state, setState] = useState<ScoutSessionState>(() => ({
     status: 'disconnected',
-    code: loadCode(),
     identityToken: loadIdentityToken(),
     error: null,
     memberName: null,
@@ -104,7 +72,6 @@ export function useScoutSession() {
   }));
 
   const wsRef = useRef<WebSocket | null>(null);
-  const codeRef = useRef<string | null>(state.code);
   const identityTokenRef = useRef<string | null>(state.identityToken);
   const intentionalCloseRef = useRef(false);
   const lastServerErrorRef = useRef<string | null>(null);
@@ -152,7 +119,7 @@ export function useScoutSession() {
     }
   }
 
-  function connectWs(code: string | null, identityToken?: string) {
+  function connectWs(identityToken?: string) {
     intentionalCloseRef.current = true;
     cleanup();
     intentionalCloseRef.current = false;
@@ -170,8 +137,6 @@ export function useScoutSession() {
       setState(prev => ({ ...prev, status: 'connected', error: null, reconnectAttempt: 0, reconnectAt: null }));
       if (identityToken) {
         ws.send(JSON.stringify({ type: 'authIdentity', token: identityToken }));
-      } else if (code) {
-        ws.send(JSON.stringify({ type: 'authSession', code }));
       }
     };
 
@@ -186,11 +151,6 @@ export function useScoutSession() {
             identityTokenRef.current = msg.identityToken;
             persistIdentityToken(msg.identityToken);
             setState(prev => ({ ...prev, identityToken: msg.identityToken! }));
-          }
-          if (msg.sessionCode && codeRef.current !== msg.sessionCode) {
-            codeRef.current = msg.sessionCode;
-            persistCode(msg.sessionCode);
-            setState(prev => ({ ...prev, code: msg.sessionCode! }));
           }
           ws.send(JSON.stringify({ type: 'identify', clientType: 'scout' }));
           pingTimerRef.current = setInterval(() => {
@@ -223,13 +183,7 @@ export function useScoutSession() {
           break;
 
         case 'identity':
-          if (msg.sessionCode && codeRef.current !== msg.sessionCode) {
-            codeRef.current = msg.sessionCode;
-            persistCode(msg.sessionCode);
-            setState(prev => ({ ...prev, code: msg.sessionCode!, memberName: msg.name, memberRole: msg.role }));
-          } else {
-            setState(prev => ({ ...prev, memberName: msg.name, memberRole: msg.role }));
-          }
+          setState(prev => ({ ...prev, memberName: msg.name, memberRole: msg.role }));
           break;
 
         case 'identityToken':
@@ -239,11 +193,8 @@ export function useScoutSession() {
           break;
 
         case 'redirect':
-          codeRef.current = msg.code;
-          persistCode(msg.code);
           clearPending();
-          setState(prev => ({ ...prev, code: msg.code }));
-          connectWs(msg.code, identityTokenRef.current ?? undefined);
+          connectWs(identityTokenRef.current ?? undefined);
           break;
 
         case 'pong':
@@ -268,10 +219,8 @@ export function useScoutSession() {
         case 'sessionClosed':
           intentionalCloseRef.current = true;
           cleanup();
-          codeRef.current = null;
-          persistCode(null);
           clearPending();
-          setState(prev => ({ ...prev, status: 'disconnected', code: null, error: msg.reason, reconnectAttempt: 0, reconnectAt: null }));
+          setState(prev => ({ ...prev, status: 'disconnected', error: msg.reason, reconnectAttempt: 0, reconnectAt: null }));
           break;
       }
     };
@@ -292,10 +241,8 @@ export function useScoutSession() {
       // Fatal server rejection → give up
       if (lastServerErrorRef.current && FATAL_ERRORS.has(lastServerErrorRef.current)) {
         const fatalMsg = lastServerErrorRef.current;
-        codeRef.current = null;
-        persistCode(null);
         clearPending();
-        setState(prev => ({ ...prev, status: 'disconnected', code: null, error: fatalMsg, reconnectAttempt: 0, reconnectAt: null }));
+        setState(prev => ({ ...prev, status: 'disconnected', error: fatalMsg, reconnectAttempt: 0, reconnectAt: null }));
         return;
       }
 
@@ -312,8 +259,7 @@ export function useScoutSession() {
 
       reconnectTimerRef.current = setTimeout(() => {
         setState(prev => ({ ...prev, reconnectAt: null }));
-        if (identityTokenRef.current) connectWs(null, identityTokenRef.current);
-        else if (codeRef.current) connectWs(codeRef.current);
+        connectWs(identityTokenRef.current ?? undefined);
       }, delay);
     };
 
@@ -322,8 +268,7 @@ export function useScoutSession() {
 
   // Auto-resume on mount; cleanup on unmount
   useEffect(() => {
-    if (identityTokenRef.current) connectWs(null, identityTokenRef.current);
-    else if (codeRef.current) connectWs(codeRef.current);
+    if (identityTokenRef.current) connectWs(identityTokenRef.current);
 
     return () => {
       intentionalCloseRef.current = true;
@@ -332,34 +277,16 @@ export function useScoutSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const joinSession = useCallback((code: string): boolean => {
-    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
-      setState(prev => ({ ...prev, error: 'Invalid session code.' }));
-      return false;
-    }
-    codeRef.current = code;
-    persistCode(code);
-    clearPending();
-    reconnectAttemptRef.current = 0;
-    setState(prev => ({ ...prev, code, error: null, reconnectAttempt: 0 }));
-    connectWs(code);
-    return true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const leaveSession = useCallback(() => {
     intentionalCloseRef.current = true;
     if (wsRef.current) { wsRef.current.close(1000, 'intentionally disconnected'); wsRef.current = null; }
     cleanup();
-    codeRef.current = null;
-    persistCode(null);
     identityTokenRef.current = null;
     persistIdentityToken(null);
     reconnectAttemptRef.current = 0;
     clearPending();
     setState({
       status: 'disconnected',
-      code: null,
       identityToken: null,
       error: null,
       memberName: null,
@@ -398,7 +325,7 @@ export function useScoutSession() {
     clearPending();
     reconnectAttemptRef.current = 0;
     setState(prev => ({ ...prev, error: null, identityToken: token, reconnectAttempt: 0 }));
-    connectWs(null, token);
+    connectWs(token);
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -412,7 +339,6 @@ export function useScoutSession() {
 
   return {
     ...state,
-    joinSession,
     leaveSession,
     sendMutation,
     dismissError,
@@ -420,4 +346,3 @@ export function useScoutSession() {
     reportWorld,
   };
 }
-

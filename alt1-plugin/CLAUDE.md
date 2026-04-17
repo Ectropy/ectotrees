@@ -25,8 +25,7 @@ alt1-plugin/src/
 
 ## Features
 
-- **Session management**: join by 6-char code or `#join=` URL fragment; code persisted to `localStorage` (`evilTree_sessionCode`) and auto-resumed on startup
-- **Invite token join**: join a managed session by entering or pasting a 12-char invite token (or URL containing one); token is persisted to `localStorage` (`evilTree_inviteToken`) and used for `authInvite` on reconnect; world hops are reported in real time (`reportWorld`)
+- **Identity token join**: join a session by entering or pasting a 12-char identity token or an identity URL (`#identity=TOKEN`); auto-joins on paste without requiring a button click (mirrors dashboard UX); token is persisted to `localStorage` (`evilTree_identityToken`) and auto-resumed on startup; world hops are reported in real time (`reportWorld`)
 - **Auto-world** (toggleable, persisted as `scout_autoWorld`): polls `alt1.lastWorldHop` every 5s; on hop, auto-fills the world field and calls `reportWorld(worldId)` to sync the dashboard's scout indicator
 - **Manual dialog scan**: scans Alt1 pixel buffer for the Spirit Tree dialog to extract spawn timer and hint
 - **Auto-scan** (toggleable, persisted as `scout_autoScan`): watches `alt1.rsLastActive` for RS clicks; retries scan every 300ms in the 150–800ms window after a click to catch the dialog as soon as it renders

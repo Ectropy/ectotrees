@@ -22,7 +22,7 @@ const STATUS_DURATIONS: Record<StatusKind, number> = {
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
   const {
-    status, code, identityToken, error,
+    status, identityToken, error,
     memberName, memberRole,
     reconnectAttempt, reconnectAt,
     ackCount, leaveSession, sendMutation, dismissError,
@@ -86,11 +86,6 @@ export function App() {
     dismissError();
   }
 
-  // Sync session errors into the shared status line
-  useEffect(() => {
-    if (error) showStatus(error, 'error');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [error]);
 
   // Handle server ACK — clears fields and shows success after a confirmed submission
   useEffect(() => {
@@ -417,15 +412,15 @@ export function App() {
       <div className="flex flex-col min-h-screen">
         <SessionPanel
           status={status}
-          code={code}
           identityToken={identityToken}
+          error={error}
           memberName={memberName}
           memberRole={memberRole}
           reconnectAttempt={reconnectAttempt}
           reconnectAt={reconnectAt}
           onLeave={leaveSession}
           onJoinWithToken={joinWithToken}
-          onError={(msg) => showStatus(msg, 'error')}
+          onDismissError={dismissError}
         />
 
         <hr className="border-t border-border" />
