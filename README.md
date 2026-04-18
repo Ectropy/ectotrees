@@ -56,17 +56,16 @@ Any member can **fork** the current session into a new **managed (invite-only) s
 - **Roles**: Owner · Moderator · Scout · Viewer. Moderators can create invites, kick, and ban members
 - **Member list** — see who is connected, their role, and (for admins) their invite token and copy-join-link button
 - **Admin controls** — change a member's role, rename them, kick them (temporary disconnect — token stays valid), ban them (disconnects + revokes token), or transfer ownership
-- **Allow viewers** toggle — admins can open the session to anonymous read-only viewers who join by session code
-- **Open join** — enable self-service named joins from the session browser; anyone can enter their name and join as a Viewer without needing an admin-generated invite token. Both open-join and anonymous viewer mode can be active simultaneously
-- **Session visibility** — set a session name, optional description, and toggle **Listed** to appear in the public session browser; a session must have at least one open access mode (open-join or anonymous viewers) to be listed
+- **Open join** — enable self-service named joins from the session browser; anyone can enter their name and join as a Viewer without needing an admin-generated invite token
+- **Session visibility** — set a session name, optional description, and toggle **Listed** to appear in the public session browser. Listing a session also admits anonymous read-only viewers who discover it from the browser
 - World updates in managed sessions show the submitter's name and role
 
 ## Alt1 Scout Plugin *(beta)*
 
 An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
 
-- **Session**: join by 6-character code, paste a `#join=` link, or enter a 12-character invite token (or URL containing one) to join a managed session directly; session is remembered and auto-resumed on next launch
-- **Scout linking**: enter the personal token shown on the main dashboard's Session panel to link your scout — the dashboard then shows a live indicator of which world you are on as you hop. Alternatively, join a managed session with an invite token to be recognized by name
+- **Session**: join by entering a 12-character identity token or pasting an identity link (a URL containing `#identity=TOKEN`). For unmanaged sessions, the dashboard's Session panel exposes a **Copy identity link** button that generates a token for your scout to paste; for managed sessions, use the invite link from an admin. Session is remembered and auto-resumed on next launch
+- **Scout linking**: once authenticated by identity token, the dashboard shows a live indicator of which world you are on as you hop. In managed sessions your scout is recognized by name
 - **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the linked dashboard is notified in real time
 - **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
 - **Auto-scan** (toggle) — watches for clicks inside RuneScape and automatically triggers a dialog scan 150–800 ms after each click, catching the dialog as soon as it opens
