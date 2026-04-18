@@ -52,7 +52,8 @@ const COMPACT_STORAGE_KEY = 'evilTree_sortFilter_compact';
 function loadCompactPreference(): boolean {
   try {
     const raw = localStorage.getItem(COMPACT_STORAGE_KEY);
-    return raw === '1';
+    if (raw !== null) return raw === '1';
+    return window.matchMedia('(max-width: 639px)').matches;
   } catch {
     return false;
   }

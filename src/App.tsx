@@ -319,6 +319,10 @@ export default function App() {
 
   // Whether to render sidebar mode (desktop + enabled + a view is open)
   const useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid';
+  // Whether a non-grid panel is open in fullscreen (mobile, or sidebar disabled).
+  // Fullscreen renders inside the main layout so header + session bar stay visible;
+  // the sort/filter bar is hidden because the grid is hidden.
+  const isFullscreenPanel = !useSidebar && activeView.kind !== 'grid';
 
   useEffect(() => {
     if (activeView.kind === 'grid') return;
@@ -526,21 +530,6 @@ export default function App() {
     return null;
   }
 
-  // Full-screen view (mobile or sidebar disabled)
-  if (!useSidebar && activeView.kind !== 'grid') {
-    return (
-      <FullscreenWrapper
-        onClose={handleBack}
-        showDockControls={!isMobile}
-        onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
-        onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
-        worldNav={worldNavProp}
-      >
-        {renderViewContent()}
-      </FullscreenWrapper>
-    );
-  }
-
   // World grid (shared between grid-only and sidebar modes)
   const worldGrid = sortedFilteredWorlds.length === 0 ? (
     <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -592,7 +581,7 @@ export default function App() {
         <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
           <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
             Ectotrees
-            <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
+            <small className="hidden sm:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
           <div className="flex items-center gap-4">
             <div className="relative flex items-center">
@@ -616,7 +605,10 @@ export default function App() {
                 </button>
               )}
             </div>
-            <span className={`text-xs ${TEXT_COLOR.prominent}`}>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
+              <TreeDeciduous className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+            </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
                 const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
@@ -635,8 +627,8 @@ export default function App() {
                   aria-label="Copy intel to clipboard"
                 >
                   {discordCopied
-                    ? <><Check className="h-4 w-4 text-green-400" /><span className="text-green-400 text-xs">Copied!</span></>
-                    : <><Copy className="h-4 w-4" /><span className="text-xs">Copy visible intel</span></>
+                    ? <><Check className="h-4 w-4 text-green-400" /><span className="hidden sm:inline text-green-400 text-xs">Copied!</span></>
+                    : <><Copy className="h-4 w-4" /><span className="hidden sm:inline text-xs">Copy visible intel</span></>
                   }
                 </button>
               );
@@ -679,14 +671,16 @@ export default function App() {
           forkDismissed={forkDismissed}
         />
 
-        <SortFilterBar
-          sortMode={sortMode}
-          setSortMode={setSortMode}
-          sortAsc={sortAsc}
-          setSortAsc={setSortAsc}
-          filters={filters}
-          setFilters={setFilters}
-        />
+        {!isFullscreenPanel && (
+          <SortFilterBar
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+            sortAsc={sortAsc}
+            setSortAsc={setSortAsc}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        )}
 
         {useSidebar ? (
           <ResizablePanelGroup
@@ -725,8 +719,18 @@ export default function App() {
               </>
             )}
           </ResizablePanelGroup>
+        ) : isFullscreenPanel ? (
+          <FullscreenWrapper
+            onClose={handleBack}
+            showDockControls={!isMobile}
+            onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
+            onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
+            worldNav={worldNavProp}
+          >
+            {renderViewContent()}
+          </FullscreenWrapper>
         ) : (
-          // Non-sidebar: grid scrolls within remaining space; sidebar panel stays fixed
+          // Grid only: scrolls within remaining space
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             {worldGrid}
           </div>
@@ -877,7 +881,7 @@ function FullscreenWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="bg-gray-900 border-b border-gray-700 flex-shrink-0 px-4 sm:px-6 py-1">
         <div className="max-w-lg mx-auto relative flex items-center">
           {/* Left: dock buttons (desktop only — never rendered on mobile) */}

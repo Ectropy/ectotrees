@@ -91,7 +91,9 @@ Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` i
 
 **World search bar**: a `Search` icon input in the header filters the grid by world number. When the search matches exactly one world and sidebar mode is enabled, it auto-opens the detail view for that world. Escape clears the search.
 
-**Sidebar mode** (opt-in, available on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid instead of replacing it. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`. On mobile or when disabled, the original full-screen behaviour is unchanged.
+**Sidebar mode** (default on screens ≥ 640px): when `settings.sidebarEnabled` is true and the viewport is ≥ 640px, any non-grid `activeView` renders in a resizable panel beside the world grid. `useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid'`.
+
+**Fullscreen panel mode** (mobile, or sidebar disabled): `FullscreenWrapper` renders *inside* the main layout (`flex-1 min-h-0`), not as a full-page takeover — the header and `SessionBar` (and the footer/`UpdateBanner` below) stay visible on every screen size. The only element hidden is the `SortFilterBar`, because the world grid is hidden in this mode. The derived boolean is `isFullscreenPanel = !useSidebar && activeView.kind !== 'grid'`.
 
 ## Sort & Filter Bar (SortFilterBar.tsx)
 The grid has a collapsible sort/filter bar. A toggle button collapses it to a summary line of active filter pills (collapsed state persisted to `localStorage`). When expanded, there are four sections:
@@ -122,8 +124,8 @@ Five settings, persisted to `localStorage` (`evilTree_settings`):
 | `effectsLightning` | `true` | Enable canvas lightning bolt animations on health auto-transitions |
 | `effectsSparks` | `true` | Enable GSAP ember particle animations on dead tree cards |
 | `showTipTicker` | `true` | Show scrolling tip ticker in the footer |
-| `sidebarEnabled` | `false` | Show tool views in a sidebar panel beside the grid (desktop only) |
-| `sidebarSide` | `'right'` | Which side the sidebar docks to (`'left'` or `'right'`) |
+| `sidebarEnabled` | `true` | Show tool views in a sidebar panel beside the grid (desktop only) |
+| `sidebarSide` | `'left'` | Which side the sidebar docks to (`'left'` or `'right'`) |
 
 Settings are accessed via `useSettings()` and edited in `SettingsView` (⚙ button in header). All new fields use graceful migration — existing stored settings without them fall back to their defaults.
 
