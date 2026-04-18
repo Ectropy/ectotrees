@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, TreeDeciduous } from 'lucide-react';
+import { RefreshCw, TreeDeciduous, Users } from 'lucide-react';
 import { MemberCount } from './MemberCount';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
