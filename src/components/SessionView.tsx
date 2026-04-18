@@ -323,8 +323,7 @@ export function SessionView({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent side="right">
-                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                    <Alt1HelpContent />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -595,6 +594,15 @@ export function SessionView({
 
 // ─── Sub-components ───
 
+function Alt1HelpContent() {
+  return (
+    <>
+      <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+      <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+    </>
+  );
+}
+
 function Alt1LinkedSection({
   identityToken, scoutConnected, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
 }: {
@@ -608,7 +616,19 @@ function Alt1LinkedSection({
 }) {
   return (
     <div className={`${ALT1_COLOR.panelBorder} rounded p-3 space-y-2`}>
-      <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="right">
+            <Alt1HelpContent />
+          </PopoverContent>
+        </Popover>
+      </div>
       <div className="flex items-center gap-2">
         {scoutConnected
           ? <Link className={`w-3.5 h-3.5 ${ALT1_COLOR.text}`} />
