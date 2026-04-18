@@ -350,6 +350,12 @@ export default function App() {
     }
   }, [canEdit, activeView]);
 
+  useEffect(() => {
+    if (activeView.kind === 'browse' && session.code) {
+      setActiveView({ kind: 'session' });
+    }
+  }, [activeView.kind, session.code]);
+
   const worldNavProp = activeView.kind !== 'grid' && activeView.kind !== 'settings' && activeView.kind !== 'session' && activeView.kind !== 'session-join' && activeView.kind !== 'browse'
     ? { activeKind: activeView.kind, canEdit, onNavigate: (kind: 'detail' | 'spawn' | 'tree' | 'dead') => setActiveView({ kind, worldId: (activeView as { worldId: number }).worldId }) }
     : undefined;
