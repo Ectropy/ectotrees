@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Users, RefreshCw, TreeDeciduous } from 'lucide-react';
+import { RefreshCw, TreeDeciduous } from 'lucide-react';
+import { MemberCount } from './MemberCount';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
@@ -254,11 +255,9 @@ export function SessionBrowserView({
                     )}
                     <div className="flex items-center gap-3 text-xs">
                       <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
-                        <Users className="w-3 h-3" /> {s.clientCount}
-                      </span>
-                      <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
                         <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
                       </span>
+                      <MemberCount clientCount={s.dashboards} scouts={s.scouts} connected={true} className="text-xs" />
                     </div>
                     <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(s.lastActivityAt)}</p>
                   </div>
