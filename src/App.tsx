@@ -586,7 +586,7 @@ export default function App() {
         <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
           <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
             Ectotrees
-            <small className="ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
+            <small className="hidden sm:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
           </h1>
           <div className="flex items-center gap-4">
             <div className="relative flex items-center">
@@ -610,7 +610,10 @@ export default function App() {
                 </button>
               )}
             </div>
-            <span className={`text-xs ${TEXT_COLOR.prominent}`}>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}/{worlds.length} worlds scouted</span>
+            <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
+              <TreeDeciduous className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+            </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
                 const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
@@ -629,8 +632,8 @@ export default function App() {
                   aria-label="Copy intel to clipboard"
                 >
                   {discordCopied
-                    ? <><Check className="h-4 w-4 text-green-400" /><span className="text-green-400 text-xs">Copied!</span></>
-                    : <><Copy className="h-4 w-4" /><span className="text-xs">Copy visible intel</span></>
+                    ? <><Check className="h-4 w-4 text-green-400" /><span className="hidden sm:inline text-green-400 text-xs">Copied!</span></>
+                    : <><Copy className="h-4 w-4" /><span className="hidden sm:inline text-xs">Copy visible intel</span></>
                   }
                 </button>
               );
