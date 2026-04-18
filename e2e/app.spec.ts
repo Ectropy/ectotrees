@@ -53,7 +53,7 @@ test('spawn timer: sets a timer and card shows countdown', async ({ page }) => {
 
   // Open the spawn timer view
   await card.getByTitle('Set spawn timer').click();
-  await expect(page.locator('h1')).toContainText('Set Spawn Timer');
+  await expect(page.locator('h1').last()).toContainText('Set Spawn Timer');
 
   // Default is 0h 30m — no changes needed, submit button is already enabled
   await page.getByRole('button', { name: 'Set Timer' }).click();
@@ -72,7 +72,7 @@ test('tree info: record an oak and card shows tree status', async ({ page }) => 
 
   // Open tree info view
   await card.getByTitle('Set tree info').click();
-  await expect(page.locator('h1')).toContainText('Tree Info');
+  await expect(page.locator('h1').last()).toContainText('Tree Info');
 
   // Select tree type via combobox: type to filter, then click the option
   const typeInput = page.getByPlaceholder('Select or type a tree type');
@@ -210,7 +210,7 @@ test('#join= valid code: session code appears in bar when WS connects', async ({
   // With no local world data and an empty server snapshot there is nothing to
   // compare, so the preview screen is skipped and the join is confirmed
   // automatically.  The app navigates to SessionView — wait for its heading.
-  await expect(page.locator('h1')).toContainText('Session');
+  await expect(page.locator('h1').last()).toContainText('Session');
   // The session code is displayed in SessionView
   await expect(page.locator(`text=${JOIN_CODE}`).first()).toBeVisible();
 });
@@ -358,8 +358,9 @@ test('ws race: authError on join surfaces error message', async ({ page }) => {
   await input.fill(JOIN_CODE);
   // Auto-trigger fires after ~100ms and attempts the join — no button click needed
 
-  // The authError reason should be visible in the session browser
-  await expect(page.locator('text=This is a private session')).toBeVisible();
+  // The authError reason should be visible — rendered in both SessionBar and
+  // the sidebar session browser since the shell stays mounted in all modes
+  await expect(page.locator('text=This is a private session').first()).toBeVisible();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,7 +370,7 @@ test('ws race: authError on join surfaces error message', async ({ page }) => {
 test('tree info: 50% lightning button stays highlighted after clicking', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId(`world-card-${W}`).getByTitle('Set tree info').click();
-  await expect(page.locator('h1')).toContainText('Tree Info');
+  await expect(page.locator('h1').last()).toContainText('Tree Info');
 
   const lightningBtn = page.getByRole('button', { name: /Report 50% lightning strike/i });
   await lightningBtn.click();
@@ -464,7 +465,7 @@ test('detail view: opens world status and back returns to grid', async ({ page }
   await page.getByTestId(`world-card-${W}`).getByText(`w${W}`).click();
 
   // WorldDetailView heading is "World Status" (world ID is in the subtitle)
-  await expect(page.locator('h1')).toContainText('World Status');
+  await expect(page.locator('h1').last()).toContainText('World Status');
 
   // Navigate back (second "Close" button — the in-view one, not the toolbar X)
   await page.getByRole('button', { name: 'Close' }).nth(1).click();
@@ -519,7 +520,7 @@ async function openConnectedAnonSessionView(page: Page, { sendIdentityToken = fa
 
   // Open the session panel by clicking the code button in the session bar
   await page.getByRole('button', { name: JOIN_CODE }).click();
-  await expect(page.locator('h1')).toContainText('Session');
+  await expect(page.locator('h1').last()).toContainText('Session');
 }
 
 test('leave panel: anon session without identity token shows session join link', async ({ page }) => {
@@ -531,7 +532,7 @@ test('leave panel: anon session without identity token shows session join link',
   // Confirming panel: correct title and body text
   await expect(page.locator('text=Leave session?')).toBeVisible();
   await expect(page.locator('text=Save this link to rejoin this session later.')).toBeVisible();
-  await expect(page.locator('text=Session link')).toBeVisible();
+  await expect(page.getByText('Session link', { exact: true })).toBeVisible();
 
   // The link input is readonly — select it specifically to avoid strict-mode
   // violations from other text inputs on the page
@@ -595,7 +596,7 @@ test('leave panel: confirming leave disconnects the session', async ({ page }) =
   await page.goto('/');
   await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
   await page.getByRole('button', { name: JOIN_CODE }).click();
-  await expect(page.locator('h1')).toContainText('Session');
+  await expect(page.locator('h1').last()).toContainText('Session');
 
   // Enter confirming state, then click Leave Session
   await page.getByRole('button', { name: 'Leave Session' }).click();
@@ -605,7 +606,7 @@ test('leave panel: confirming leave disconnects the session', async ({ page }) =
   // After leaving, the fullscreen view switches to SessionBrowserView (session
   // code is null so App.tsx renders the browser instead of SessionView).
   // The WS is also closed by this point.
-  await expect(page.locator('h1')).toContainText('Sessions');
+  await expect(page.locator('h1').last()).toContainText('Sessions');
   expect(wsClosed).toBe(true);
 });
 
@@ -639,7 +640,7 @@ test('leave panel: managed owner session shows owner warning with identity link'
   // Session auto-resumes from localStorage — wait for the code button to appear
   await expect(page.getByRole('button', { name: 'ABCD23' })).toBeVisible();
   await page.getByRole('button', { name: 'ABCD23' }).click();
-  await expect(page.locator('h1')).toContainText('Session');
+  await expect(page.locator('h1').last()).toContainText('Session');
 
   // Enter confirming state
   await page.getByRole('button', { name: 'Leave Session' }).click();

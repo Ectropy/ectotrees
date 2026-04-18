@@ -317,6 +317,10 @@ export default function App() {
 
   // Whether to render sidebar mode (desktop + enabled + a view is open)
   const useSidebar = settings.sidebarEnabled && !isMobile && activeView.kind !== 'grid';
+  // Whether a non-grid panel is open in fullscreen (mobile, or sidebar disabled).
+  // Fullscreen renders inside the main layout so header + session bar stay visible;
+  // the sort/filter bar is hidden because the grid is hidden.
+  const isFullscreenPanel = !useSidebar && activeView.kind !== 'grid';
 
   useEffect(() => {
     if (activeView.kind === 'grid') return;
@@ -520,21 +524,6 @@ export default function App() {
     return null;
   }
 
-  // Full-screen view (mobile or sidebar disabled)
-  if (!useSidebar && activeView.kind !== 'grid') {
-    return (
-      <FullscreenWrapper
-        onClose={handleBack}
-        showDockControls={!isMobile}
-        onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
-        onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
-        worldNav={worldNavProp}
-      >
-        {renderViewContent()}
-      </FullscreenWrapper>
-    );
-  }
-
   // World grid (shared between grid-only and sidebar modes)
   const worldGrid = sortedFilteredWorlds.length === 0 ? (
     <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -670,14 +659,16 @@ export default function App() {
           forkDismissed={forkDismissed}
         />
 
-        <SortFilterBar
-          sortMode={sortMode}
-          setSortMode={setSortMode}
-          sortAsc={sortAsc}
-          setSortAsc={setSortAsc}
-          filters={filters}
-          setFilters={setFilters}
-        />
+        {!isFullscreenPanel && (
+          <SortFilterBar
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+            sortAsc={sortAsc}
+            setSortAsc={setSortAsc}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        )}
 
         {useSidebar ? (
           <ResizablePanelGroup
@@ -716,8 +707,18 @@ export default function App() {
               </>
             )}
           </ResizablePanelGroup>
+        ) : isFullscreenPanel ? (
+          <FullscreenWrapper
+            onClose={handleBack}
+            showDockControls={!isMobile}
+            onDockLeft={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'left' })}
+            onDockRight={() => updateSettings({ sidebarEnabled: true, sidebarSide: 'right' })}
+            worldNav={worldNavProp}
+          >
+            {renderViewContent()}
+          </FullscreenWrapper>
         ) : (
-          // Non-sidebar: grid scrolls within remaining space; sidebar panel stays fixed
+          // Grid only: scrolls within remaining space
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             {worldGrid}
           </div>
@@ -868,7 +869,7 @@ function FullscreenWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="bg-gray-900 border-b border-gray-700 flex-shrink-0 px-4 sm:px-6 py-1">
         <div className="max-w-lg mx-auto relative flex items-center">
           {/* Left: dock buttons (desktop only — never rendered on mobile) */}

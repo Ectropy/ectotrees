@@ -16,8 +16,8 @@ const DEFAULTS: AppSettings = {
   effectsSparks: true,
   showTipTicker: true,
   showBrowseOnStartup: true,
-  sidebarEnabled: false,
-  sidebarSide: 'right',
+  sidebarEnabled: true,
+  sidebarSide: 'left',
   followScout: true,
 };
 
@@ -34,8 +34,8 @@ function loadSettings(): AppSettings {
       // Graceful migration: existing stored settings won't have these fields
       showTipTicker: typeof p?.showTipTicker === 'boolean' ? p.showTipTicker : true,
       showBrowseOnStartup: typeof p?.showBrowseOnStartup === 'boolean' ? p.showBrowseOnStartup : true,
-      sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : false,
-      sidebarSide: p?.sidebarSide === 'left' ? 'left' : 'right',
+      sidebarEnabled: typeof p?.sidebarEnabled === 'boolean' ? p.sidebarEnabled : DEFAULTS.sidebarEnabled,
+      sidebarSide: p?.sidebarSide === 'left' || p?.sidebarSide === 'right' ? p.sidebarSide : DEFAULTS.sidebarSide,
       followScout: typeof p?.followScout === 'boolean' ? p.followScout : true,
     };
   } catch { return DEFAULTS; }
