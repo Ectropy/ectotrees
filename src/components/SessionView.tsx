@@ -11,6 +11,7 @@ import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1
 import { MemberPanel } from './MemberPanel';
 import { MemberCount } from './MemberCount';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LeaveConfirmPanelProps {
   leaveStep: 'idle' | 'confirming';
@@ -461,23 +462,26 @@ export function SessionView({
           {/* Visibility & Access (admin only) */}
           {isConnected && isAdmin && (
             <>
-              <hr className="border-gray-700" />
-
               {/* Listed toggle */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className={`text-sm ${TEXT_COLOR.prominent}`}>List in Session Browser</p>
                   <p className={`text-xs ${TEXT_COLOR.faint}`}>Others can find and join as viewers</p>
                 </div>
-                <Switch
-                  checked={listedInput}
-                  onCheckedChange={v => {
-                    setListedInput(v);
-                    onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
-                  }}
-                  disabled={!nameInput.trim()}
-                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-                />
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs w-6 text-right ${TEXT_COLOR.muted}`} aria-hidden="true">
+                    {listedInput ? 'On' : 'Off'}
+                  </span>
+                  <Switch
+                    checked={listedInput}
+                    onCheckedChange={v => {
+                      setListedInput(v);
+                      onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
+                    }}
+                    disabled={!nameInput.trim()}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
               </div>
 
               {/* Open Join toggle */}
@@ -486,37 +490,49 @@ export function SessionView({
                   <p className={`text-sm ${TEXT_COLOR.prominent}`}>Open Join</p>
                   <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone can join as a scout, and self-report their name</p>
                 </div>
-                <Switch
-                  checked={session.allowOpenJoin}
-                  onCheckedChange={onSetAllowOpenJoin}
-                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-                />
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs w-6 text-right ${TEXT_COLOR.muted}`} aria-hidden="true">
+                    {session.allowOpenJoin ? 'On' : 'Off'}
+                  </span>
+                  <Switch
+                    checked={session.allowOpenJoin}
+                    onCheckedChange={onSetAllowOpenJoin}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
               </div>
 
-              {/* Copy buttons — visible when listed */}
-              {listedInput && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => copyCode(session.code!)}
-                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                    >
-                      {codeCopied
-                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                        : <><Copy className="w-3 h-3" /><span>Copy join code</span></>
-                      }
-                    </button>
-                    <button
-                      onClick={() => copyLink(buildSessionUrl(session.code!))}
-                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                    >
-                      {linkCopied
-                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                        : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
-                      }
-                    </button>
-                  </div>
-                  <p className={`text-xs ${TEXT_COLOR.faint}`}>Share to invite others to view this session.</p>
+              {/* Copy buttons — visible when listed or open join is on */}
+              {(listedInput || session.allowOpenJoin) && (
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => copyCode(session.code!)}
+                        className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                      >
+                        {codeCopied
+                          ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                          : <><Copy className="w-3 h-3" /><span>Copy view code</span></>
+                        }
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Paste code into the Sessions panel to join as an anonymous viewer</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => copyLink(buildSessionUrl(session.code!))}
+                        className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                      >
+                        {linkCopied
+                          ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                          : <><Copy className="w-3 h-3" /><span>Copy view link</span></>
+                        }
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Paste link into a browser to join as an anonymous viewer</TooltipContent>
+                  </Tooltip>
                 </div>
               )}
             </>
