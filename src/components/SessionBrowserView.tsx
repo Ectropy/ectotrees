@@ -254,7 +254,7 @@ export function SessionBrowserView({
                       </form>
                     )}
                     <div className="flex items-center gap-3 text-xs">
-                      <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
+                      <span className={`flex items-center gap-1 ${TEXT_COLOR.prominent}`}>
                         <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
                       </span>
                       <MemberCount clientCount={s.dashboards} scouts={s.scouts} connected={true} className="text-xs" />
