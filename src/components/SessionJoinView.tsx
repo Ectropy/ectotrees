@@ -3,7 +3,7 @@ import worldsConfig from '../data/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR } from '../constants/toolColors';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR } from '../constants/toolColors';
 
 interface Props {
   codeOrToken: string;
@@ -118,7 +118,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
         <div>
           <h1 className={`text-xl font-bold ${TEXT_COLOR.prominent}`}>Join Session</h1>
           <p className={`text-sm ${TEXT_COLOR.muted} mt-0.5`}>
-            {displayLabel}: <span className="font-mono font-bold text-amber-400">{codeOrToken}</span>
+            {displayLabel}: <span className="font-mono font-bold text-yellow-300">{codeOrToken}</span>
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
             title="Your worlds the session overrides"
             count={conflicts.length}
             description="Both you and the session have data for these worlds. The session's version will be used; your local version is replaced."
-            accentClass="text-amber-400"
+            accentClass="text-red-400"
           >
             <WorldList items={conflicts.map(({ id, state }) => (
               <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
@@ -204,17 +204,17 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
           {canContribute && (
             <button
               onClick={() => handleJoin(true)}
-              className="w-full bg-green-700 hover:bg-green-600 text-white font-medium rounded py-2.5 transition-colors"
+              className={`w-full bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} font-medium rounded py-2.5 transition-colors`}
             >
               {`Join and contribute (${toContribute.length} world${toContribute.length !== 1 ? 's' : ''})`}
             </button>
           )}
           <button
             onClick={() => handleJoin(false)}
-            className={`w-full text-white font-medium rounded py-2.5 transition-colors ${
+            className={`w-full font-medium rounded py-2.5 transition-colors bg-transparent ${
               canContribute
-                ? 'bg-gray-700 hover:bg-gray-600'
-                : 'bg-blue-700 hover:bg-blue-600'
+                ? 'border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200'
+                : `${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover}`
             }`}
           >
             {canContribute ? 'Join, discard my local data' : 'Join session'}

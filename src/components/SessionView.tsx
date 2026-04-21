@@ -397,7 +397,7 @@ export function SessionView({
                   value={nameInput}
                   onChange={e => setNameInput(e.target.value.slice(0, 50))}
                   placeholder="Give your session a name..."
-                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-400"
                   maxLength={50}
                 />
               ) : (
@@ -433,7 +433,7 @@ export function SessionView({
                 value={descInput}
                 onChange={e => setDescInput(e.target.value.slice(0, 200))}
                 placeholder="Discord link, contact info, etc."
-                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-y min-h-[2.5rem] max-h-32"
+                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-400 resize-y min-h-[2.5rem] max-h-32"
                 maxLength={200}
               />
             </div>
@@ -806,7 +806,7 @@ function ForkNameForm({
         placeholder="Enter your username"
         maxLength={30}
         autoFocus
-        className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400"
       />
       <div className="flex gap-2">
         <button

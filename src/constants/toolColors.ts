@@ -25,6 +25,7 @@ export const TREE_COLOR = {
   borderHover:       'hover:bg-green-400/20',     // subtle fill on hover for bordered button
   borderHoverBorder: 'hover:border-green-400',    // border color on hover for tool buttons
   underline:         'border-b border-green-400', // active nav button underline indicator
+  panelBorder:       'border border-green-400/50', // informational panel border
 } as const;
 
 export const DEAD_COLOR = {
@@ -35,6 +36,7 @@ export const DEAD_COLOR = {
   borderHoverBorder: 'hover:border-red-500',  // border color on hover for tool buttons
   underline:         'border-b border-red-500', // active nav button underline indicator
   alertBorder:       'border-red-500',        // warning card border in TreeDeadView
+  panelBorder:       'border border-red-500/50', // destructive confirmation panel border
 } as const;
 
 /** World membership type colors */

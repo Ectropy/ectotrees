@@ -592,7 +592,7 @@ export default function App() {
                 value={worldSearch}
                 onChange={e => setWorldSearch(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 placeholder="World"
-                className={`w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 ${TEXT_COLOR.prominent} rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder:text-gray-400`}
+                className={`w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 ${TEXT_COLOR.prominent} rounded border border-gray-600 focus:border-gray-400 focus:outline-none placeholder:text-gray-400`}
                 aria-label="Search worlds by number"
               />
               {worldSearch && (
@@ -745,7 +745,7 @@ export default function App() {
 }
 
 const NAV_ITEMS = [
-  { kind: 'detail' as const, icon: PartyHatGlasses, label: 'View',  activeColor: 'text-amber-400', hoverBg: 'hover:bg-amber-400/20', underline: 'border-b border-amber-400' },
+  { kind: 'detail' as const, icon: PartyHatGlasses, label: 'View',  activeColor: 'text-gray-100',  hoverBg: 'hover:bg-white/10',     underline: 'border-b border-gray-100'  },
   { kind: 'spawn'  as const, icon: Timer,           label: 'Timer', activeColor: SPAWN_COLOR.text,  hoverBg: SPAWN_COLOR.borderHover, underline: SPAWN_COLOR.underline },
   { kind: 'tree'   as const, icon: TreeDeciduous,   label: 'Tree',  activeColor: TREE_COLOR.text,   hoverBg: TREE_COLOR.borderHover,  underline: TREE_COLOR.underline  },
   { kind: 'dead'   as const, icon: Skull,           label: 'Dead',  activeColor: DEAD_COLOR.text,   hoverBg: DEAD_COLOR.borderHover,  underline: DEAD_COLOR.underline  },
