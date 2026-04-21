@@ -11,6 +11,7 @@ import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1
 import { MemberPanel } from './MemberPanel';
 import { MemberCount } from './MemberCount';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LeaveConfirmPanelProps {
   leaveStep: 'idle' | 'confirming';
@@ -323,8 +324,7 @@ export function SessionView({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent side="right">
-                    <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
-                    <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+                    <Alt1HelpContent />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -397,7 +397,7 @@ export function SessionView({
                   value={nameInput}
                   onChange={e => setNameInput(e.target.value.slice(0, 50))}
                   placeholder="Give your session a name..."
-                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                  className="flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-400"
                   maxLength={50}
                 />
               ) : (
@@ -433,7 +433,7 @@ export function SessionView({
                 value={descInput}
                 onChange={e => setDescInput(e.target.value.slice(0, 200))}
                 placeholder="Discord link, contact info, etc."
-                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-y min-h-[2.5rem] max-h-32"
+                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-400 resize-y min-h-[2.5rem] max-h-32"
                 maxLength={200}
               />
             </div>
@@ -462,23 +462,26 @@ export function SessionView({
           {/* Visibility & Access (admin only) */}
           {isConnected && isAdmin && (
             <>
-              <hr className="border-gray-700" />
-
               {/* Listed toggle */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className={`text-sm ${TEXT_COLOR.prominent}`}>List in Session Browser</p>
                   <p className={`text-xs ${TEXT_COLOR.faint}`}>Others can find and join as viewers</p>
                 </div>
-                <Switch
-                  checked={listedInput}
-                  onCheckedChange={v => {
-                    setListedInput(v);
-                    onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
-                  }}
-                  disabled={!nameInput.trim()}
-                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-                />
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs w-6 text-right ${TEXT_COLOR.muted}`} aria-hidden="true">
+                    {listedInput ? 'On' : 'Off'}
+                  </span>
+                  <Switch
+                    checked={listedInput}
+                    onCheckedChange={v => {
+                      setListedInput(v);
+                      onUpdateSessionSettings({ name: session.sessionName ?? '', description: session.sessionDescription ?? '', listed: v });
+                    }}
+                    disabled={!nameInput.trim()}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
               </div>
 
               {/* Open Join toggle */}
@@ -487,37 +490,49 @@ export function SessionView({
                   <p className={`text-sm ${TEXT_COLOR.prominent}`}>Open Join</p>
                   <p className={`text-xs ${TEXT_COLOR.faint}`}>Anyone can join as a scout, and self-report their name</p>
                 </div>
-                <Switch
-                  checked={session.allowOpenJoin}
-                  onCheckedChange={onSetAllowOpenJoin}
-                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
-                />
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs w-6 text-right ${TEXT_COLOR.muted}`} aria-hidden="true">
+                    {session.allowOpenJoin ? 'On' : 'Off'}
+                  </span>
+                  <Switch
+                    checked={session.allowOpenJoin}
+                    onCheckedChange={onSetAllowOpenJoin}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+                  />
+                </div>
               </div>
 
-              {/* Copy buttons — visible when listed */}
-              {listedInput && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => copyCode(session.code!)}
-                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                    >
-                      {codeCopied
-                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                        : <><Copy className="w-3 h-3" /><span>Copy join code</span></>
-                      }
-                    </button>
-                    <button
-                      onClick={() => copyLink(buildSessionUrl(session.code!))}
-                      className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
-                    >
-                      {linkCopied
-                        ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
-                        : <><Copy className="w-3 h-3" /><span>Copy join link</span></>
-                      }
-                    </button>
-                  </div>
-                  <p className={`text-xs ${TEXT_COLOR.faint}`}>Share to invite others to view this session.</p>
+              {/* Copy buttons — visible when listed or open join is on */}
+              {(listedInput || session.allowOpenJoin) && (
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => copyCode(session.code!)}
+                        className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                      >
+                        {codeCopied
+                          ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                          : <><Copy className="w-3 h-3" /><span>Copy view code</span></>
+                        }
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Paste code into the Sessions panel to join as an anonymous viewer</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => copyLink(buildSessionUrl(session.code!))}
+                        className={`flex items-center gap-1.5 text-xs ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
+                      >
+                        {linkCopied
+                          ? <><Check className="w-3 h-3 text-green-400" /><span className="text-green-400">Copied!</span></>
+                          : <><Copy className="w-3 h-3" /><span>Copy view link</span></>
+                        }
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Paste link into a browser to join as an anonymous viewer</TooltipContent>
+                  </Tooltip>
                 </div>
               )}
             </>
@@ -595,6 +610,15 @@ export function SessionView({
 
 // ─── Sub-components ───
 
+function Alt1HelpContent() {
+  return (
+    <>
+      <p className="mb-2">Scout currently allows auto-detection of world hops, and can automatically read the Spirit Tree's dialog box to gather timer and hint intel.</p>
+      <p>Requires <a href="https://runeapps.org/alt1" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">Alt1 Toolkit</a>. <a href={ALT1_INSTALL_LINK} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline">Install plugin <ExternalLink className="w-3 h-3 inline" /></a></p>
+    </>
+  );
+}
+
 function Alt1LinkedSection({
   identityToken, scoutConnected, scoutWorld, followScout, onFollowScoutChange, tokenCopied, copyToken,
 }: {
@@ -608,7 +632,19 @@ function Alt1LinkedSection({
 }) {
   return (
     <div className={`${ALT1_COLOR.panelBorder} rounded p-3 space-y-2`}>
-      <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="right">
+            <Alt1HelpContent />
+          </PopoverContent>
+        </Popover>
+      </div>
       <div className="flex items-center gap-2">
         {scoutConnected
           ? <Link className={`w-3.5 h-3.5 ${ALT1_COLOR.text}`} />
@@ -770,7 +806,7 @@ function ForkNameForm({
         placeholder="Enter your username"
         maxLength={30}
         autoFocus
-        className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400"
       />
       <div className="flex gap-2">
         <button

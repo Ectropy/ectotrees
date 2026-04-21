@@ -1033,6 +1033,25 @@ export function getListedSessions(): SessionSummary[] {
     } else {
       memberCount = session.clients.size;
     }
+    let scouts = 0, dashboards = 0;
+    for (const member of session.members.values()) {
+      if (member.banned || member.connections.size === 0) continue;
+      let hasScout = false, hasDashboard = false;
+      for (const ws of member.connections) {
+        const t = session.clientTypes.get(ws) ?? 'unknown';
+        if (t === 'scout') hasScout = true;
+        if (t === 'dashboard') hasDashboard = true;
+      }
+      if (hasScout) scouts++;
+      if (hasDashboard) dashboards++;
+    }
+    for (const ws of session.clients) {
+      if (!session.wsToIdentityToken?.has(ws)) {
+        const t = session.clientTypes.get(ws) ?? 'unknown';
+        if (t === 'scout') scouts++;
+        else if (t === 'dashboard') dashboards++;
+      }
+    }
     results.push({
       code: session.code,
       name: session.name,
@@ -1040,6 +1059,8 @@ export function getListedSessions(): SessionSummary[] {
       managed: !!session.managed,
       allowOpenJoin: !!session.allowOpenJoin,
       clientCount: session.clients.size,
+      scouts,
+      dashboards,
       memberCount,
       activeWorldCount,
       createdAt: session.createdAt,

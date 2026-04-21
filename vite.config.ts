@@ -3,12 +3,10 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
 import { version } from './package.json'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
 const _protocolHash = createHash('sha256')
-  .update(readFileSync(resolve(__dirname, 'shared/protocol.ts')))
+  .update(readFileSync(new URL('./shared/protocol.ts', import.meta.url)))
   .digest('hex')
   .slice(0, 8)
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Users, RefreshCw, TreeDeciduous } from 'lucide-react';
+import { RefreshCw, TreeDeciduous, Users } from 'lucide-react';
+import { MemberCount } from './MemberCount';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
@@ -253,12 +254,10 @@ export function SessionBrowserView({
                       </form>
                     )}
                     <div className="flex items-center gap-3 text-xs">
-                      <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
-                        <Users className="w-3 h-3" /> {s.clientCount}
-                      </span>
-                      <span className={`flex items-center gap-1 ${TEXT_COLOR.muted}`}>
+                      <span className={`flex items-center gap-1 ${TEXT_COLOR.prominent}`}>
                         <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
                       </span>
+                      <MemberCount clientCount={s.dashboards} scouts={s.scouts} connected={true} className="text-xs" />
                     </div>
                     <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(s.lastActivityAt)}</p>
                   </div>
@@ -304,7 +303,7 @@ export function SessionBrowserView({
               type="checkbox"
               checked={!showOnStartup}
               onChange={e => onShowOnStartupChange(!e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+              className="rounded border-gray-600 bg-gray-700 text-green-500 focus:ring-green-500 focus:ring-offset-0"
             />
             <span className={`text-sm ${TEXT_COLOR.muted}`}>Don't show Sessions on startup</span>
           </label>

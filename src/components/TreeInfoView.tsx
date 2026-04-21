@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint } from '../constants/evilTree';
-import { TREE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
+import { TREE_COLOR, DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useLocationHint } from '../hooks/useLocationHint';
 import { useSettings } from '../hooks/useSettings';
@@ -103,8 +103,8 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
 
           {/* Strange Sapling message and type selector */}
           {isStrangeSapling && (
-            <div className="bg-blue-900 border border-blue-700 rounded p-4 space-y-3">
-              <p className="text-sm text-blue-100">
+            <div className="border border-cyan-400/50 rounded p-4 space-y-3">
+              <p className={`text-sm ${TEXT_COLOR.prominent}`}>
                 Strange saplings can be inspected to determine their type. Select the type it will grow into, or leave as unknown.
               </p>
               <div>
@@ -199,7 +199,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           {/* Override option (update mode only) */}
           {isUpdateMode && (
             confirmOverride ? (
-              <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
+              <div className={`${DEAD_COLOR.panelBorder} rounded p-4 space-y-3`}>
                 <p className={`text-sm ${TEXT_COLOR.prominent}`}>Replace all data and restart timers?</p>
                 <p className={`text-xs ${TEXT_COLOR.muted}`}>
                   This will discard the current timer and treat this as a brand-new tree sighting. Use this if the previous data was wrong
@@ -218,8 +218,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                         lightningPreset: isStrangeSapling ? undefined : lightningPreset,
                       }, 'override');
                     }}
-                    className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed
-                      text-white font-medium rounded py-2 text-sm transition-colors"
+                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed font-medium rounded py-2 text-sm transition-colors`}
                   >
                     Yes, override
                   </button>
@@ -237,7 +236,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                 <button
                   type="button"
                   onClick={() => setConfirmOverride(true)}
-                  className="text-sm text-gray-500 hover:text-amber-400 underline underline-offset-2 transition-colors"
+                  className="text-sm text-gray-500 hover:text-red-400 underline underline-offset-2 transition-colors"
                 >
                   Override &amp; restart timers
                 </button>

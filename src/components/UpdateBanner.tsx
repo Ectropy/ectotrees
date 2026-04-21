@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { TREE_COLOR } from '../constants/toolColors';
 
 const POLL_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
-export function UpdateBanner() {
-  const [visible, setVisible] = useState(false);
+export function UpdateBanner({ defaultVisible = false }: { defaultVisible?: boolean }) {
+  const [visible, setVisible] = useState(defaultVisible);
 
   useEffect(() => {
     if (!import.meta.env.PROD) return;
@@ -32,7 +33,7 @@ export function UpdateBanner() {
       <span>A new version of Ectotrees is available.</span>
       <button
         onClick={() => window.location.reload()}
-        className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded transition-colors font-medium"
+        className={`px-3 py-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} text-xs rounded transition-colors font-medium`}
       >
         Reload
       </button>

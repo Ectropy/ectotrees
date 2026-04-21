@@ -18,6 +18,8 @@ export interface SessionSummary {
   managed: boolean;
   allowOpenJoin: boolean;
   clientCount: number;
+  scouts: number;
+  dashboards: number;
   memberCount: number;
   activeWorldCount: number;
   createdAt: number;

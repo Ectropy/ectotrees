@@ -347,8 +347,8 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                 onLightning={setPendingLightning}
               />
               {pendingLightning !== null ? (
-                <div ref={confirmRef} className="mt-2 bg-amber-900/30 border border-amber-500/50 rounded p-3">
-                  <p className="text-xs text-amber-200">
+                <div ref={confirmRef} className={`mt-2 ${TREE_COLOR.panelBorder} rounded p-3`}>
+                  <p className="text-xs text-green-200">
                     Report {pendingLightning}% lightning? This lightning occurs {pendingLightning === 50 ? '10 minutes' : '20 minutes'} after the tree matures. "Dies in" timer will be set to{' '}
                     {pendingLightning === 50 ? '20 minutes' : '10 minutes'}.
                   </p>
@@ -356,14 +356,14 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     <button
                       type="button"
                       onClick={() => { onReportLightning(pendingLightning); setPendingLightning(null); }}
-                      className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors"
+                      className={`text-xs px-3 py-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} rounded transition-colors`}
                     >
                       Confirm
                     </button>
                     <button
                       type="button"
                       onClick={() => setPendingLightning(null)}
-                      className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                      className={`text-xs px-3 py-1 ${BUTTON_SECONDARY}`}
                     >
                       Cancel
                     </button>
@@ -424,7 +424,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
             if (state.treeExactLocation) items.push(`Exact location: ${state.treeExactLocation}`);
 
             return (
-              <div className="bg-gray-800 border border-amber-700 rounded p-4 space-y-3">
+              <div className={`${DEAD_COLOR.panelBorder} rounded p-4 space-y-3`}>
                 <p className={`text-sm ${TEXT_COLOR.prominent}`}>Reset World {world.id} to blank?</p>
                 <p className={`text-xs ${TEXT_COLOR.muted}`}>
                   Use this to correct a mistake — wrong world, accidental entry, or test data. All recorded data will be wiped immediately.
@@ -435,7 +435,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     <ul className="space-y-0.5">
                       {items.map((item, i) => (
                         <li key={i} className="flex items-start gap-1.5 text-xs text-gray-300">
-                          <span className="text-amber-500 mt-px">•</span>
+                          <span className="text-red-400 mt-px">•</span>
                           <span>{item}</span>
                         </li>
                       ))}
@@ -453,7 +453,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                       });
                       onClear();
                     }}
-                    className="flex-1 bg-amber-700 hover:bg-amber-600 text-white font-medium rounded py-2 transition-colors"
+                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded py-2 transition-colors`}
                   >
                     Yes, clear
                   </button>
@@ -471,7 +471,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
               <button
                 onClick={() => setConfirmClear(true)}
                 disabled={isBlank}
-                className="text-sm text-gray-500 hover:text-amber-400 underline underline-offset-2 transition-colors
+                className="text-sm text-gray-500 hover:text-red-400 underline underline-offset-2 transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
               >
                 Clear world state
@@ -509,14 +509,14 @@ function EditButtons({ onSave, onCancel, saveDisabled }: { onSave: () => void; o
         type="button"
         onClick={onSave}
         disabled={saveDisabled}
-        className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded py-1.5 transition-colors"
+        className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded py-1.5 transition-colors`}
       >
         Save
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded py-1.5 transition-colors"
+        className={`flex-1 ${BUTTON_SECONDARY} py-1.5 text-sm`}
       >
         Cancel
       </button>
