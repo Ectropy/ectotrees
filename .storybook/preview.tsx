@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { Preview } from '@storybook/react';
 import React from 'react';
 import { TooltipProvider } from '../src/components/ui/tooltip';
