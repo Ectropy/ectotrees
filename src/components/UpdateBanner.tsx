@@ -3,8 +3,8 @@ import { TREE_COLOR } from '../constants/toolColors';
 
 const POLL_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
-export function UpdateBanner() {
-  const [visible, setVisible] = useState(false);
+export function UpdateBanner({ defaultVisible = false }: { defaultVisible?: boolean }) {
+  const [visible, setVisible] = useState(defaultVisible);
 
   useEffect(() => {
     if (!import.meta.env.PROD) return;
