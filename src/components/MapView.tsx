@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { LOCATION_COORDS } from '../../shared/hints.ts';
+import { hintsForLocation } from '../constants/evilTree.ts';
 
-// PoC: hardcoded Evil Tree spawn near Lumbridge Castle.
 // Game (x, y) maps to Leaflet LatLng(y, x) under CRS.Simple — y=game-y, x=game-x.
 // The default view matches mejrs.github.io/rs3 defaults so the initial map is known-good.
-const SAMPLE_SPAWN = { x: 3222, y: 3218, plane: 0, label: 'Lumbridge Castle' };
 const DEFAULT_CENTER: [number, number] = [3232, 3232]; // mejrs's default setView center
 const DEFAULT_ZOOM = 2;
 
@@ -14,6 +14,7 @@ const DEFAULT_ZOOM = 2;
 // layers_rs3 repo — same source the RuneScape Wiki currently uses for its
 // RS3 interactive map.
 const MAP_ID = 28;
+const OVERWORLD_PLANE = 0;
 const TILE_URL =
   'https://raw.githubusercontent.com/mejrs/layers_rs3/master/map_squares/{mapId}/{zoom}/{plane}_{x}_{y}.png';
 
@@ -23,11 +24,20 @@ class Rs3TileLayer extends L.TileLayer {
     return L.Util.template(this._url, {
       mapId: MAP_ID,
       zoom: coords.z,
-      plane: SAMPLE_SPAWN.plane,
+      plane: OVERWORLD_PLANE,
       x: coords.x,
       y: -(1 + coords.y),
     });
   }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
+function buildPopupHtml(name: string, hints: string[]): string {
+  const hintList = hints.map(h => `<li>${escapeHtml(h)}</li>`).join('');
+  return `<div style="min-width:180px"><strong>${escapeHtml(name)}</strong><ul style="margin:4px 0 0;padding-left:18px">${hintList}</ul></div>`;
 }
 
 export function MapView() {
@@ -57,16 +67,17 @@ export function MapView() {
 
     map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.circleMarker([SAMPLE_SPAWN.y, SAMPLE_SPAWN.x], {
-      radius: 8,
-      color: '#fbbf24',
-      fillColor: '#f59e0b',
-      fillOpacity: 0.9,
-      weight: 2,
-    })
-      .addTo(map)
-      .bindPopup(SAMPLE_SPAWN.label)
-      .openPopup();
+    for (const [name, { x, y }] of Object.entries(LOCATION_COORDS)) {
+      L.circleMarker([y, x], {
+        radius: 6,
+        color: '#fbbf24',
+        fillColor: '#f59e0b',
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .addTo(map)
+        .bindPopup(buildPopupHtml(name, hintsForLocation(name)));
+    }
 
     return () => {
       map.remove();
@@ -74,8 +85,8 @@ export function MapView() {
   }, []);
 
   return (
-    <div className="h-full w-full bg-gray-900">
-      <div ref={containerRef} className="h-full w-full" />
+    <div className="h-full w-full bg-black">
+      <div ref={containerRef} className="h-full w-full" style={{ background: '#000' }} />
     </div>
   );
 }

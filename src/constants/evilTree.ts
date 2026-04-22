@@ -1,9 +1,9 @@
 import type { TreeType } from '../../shared/types.ts';
-import { LOCATION_HINTS } from '../../shared/hints.ts';
+import { LOCATION_HINTS, LOCATION_COORDS } from '../../shared/hints.ts';
 
 export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../../shared/types.ts';
 export type { TreeType } from '../../shared/types.ts';
-export { LOCATION_HINTS } from '../../shared/hints.ts';
+export { LOCATION_HINTS, LOCATION_COORDS } from '../../shared/hints.ts';
 export type { LocationHint } from '../../shared/hints.ts';
 
 export const TREE_TYPE_LABELS: Record<TreeType, string> = {
@@ -68,6 +68,14 @@ export function resolveExactLocation(hint: string): string {
 
 export function hintForLocation(location: string): string {
   return LOCATION_HINTS.find(lh => lh.locations.includes(location))?.hint ?? '';
+}
+
+export function hintsForLocation(location: string): string[] {
+  return LOCATION_HINTS.filter(lh => lh.locations.includes(location)).map(lh => lh.hint);
+}
+
+export function coordsForLocation(location: string): { x: number; y: number } | undefined {
+  return LOCATION_COORDS[location];
 }
 
 export function formatMs(ms: number): string {
