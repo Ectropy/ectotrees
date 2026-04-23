@@ -17,6 +17,8 @@ const MAP_ID = 28;
 const OVERWORLD_PLANE = 0;
 const TILE_URL =
   'https://raw.githubusercontent.com/mejrs/layers_rs3/master/map_squares/{mapId}/{zoom}/{plane}_{x}_{y}.png';
+const ICON_TILE_URL =
+  'https://raw.githubusercontent.com/mejrs/layers_rs3/master/icon_squares/{mapId}/{zoom}/{plane}_{x}_{y}.png';
 
 // Flip Leaflet's top-left tile origin to the game's bottom-left origin.
 class Rs3TileLayer extends L.TileLayer {
@@ -64,6 +66,17 @@ export function MapView() {
       tileSize: 256,
       noWrap: true,
     }).addTo(map);
+
+    const iconLayer = new Rs3TileLayer(ICON_TILE_URL, {
+      minZoom: 0,
+      maxZoom: 5,
+      maxNativeZoom: 4,
+      tileSize: 256,
+      noWrap: true,
+      pane: 'overlayPane',
+    }).addTo(map);
+
+    L.control.layers({}, { Icons: iconLayer }, { position: 'topright', collapsed: false }).addTo(map);
 
     map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
