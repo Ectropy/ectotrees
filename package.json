@@ -24,6 +24,7 @@
     "prepare": "husky",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
+    "og:generate": "node scripts/generate-og-image.mjs",
     "fonts:woff2": "node scripts/convert-fonts.mjs"
   },
   "dependencies": {
