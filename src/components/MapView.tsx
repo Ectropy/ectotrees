@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { TreeDeciduous } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { LOCATION_COORDS } from '../../shared/hints.ts';
 import { hintsForLocation } from '../constants/evilTree.ts';
 
@@ -31,6 +34,39 @@ class Rs3TileLayer extends L.TileLayer {
       y: -(1 + coords.y),
     });
   }
+}
+
+// Tailwind green-400 — matches TREE_COLOR.text so the map marker agrees with
+// the rest of the tree UI. Tailwind classes do not reach into the rendered SVG
+// string, so the hex has to be inline.
+const TREE_GREEN = '#4ade80';
+
+type MarkerStyle = { color: string; Icon: LucideIcon };
+
+// Future state-based variation (dying, dead, alive) swaps the `color` / `Icon`
+// fields here; the rest of the marker shell is identical.
+function createTreeMarkerIcon({ color, Icon }: MarkerStyle): L.DivIcon {
+  const iconSvg = renderToStaticMarkup(<Icon size={24} color={color} strokeWidth={2.25} />);
+  // Pin outline: 44x44 rounded-square head, tapering over 10px to a tip at (22,53).
+  // Stroke is inset by 1px so a 2px stroke stays fully inside the 44x54 viewBox.
+  const pinPath =
+    'M5,1 L39,1 Q43,1 43,5 L43,43 L32,43 L22,53 L12,43 L1,43 L1,5 Q1,1 5,1 Z';
+  // Nest the lucide <svg> inside the outer <svg> via a translating <g>. Keeping
+  // everything in one SVG root avoids sibling stacking-context issues and lets
+  // `filter: drop-shadow` trace the whole pin silhouette cleanly.
+  const html =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 44 54" ` +
+    `style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))">` +
+    `<path d="${pinPath}" fill="#000" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<g transform="translate(10 10)">${iconSvg}</g>` +
+    `</svg>`;
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [44, 54],
+    iconAnchor: [22, 53],
+    popupAnchor: [0, -53],
+  });
 }
 
 function escapeHtml(s: string): string {
@@ -95,15 +131,9 @@ export function MapView({ interactive = true, showControls = true, initialView }
     const { center, zoom } = initialView ?? { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM };
     map.setView(center, zoom);
 
+    const treeIcon = createTreeMarkerIcon({ color: TREE_GREEN, Icon: TreeDeciduous });
     for (const [name, { x, y }] of Object.entries(LOCATION_COORDS)) {
-      const marker = L.circleMarker([y, x], {
-        radius: 6,
-        color: '#fbbf24',
-        fillColor: '#f59e0b',
-        fillOpacity: 0.9,
-        weight: 2,
-        interactive,
-      }).addTo(map);
+      const marker = L.marker([y, x], { icon: treeIcon, interactive }).addTo(map);
       if (interactive) {
         marker.bindPopup(buildPopupHtml(name, hintsForLocation(name)));
       }
