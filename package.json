@@ -23,7 +23,8 @@
     "postversion": "git push --follow-tags",
     "prepare": "husky",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "fonts:woff2": "node scripts/convert-fonts.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -73,6 +74,7 @@
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.8",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wawoff2": "^2.0.1"
   }
 }

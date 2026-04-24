@@ -46,6 +46,7 @@ import {
   getListedSessions,
   updateSessionSettings,
   MAX_CLIENTS_PER_SESSION,
+  APP_URL,
 } from './session.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
 import type { Session, Member } from './session.ts';
@@ -88,9 +89,8 @@ function errorMsg(message: string): ServerMessage {
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 const ALLOWED_ORIGINS = new Set([
-  'https://trees.ectropyarts.com',
-  'https://ectotrees.ectropyarts.com',
-  ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',').map(s => s.trim()) : []),
+  APP_URL,
+  ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : []),
 ]);
 
 function isOriginAllowed(origin: string | undefined): boolean {

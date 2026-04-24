@@ -23,7 +23,7 @@ const ICON_TILE_URL =
 // Flip Leaflet's top-left tile origin to the game's bottom-left origin.
 class Rs3TileLayer extends L.TileLayer {
   override getTileUrl(coords: L.Coords): string {
-    return L.Util.template(this._url, {
+    return L.Util.template((this as unknown as { _url: string })._url, {
       mapId: MAP_ID,
       zoom: coords.z,
       plane: OVERWORLD_PLANE,
@@ -42,7 +42,13 @@ function buildPopupHtml(name: string, hints: string[]): string {
   return `<div style="min-width:180px"><strong>${escapeHtml(name)}</strong><ul style="margin:4px 0 0;padding-left:18px">${hintList}</ul></div>`;
 }
 
-export function MapView() {
+type MapViewProps = {
+  interactive?: boolean;
+  showControls?: boolean;
+  initialView?: { center: [number, number]; zoom: number };
+};
+
+export function MapView({ interactive = true, showControls = true, initialView }: MapViewProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,6 +63,12 @@ export function MapView() {
       attributionControl: false,
       maxBounds: [[-1000, -1000], [13800, 7400]],
       maxBoundsViscosity: 0.5,
+      dragging: interactive,
+      scrollWheelZoom: interactive,
+      touchZoom: interactive,
+      keyboard: interactive,
+      boxZoom: interactive,
+      zoomControl: interactive && showControls,
     });
 
     new Rs3TileLayer(TILE_URL, {
@@ -76,26 +88,31 @@ export function MapView() {
       pane: 'overlayPane',
     }).addTo(map);
 
-    L.control.layers({}, { Icons: iconLayer }, { position: 'topright', collapsed: false }).addTo(map);
+    if (showControls) {
+      L.control.layers({}, { Icons: iconLayer }, { position: 'topright', collapsed: false }).addTo(map);
+    }
 
-    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    const { center, zoom } = initialView ?? { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM };
+    map.setView(center, zoom);
 
     for (const [name, { x, y }] of Object.entries(LOCATION_COORDS)) {
-      L.circleMarker([y, x], {
+      const marker = L.circleMarker([y, x], {
         radius: 6,
         color: '#fbbf24',
         fillColor: '#f59e0b',
         fillOpacity: 0.9,
         weight: 2,
-      })
-        .addTo(map)
-        .bindPopup(buildPopupHtml(name, hintsForLocation(name)));
+        interactive,
+      }).addTo(map);
+      if (interactive) {
+        marker.bindPopup(buildPopupHtml(name, hintsForLocation(name)));
+      }
     }
 
     return () => {
       map.remove();
     };
-  }, []);
+  }, [interactive, showControls, initialView]);
 
   return (
     <div className="h-full w-full bg-black">
