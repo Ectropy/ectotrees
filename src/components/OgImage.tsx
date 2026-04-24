@@ -30,11 +30,11 @@ export function OgImage({ wordmark, tagline, mapView, card }: Props) {
       }}
     >
       <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
-        <MapView interactive={false} showControls={false} initialView={mapView} />
+        <MapView interactive={false} showControls={false} showIcons={false} initialView={mapView} />
       </div>
       <div
         className="absolute inset-0"
-        style={{ background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.75) 55%, rgba(15,23,42,0.25) 100%)' }}
+        style={{ background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.90) 0%, rgba(0, 0, 0, 0.70) 55%, rgba(15,23,42,0.25) 100%)' }}
       />
 
       <div className="relative grid h-full grid-cols-2 items-center">

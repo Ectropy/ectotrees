@@ -81,10 +81,11 @@ function buildPopupHtml(name: string, hints: string[]): string {
 type MapViewProps = {
   interactive?: boolean;
   showControls?: boolean;
+  showIcons?: boolean;
   initialView?: { center: [number, number]; zoom: number };
 };
 
-export function MapView({ interactive = true, showControls = true, initialView }: MapViewProps = {}) {
+export function MapView({ interactive = true, showControls = true, showIcons = true, initialView }: MapViewProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,7 +123,11 @@ export function MapView({ interactive = true, showControls = true, initialView }
       tileSize: 256,
       noWrap: true,
       pane: 'overlayPane',
-    }).addTo(map);
+    })
+    
+    if (showIcons){
+      iconLayer.addTo(map);
+    }
 
     if (showControls) {
       L.control.layers({}, { Icons: iconLayer }, { position: 'topright', collapsed: false }).addTo(map);
@@ -139,10 +144,17 @@ export function MapView({ interactive = true, showControls = true, initialView }
       }
     }
 
+    if (import.meta.env.DEV) {
+      map.on('moveend', () => {
+        const c = map.getCenter();
+        console.log(`center: [${Math.round(c.lat)}, ${Math.round(c.lng)}], zoom: ${map.getZoom()}`);
+      });
+    }
+
     return () => {
       map.remove();
     };
-  }, [interactive, showControls, initialView]);
+  }, [interactive, showControls, showIcons, initialView]);
 
   return (
     <div className="h-full w-full bg-black">
