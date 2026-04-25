@@ -64,7 +64,7 @@ export function HealthButtonGrid({ value, onChange, onLightning, selectedLightni
               onClick={() => onLightning!(pct)}
               className={`col-span-5 text-xs py-2 px-3 rounded transition-colors flex items-center justify-center gap-1.5 ${selectedLightning === pct ? LIGHTNING_SELECTED : LIGHTNING_COLORS[pct]}`}
             >
-              <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+              <Zap className="h-3.5 w-3.5 shrink-0" />
               Report {pct}% lightning strike
             </button>
           );

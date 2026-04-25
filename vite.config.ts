@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -38,7 +39,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(`${version}+${_protocolHash}`),
   },
-  plugins: [react(), requireEnv()],
+  plugins: [react(), tailwindcss(), requireEnv()],
   server: {
     proxy: {
       '/api': 'http://localhost:3001',

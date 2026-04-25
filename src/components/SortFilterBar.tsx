@@ -144,7 +144,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
 
   if (isCompact) {
     return (
-      <div className="relative flex items-start gap-2 px-2 py-1 pr-8 sm:pr-24 bg-gray-800 rounded flex-shrink-0">
+      <div className="relative flex items-start gap-2 px-2 py-1 pr-8 sm:pr-24 bg-gray-800 rounded shrink-0">
         <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
           <button
             onClick={() => setIsCompact(false)}
@@ -182,7 +182,7 @@ export function SortFilterBar({ sortMode, setSortMode, sortAsc, setSortAsc, filt
   }
 
   return (
-    <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-2 py-1 pr-8 sm:pr-24 bg-gray-800 rounded flex-shrink-0 sm:flex-wrap">
+    <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-2 py-1 pr-8 sm:pr-24 bg-gray-800 rounded shrink-0 sm:flex-wrap">
       {/* Sort buttons */}
       <div className="flex items-start sm:items-center gap-0.5 min-w-0 w-full sm:w-auto">
         <span className="py-1 sm:py-0.5 text-xs sm:text-[11px] text-gray-500 shrink-0 w-9 sm:w-auto sm:mr-1">Sort</span>

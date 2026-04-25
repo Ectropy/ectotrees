@@ -39,10 +39,10 @@ function DismissableError({ message, onDismiss }: { message: string; onDismiss: 
 
 function StatusDot({ status }: { status: SessionStatus }) {
   if (status === 'connected')
-    return <Circle className="w-3 h-3 flex-shrink-0 fill-current text-green-500" />;
+    return <Circle className="w-3 h-3 shrink-0 fill-current text-green-500" />;
   if (status === 'connecting')
-    return <LoaderCircle className="w-3 h-3 flex-shrink-0 text-yellow-500 animate-spin" />;
-  return <CircleX className="w-3 h-3 flex-shrink-0 text-red-500" />;
+    return <LoaderCircle className="w-3 h-3 shrink-0 text-yellow-500 animate-spin" />;
+  return <CircleX className="w-3 h-3 shrink-0 text-red-500" />;
 }
 
 export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveSession, onDismissError, onOpenSession, onRequestIdentityToken, onLinkWithAlt1, onOpenBrowser, forkDismissed }: SessionBarProps) {
@@ -74,7 +74,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
     const isConnected = session.status === 'connected';
 
     return (
-      <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs shrink-0 flex-wrap">
         {/* Compound status button: dot + name/code + copy icon */}
         <SplitButton
           borderClass={STATUS_BORDER_COLORS[session.status]}
@@ -129,7 +129,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
         )}
 
         {reconnectText && (
-          <span className={`text-xs flex-shrink-0 ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</span>
+          <span className={`text-xs shrink-0 ${CONNECTION_COLOR.connectingText}`}>{reconnectText}</span>
         )}
 
 
@@ -137,13 +137,13 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
           <>
             <button
               onClick={() => onRejoinSession(session.code!)}
-              className="px-2 py-0.5 bg-transparent border border-yellow-400 text-yellow-400 hover:bg-yellow-400/20 text-xs rounded transition-colors flex-shrink-0"
+              className="px-2 py-0.5 bg-transparent border border-yellow-400 text-yellow-400 hover:bg-yellow-400/20 text-xs rounded transition-colors shrink-0"
             >
               Rejoin?
             </button>
             <button
               onClick={onLeaveSession}
-              className="text-xs text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors shrink-0"
             >
               Leave
             </button>
@@ -158,10 +158,10 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
         {session.forkInvite && session.forkInvite.selfRegisterToken && !session.managed && !forkDismissed && (
           <button
             onClick={onOpenSession}
-            className={`flex items-center gap-1.5 px-2 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} text-xs rounded transition-colors flex-shrink-0`}
+            className={`flex items-center gap-1.5 px-2 py-0.5 ${MANAGED_COLOR.border} ${MANAGED_COLOR.borderHover} ${MANAGED_COLOR.label} text-xs rounded transition-colors shrink-0`}
             title={`${session.forkInvite.initiatorName} created a managed fork of this session. Click to view or join.`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse flex-shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse shrink-0" />
             Managed session available
           </button>
         )}
@@ -175,7 +175,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
 
   // No active session
   return (
-    <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs flex-shrink-0">
+    <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded text-xs shrink-0">
       <button
         onClick={handleCreate}
         disabled={loading}
