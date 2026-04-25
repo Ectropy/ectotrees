@@ -6,7 +6,7 @@ import { applyTransitions } from '../shared/mutations.ts';
 import { containsProfanity } from './profanity.ts';
 import { log, warn } from './log.ts';
 
-const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+export const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 
 const MAX_SESSIONS = 1000;
 export const MAX_CLIENTS_PER_SESSION = 1000;

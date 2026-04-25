@@ -6,7 +6,7 @@
 src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
-  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, filterable types; also exports TREE_TYPE_LABELS (full display names), TREE_TYPE_SHORT (abbreviated labels), formatMs(ms) duration formatter, and hint/location helpers (locationsForHint, resolveExactLocation, hintForLocation)
+  constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, LOCATION_COORDS, filterable types; also exports TREE_TYPE_LABELS (full display names), TREE_TYPE_SHORT (abbreviated labels), formatMs(ms) duration formatter, and hint/location helpers (locationsForHint, resolveExactLocation, hintForLocation, hintsForLocation, coordsForLocation)
   constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY)
   constants/__tests__/
     evilTree.test.ts     # Vitest unit tests for evilTree helpers
@@ -23,12 +23,13 @@ src/
   hooks/
     useWorldStates.ts   # Core state: localStorage persistence + sync integration + auto-transitions + lightning events
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
-    useSettings.ts      # Visual effects + tip ticker + sidebar settings persisted to localStorage
+    useSettings.ts      # Visual effects + tip ticker + sidebar + follow-scout + browse-on-startup settings persisted to localStorage
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
     useSessionBrowser.ts # Fetches GET /api/sessions and returns sorted SessionSummary[]; sort modes: 'newest' | 'active' | 'members'
+    useLocationHint.ts  # Bidirectional hint↔exact-location sync: changing the hint clears/auto-resolves the exact location; setting the exact location back-fills the hint when blank
   components/
     WorldCard.tsx        # Card shell (85px tall, clickable body opens WorldDetailView); shows EyeOff icon when hidden
     StatusSection.tsx    # Compact in-card status display with countdowns
@@ -38,23 +39,31 @@ src/
     TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)
     WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator; opens SessionView panel
-    SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites)
+    SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites, follow-scout toggle)
     MemberPanel.tsx      # Member list with role badges, admin controls (role change, ban), and invite creation form
+    MemberCount.tsx      # Compact member-count chip used in SessionBar / SessionView
+    Alt1TokenButton.tsx  # Header-area button that surfaces the Alt1 identity-link copy/regenerate flow
     SessionBrowserView.tsx # Full-screen/sidebar: session discovery panel — browse/join listed sessions, create session, enter code/token
     SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
     UpdateBanner.tsx     # Fixed bottom banner shown in production when a new app version is detected (polls /api/health every 15 min, compares `data.version` against `__APP_VERSION__`)
+    UpdateBanner.stories.tsx # Storybook story
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
-    SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar toggles)
+    SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar + browse-on-startup toggles)
     LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
     SparkEffect.tsx      # GSAP-based ember particle animation (dead trees)
     TipTicker.tsx        # Infinite-scrolling tip footer (tips from data/tips.json)
     ToolButton.tsx       # Icon button used on world cards (w-7 h-6, configurable hover color via toolHover prop)
     ToolView.tsx         # Layout shell for tool views: wraps ViewHeader + children in max-w-lg centered container
+    MapView.tsx          # Leaflet (CRS.Simple) RS3 map with mejrs's tile/icon layers and tree-pin markers at every spawn location. Props: `interactive`, `showControls`, `showIcons`, `initialView`. In dev, logs `moveend` center/zoom for tuning OG views.
+    OgImage.tsx          # 1200×630 marketing/OG composition (MapView + wordmark + scaled WorldCard). Rendered as a Storybook story (`OgImage.stories.tsx`) and screenshotted by `scripts/generate-og-image.mjs`.
+    OgImage.stories.tsx  # Storybook story for OG image generation
+    WorldCard.stories.tsx # Storybook story exercising WorldCard states
     icons/PartyHatGlasses.tsx # Custom SVG icon (party hat + glasses) used as the View nav button
     ui/switch.tsx        # Radix UI switch wrapper
     ui/resizable.tsx     # react-resizable-panels v4 wrappers (shadcn/ui-style handle)
     ui/tooltip.tsx       # Radix UI tooltip wrapper
+    ui/popover.tsx       # Radix UI popover wrapper
     ui/combobox.tsx      # @base-ui/react Combobox primitives (base layer for SelectCombobox)
     ui/select-combobox.tsx # High-level combobox: desktop uses combobox.tsx, mobile falls back to native <select>
     ui/split-button.tsx  # Horizontal split button with contextual hover styling per segment; used in SessionBar for paired actions
@@ -82,12 +91,14 @@ Uses `react-resizable-panels` v4 (`Group` / `Panel` / `Separator` API — number
 ```typescript
 type ActiveView =
   | { kind: 'grid' }
-  | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number }
   | { kind: 'settings' }
   | { kind: 'session' }
-  | { kind: 'session-join'; code: string };
+  | { kind: 'session-join'; code: string }
+  | { kind: 'browse' }
+  | { kind: 'map' }
+  | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 ```
-Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, and invites. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, invites, and the **Follow scout's world** toggle. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data. `browse` opens `SessionBrowserView` and is the default initial view when the user has no active session and `showBrowseOnStartup` is true; auto-redirects to `session` once a session is created/joined. `map` (PoC) is opened from the `Map` icon in the header and renders `MapView` — analytics is currently skipped for this view.
 
 **World search bar**: a `Search` icon input in the header filters the grid by world number. When the search matches exactly one world and sidebar mode is enabled, it auto-opens the detail view for that world. Escape clears the search.
 
@@ -117,15 +128,17 @@ All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `e
 
 ## Settings (`useSettings.ts` + `SettingsView.tsx`)
 
-Five settings, persisted to `localStorage` (`evilTree_settings`):
+Settings are persisted to `localStorage` (`evilTree_settings`):
 
 | Setting | Default | Description |
 |---|---|---|
 | `effectsLightning` | `true` | Enable canvas lightning bolt animations on health auto-transitions |
 | `effectsSparks` | `true` | Enable GSAP ember particle animations on dead tree cards |
 | `showTipTicker` | `true` | Show scrolling tip ticker in the footer |
+| `showBrowseOnStartup` | `true` | Open the session browser on startup when not in a session |
 | `sidebarEnabled` | `true` | Show tool views in a sidebar panel beside the grid (desktop only) |
 | `sidebarSide` | `'left'` | Which side the sidebar docks to (`'left'` or `'right'`) |
+| `followScout` | `true` | When the linked scout hops worlds, auto-open the detail panel for that world. Toggled from `SettingsView` (⚙) and from the **Follow scout's world** switch in `SessionView`; auto re-enables when a new identity token is issued (new Alt1 link). |
 
 Settings are accessed via `useSettings()` and edited in `SettingsView` (⚙ button in header). All new fields use graceful migration — existing stored settings without them fall back to their defaults.
 
@@ -154,7 +167,7 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 
 ## Client Sync Layer (`useSession.ts`)
 
-Exposes `createSession`, `joinSession`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `kickMember`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowViewers`, `setAllowOpenJoin`, `openJoin`, `updateSessionSettings`), and personal token ops (`requestPersonalToken`, `joinByInviteToken`).
+Exposes `createSession`, `createSessionAndRequestToken` (creates an anonymous session and immediately asks for an identity token — used by the Alt1 "link with Alt1" button), `joinSession`, `joinByIdentityToken`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `kickMember`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowOpenJoin`, `openJoin`, `updateSessionSettings`), `requestIdentityToken`, and fork-invite dismissal (`forkDismissed`, `dismissForkInvite`).
 
 Key behaviors:
 - **localStorage**: session code → `evilTree_sessionCode`; invite/personal token → `evilTree_inviteToken`. Both are auto-resumed on page reload.
