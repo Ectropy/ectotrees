@@ -226,7 +226,11 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSubmit, canAutoSubmit, submitting, cloudCheck]);
 
-  // Cancel countdown if fields become invalid for auto-submit
+  // Cancel countdown if fields become invalid for auto-submit. Paired with the
+  // start effect above — both are imperative reactions to a derived condition
+  // changing, which the new react-hooks/set-state-in-effect rule flags. Any
+  // refactor that splits the lifecycle (derived display, per-input cancel) has
+  // worse failure modes; keep both effects disabled together.
   useEffect(() => {
     if (!canAutoSubmit && autoCountdown !== null) {
       pendingSubmitRef.current = null;
@@ -248,13 +252,10 @@ export function App() {
     return () => clearTimeout(id);
   }, [autoCountdown]);
 
-  // Blink icon during countdown
+  // Blink icon during countdown. The stale blinkFrame value is harmless when not
+  // counting down — the icon only renders inside `autoCountdown !== null`.
   useEffect(() => {
-    if (!isCountingDown) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBlinkFrame(false);
-      return;
-    }
+    if (!isCountingDown) return;
     const id = setInterval(() => setBlinkFrame(f => !f), 500);
     return () => clearInterval(id);
   }, [isCountingDown]);

@@ -51,22 +51,20 @@ const GRID_PANEL_ID = 'grid';
 
 
 export default function App() {
+  const saveToLocalStorageRef = useRef<(() => void) | null>(null);
   const handleSessionLost = useCallback(() => {
-    saveToLocalStorageRef.current();
+    saveToLocalStorageRef.current?.();
   }, []);
   const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
-  const saveToLocalStorageRef = useRef(saveToLocalStorage);
-  // eslint-disable-next-line react-hooks/refs, react-hooks/immutability
-  saveToLocalStorageRef.current = saveToLocalStorage;
+  useEffect(() => { saveToLocalStorageRef.current = saveToLocalStorage; });
 
   // Viewers in managed sessions cannot edit world state
   const canEdit = !session.managed || (session.memberRole !== 'viewer' && session.memberRole !== null);
 
   // Dev-only: expose trigger on window for manual testing
   const triggerLightningRef = useRef(triggerLightningEvent);
-  // eslint-disable-next-line react-hooks/refs
-  triggerLightningRef.current = triggerLightningEvent;
+  useEffect(() => { triggerLightningRef.current = triggerLightningEvent; });
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     (window as unknown as Record<string, unknown>).__triggerLightning =
@@ -78,9 +76,21 @@ export default function App() {
   const { settings, updateSettings } = useSettings();
   const isMobile = useIsMobile();
 
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_identityToken');
+    if (!hasSession) {
+      try {
+        const raw = localStorage.getItem('evilTree_settings');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const showBrowse = parsed?.showBrowseOnStartup !== false;
+        if (showBrowse) return { kind: 'browse' };
+      } catch { /* fall through */ }
+    }
+    return { kind: 'grid' };
+  });
+
   const worldStatesRef = useRef(worldStates);
-  // eslint-disable-next-line react-hooks/refs
-  worldStatesRef.current = worldStates;
+  useEffect(() => { worldStatesRef.current = worldStates; });
 
   const handleCreateSession = useCallback(() => {
     return createSession(worldStatesRef.current);
@@ -116,7 +126,6 @@ export default function App() {
 
     if (!hasContribute && !hasConflicts) {
       confirmPreviewJoin(code, undefined);
-      // eslint-disable-next-line react-hooks/immutability
       setActiveView({ kind: 'session' });
       return true;
     }
@@ -173,18 +182,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [activeView, setActiveView] = useState<ActiveView>(() => {
-    const hasSession = localStorage.getItem('evilTree_sessionCode') || localStorage.getItem('evilTree_identityToken');
-    if (!hasSession) {
-      try {
-        const raw = localStorage.getItem('evilTree_settings');
-        const parsed = raw ? JSON.parse(raw) : null;
-        const showBrowse = parsed?.showBrowseOnStartup !== false;
-        if (showBrowse) return { kind: 'browse' };
-      } catch { /* fall through */ }
-    }
-    return { kind: 'grid' };
-  });
   const { copied: discordCopied, copy: copyDiscord } = useCopyFeedback(1500);
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
@@ -230,6 +227,7 @@ export default function App() {
   useEffect(() => {
     if (!settings.sidebarEnabled || isMobile) return;
     if (searchMatchWorldId !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveView(v =>
         v.kind === 'grid' || v.kind === 'detail' ? { kind: 'detail', worldId: searchMatchWorldId } : v
       );
@@ -353,12 +351,14 @@ export default function App() {
   // If a viewer somehow lands on an edit tool view (e.g. role changed mid-session), redirect to detail
   useEffect(() => {
     if (!canEdit && (activeView.kind === 'spawn' || activeView.kind === 'tree' || activeView.kind === 'dead')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveView({ kind: 'detail', worldId: (activeView as { worldId: number }).worldId });
     }
   }, [canEdit, activeView]);
 
   useEffect(() => {
     if (activeView.kind === 'browse' && session.code) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveView({ kind: 'session' });
     }
   }, [activeView.kind, session.code]);
