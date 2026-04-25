@@ -5,8 +5,8 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 ## Tech Stack
 
 - **React 19** + **TypeScript** + **Vite 8**
-- **Tailwind CSS v3** (not v4)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw` used in `SessionBrowserView`; `Circle`, `CircleX`, `LoaderCircle` used in `SessionBar`; `Link`, `Unlink` used in `Alt1TokenButton` and `SessionView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **Tailwind CSS v4** (CSS-first config — no `tailwind.config.*`; theme tokens live in `src/index.css` under `@theme inline`, loaded via `@tailwindcss/vite`)
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search`, `Map` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw` used in `SessionBrowserView`; `Circle`, `CircleX`, `LoaderCircle` used in `SessionBar`; `Link`, `Unlink` used in `Alt1TokenButton` and `SessionView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **obscenity** — profanity filter used server-side to sanitize member names and session descriptions (`server/profanity.ts`)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
@@ -17,7 +17,7 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 - **gsap** — animation library used in `SparkEffect`
 - **leaflet** + **@types/leaflet** — interactive RS3 map in `MapView.tsx` (uses `CRS.Simple` and the community-maintained mejrs RS3 tile layer)
 - **class-variance-authority** + **clsx** + **tailwind-merge** — `cn()` helper in `lib/utils.ts`
-- **@tailwindcss/container-queries** + **tailwindcss-animate** — Tailwind CSS plugins
+- **tw-animate-css** — Tailwind CSS v4 animation utilities (imported in `src/index.css` via `@import "tw-animate-css"`)
 - **Express 5** + **ws** + **express-rate-limit** — backend server for real-time multi-user sync (HTTP rate-limited per IP)
 - **tsx** — runs TypeScript server files directly
 - **Storybook 10** (`@storybook/react-vite`) — component playground and OG image generation source (`.storybook/`)
