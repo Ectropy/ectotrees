@@ -202,7 +202,7 @@ When `ECTOTREES_API` is set, the WebSocket URL is derived from it automatically 
 ## Tech stack
 
 - React 19 + TypeScript + Vite 8
-- Tailwind CSS v3
+- Tailwind CSS v4
 - Express 5 + ws (WebSocket server)
 - GSAP for particle animations
 - Leaflet (CRS.Simple) for the interactive RS3 map view, using the community-maintained mejrs tile/icon layers
