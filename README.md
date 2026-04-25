@@ -23,12 +23,14 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
   - **Hidden worlds filter** — tri-state chip to exclude, include, or show only hidden worlds
 - **World search** — search by world number in the header; auto-opens the detail view when exactly one world matches (sidebar mode)
 - **Hidden worlds** — hide any world from the grid via the EyeOff button on cards or detail views; hidden worlds are excluded by default but can be revealed with the Hidden filter chip
+- **Map view** *(PoC)* — a Map button in the header opens an interactive RuneScape 3 world map (Leaflet + the community-maintained mejrs RS3 tiles) with a tree pin at every known Evil Tree spawn location; click a pin to see which in-game hint(s) point to that spot
 - **Visual effects** — lightning bolt animations on auto health transitions, ember spark particles on dead trees (can be toggled in settings)
 - **Sidebar panel** (opt-in, available on screens ≥ 640px) — tool views and the detail view can open in a resizable panel beside the grid instead of replacing it, so you never lose sight of all 137 worlds. Dock left or right; drag the handle to resize; width is remembered across sessions and preserved when swapping sides. Enable in Settings (⚙). A toolbar above every view shows four quick-jump buttons (View · Timer · Tree · Dead) to switch tools without returning to the grid, plus dock controls: when in fullscreen use the panel-left/right icons to enter sidebar mode directly; when in sidebar use the expand icon to pop back to fullscreen or Close to return to the grid
 - **Settings panel** (⚙ button) — toggle visual effects, the scrolling tip ticker, sidebar mode, and whether the session browser opens automatically on startup
 - **Scrolling tip ticker** in the footer with gameplay tips and UI hints
 - **Real-time multi-user sync** — create a session (6-character code), share it with friends, and everyone sees updates instantly via WebSocket. Session management lives in a dedicated **Session panel** (fullscreen or docked in the sidebar) opened from the session bar in the header
 - **Session browser** — browse and join public managed sessions without a code; sessions opt in to visibility by setting a name and toggling **Listed** in the Session panel; the browser auto-refreshes every 15 seconds and shows each session's name, description, member count, active worlds, and last activity time; opens automatically on startup when you are not in a session (can be disabled in Settings)
+- **Follow scout's world** — when you have an Alt1 scout linked to your dashboard, this toggle (in the Session panel and Settings) auto-opens the detail view for whatever world the scout has hopped to, so spotters and supporters always look at the same world. Re-enables automatically each time you mint a new Alt1 link
 - **Managed sessions** — upgrade any session to invite-only mode: generate named invite links with roles (Owner / Moderator / Scout / Viewer), see a live member list, change roles, kick or ban members. Admins see invite tokens and copy-join-link buttons; world updates show who submitted them. Managed sessions can set a name that appears in the session bar
 - **Discord intel copy** — a copy button in the header formats all currently visible worlds with active intel into a Discord message using `<t:UNIX:R>` relative timestamps, respecting your active sort order and filters. Disabled when no intel is visible
 - State persists in `localStorage` between sessions; when in a sync session, the server is the source of truth
@@ -203,4 +205,6 @@ When `ECTOTREES_API` is set, the WebSocket URL is derived from it automatically 
 - Tailwind CSS v3
 - Express 5 + ws (WebSocket server)
 - GSAP for particle animations
+- Leaflet (CRS.Simple) for the interactive RS3 map view, using the community-maintained mejrs tile/icon layers
+- Storybook 10 (`@storybook/react-vite`) for the component playground and as the OG image source
 - Shared TypeScript types and mutation logic between client and server (`shared/`)

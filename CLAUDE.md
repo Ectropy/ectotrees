@@ -15,9 +15,13 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 - **@radix-ui/react-switch** — Switch primitive wrapped in `ui/switch.tsx`
 - **react-resizable-panels** — resizable panel layout wrapped in `ui/resizable.tsx`
 - **gsap** — animation library used in `SparkEffect`
+- **leaflet** + **@types/leaflet** — interactive RS3 map in `MapView.tsx` (uses `CRS.Simple` and the community-maintained mejrs RS3 tile layer)
+- **class-variance-authority** + **clsx** + **tailwind-merge** — `cn()` helper in `lib/utils.ts`
 - **@tailwindcss/container-queries** + **tailwindcss-animate** — Tailwind CSS plugins
-- **Express 5** + **ws** — backend server for real-time multi-user sync
+- **Express 5** + **ws** + **express-rate-limit** — backend server for real-time multi-user sync (HTTP rate-limited per IP)
 - **tsx** — runs TypeScript server files directly
+- **Storybook 10** (`@storybook/react-vite`) — component playground and OG image generation source (`.storybook/`)
+- **husky** — git hook installer; the `prepare` script wires it up on `npm install`
 - Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
 
 ## Commands
@@ -35,6 +39,10 @@ npm test             # run vitest unit tests (mutations + validation)
 npm run test:watch   # vitest in watch mode
 npm run test:e2e     # run Playwright E2E tests (auto-starts dev server)
 npm run test:e2e:ui  # Playwright visual test runner UI
+npm run storybook    # Storybook dev server (http://localhost:6006)
+npm run build-storybook # build static Storybook to storybook-static/
+npm run og:generate  # screenshot the Marketing/OgImage story to public/og-image.png (builds Storybook first; pass --skip-build to reuse)
+npm run fonts:woff2  # convert source TTF/OTF fonts to woff2 in public/
 ```
 
 In development, run `npm run server` and `npm run dev` in two terminals. Vite proxies `/api` and `/ws` to `localhost:3001`.
@@ -49,7 +57,8 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |
 | `e2e/` | Playwright E2E tests |
-| `scripts/` | Build/release scripts (`update-docs.mjs`, `generate-release-notes.mjs`) |
+| `scripts/` | Build/release scripts (`update-docs.mjs`, `generate-release-notes.mjs`, `generate-og-image.mjs`, `convert-fonts.mjs`) |
+| `.storybook/` | Storybook config (`main.ts`, `preview.tsx`) — stories live alongside components as `*.stories.tsx` |
 
 Each directory with a CLAUDE.md has detailed file listings and architecture docs scoped to that area.
 
