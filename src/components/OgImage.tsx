@@ -34,19 +34,35 @@ export function OgImage({ wordmark, tagline, mapView, card }: Props) {
       </div>
       <div
         className="absolute inset-0"
-        style={{ background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.90) 0%, rgba(0, 0, 0, 0.70) 55%, rgba(15,23,42,0.25) 100%)' }}
+        style={{ background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.60) 55%, rgba(0, 0, 0, 0.10) 100%)' }}
       />
 
       <div className="relative grid h-full grid-cols-2 items-center">
         <div className="flex flex-col justify-center pl-24">
           <div
-            className={`text-9xl ${TEXT_COLOR.prominent} text-shadow-sm`}
-            style={{ fontFamily: "'RuneScape Quill', serif" }}
+            className={`text-[175px] leading-none -mt-40 ${TEXT_COLOR.prominent}`}
+            style={{ fontFamily: "'RuneScape Quill', serif",
+              textShadow: [
+                '-2px 0 0 rgba(0,0,0,1)',
+                '2px 0 0 rgba(0,0,0,1)',
+                '0 -2px 0 rgba(0,0,0,1)',
+                '0 2px 0 rgba(0,0,0,1)',
+                '0 6px 12px rgba(0,0,0,0.9)',
+              ].join(', '),
+             }}
           >
             {wordmark}
           </div>
-          <div className={`text-2xl font-medium ${TEXT_COLOR.muted} text-shadow-sm`}
-          style={{ fontFamily: "'RuneScape Bold 12', serif" }}>
+          <div className={`text-[35px] leading-none font-medium ${TEXT_COLOR.muted}`}
+          style={{ fontFamily: "'RuneScape Bold 12', serif", 
+                textShadow: [
+                '-2px 0 0 rgba(0,0,0,1)',
+                '2px 0 0 rgba(0,0,0,1)',
+                '0 -2px 0 rgba(0,0,0,1)',
+                '0 2px 0 rgba(0,0,0,1)',
+                '0 6px 12px rgba(0,0,0,0.9)',
+              ].join(', '),
+          }}>
             {tagline}
           </div>
         </div>
