@@ -219,6 +219,7 @@ export function App() {
           msFromNow: getTotalMs(),
           hintText: hint.trim().slice(0, 200),
         };
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAutoCountdown(10);
       }
     }
@@ -229,6 +230,7 @@ export function App() {
   useEffect(() => {
     if (!canAutoSubmit && autoCountdown !== null) {
       pendingSubmitRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoCountdown(null);
     }
   }, [canAutoSubmit, autoCountdown]);
@@ -237,6 +239,7 @@ export function App() {
   useEffect(() => {
     if (autoCountdown === null) return;
     if (autoCountdown === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoCountdown(null);
       handleSubmitRef.current();
       return;
@@ -248,6 +251,7 @@ export function App() {
   // Blink icon during countdown
   useEffect(() => {
     if (!isCountingDown) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBlinkFrame(false);
       return;
     }

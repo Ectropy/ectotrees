@@ -57,6 +57,7 @@ export default function App() {
   const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   const saveToLocalStorageRef = useRef(saveToLocalStorage);
+  // eslint-disable-next-line react-hooks/refs, react-hooks/immutability
   saveToLocalStorageRef.current = saveToLocalStorage;
 
   // Viewers in managed sessions cannot edit world state
@@ -64,6 +65,7 @@ export default function App() {
 
   // Dev-only: expose trigger on window for manual testing
   const triggerLightningRef = useRef(triggerLightningEvent);
+  // eslint-disable-next-line react-hooks/refs
   triggerLightningRef.current = triggerLightningEvent;
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -77,6 +79,7 @@ export default function App() {
   const isMobile = useIsMobile();
 
   const worldStatesRef = useRef(worldStates);
+  // eslint-disable-next-line react-hooks/refs
   worldStatesRef.current = worldStates;
 
   const handleCreateSession = useCallback(() => {
@@ -113,6 +116,7 @@ export default function App() {
 
     if (!hasContribute && !hasConflicts) {
       confirmPreviewJoin(code, undefined);
+      // eslint-disable-next-line react-hooks/immutability
       setActiveView({ kind: 'session' });
       return true;
     }
