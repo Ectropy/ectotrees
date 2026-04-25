@@ -187,7 +187,7 @@ export function SessionView({
           {/* Session name line */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
               <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
             </div>
             <div className="flex items-center justify-between">
@@ -387,7 +387,7 @@ export function SessionView({
           {/* Session name line */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
+              <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT_COLORS[session.status]}`} />
               <span className={`text-xs ${TEXT_COLOR.muted}`}>Session Name</span>
             </div>
             <div className="flex items-center justify-between gap-2">
@@ -405,10 +405,10 @@ export function SessionView({
                   <span className={`text-sm font-medium ${TEXT_COLOR.prominent} truncate`}>
                     {session.sessionName || 'Managed Session'}
                   </span>
-                  {canRejoin && <span className="text-red-400 text-xs font-normal flex-shrink-0">— Disconnected</span>}
+                  {canRejoin && <span className="text-red-400 text-xs font-normal shrink-0">— Disconnected</span>}
                 </div>
               )}
-              <MemberCount clientCount={session.clientCount} scouts={session.scouts} connected={isConnected} className="text-xs flex-shrink-0" />
+              <MemberCount clientCount={session.clientCount} scouts={session.scouts} connected={isConnected} className="text-xs shrink-0" />
             </div>
           </div>
 
@@ -764,7 +764,7 @@ function ForkInviteBanner({
           </p>
           <button
             onClick={onDismiss}
-            className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors flex-shrink-0`}
+            className={`text-xs ${TEXT_COLOR.muted} hover:text-gray-300 transition-colors shrink-0`}
           >
             Dismiss
           </button>

@@ -199,7 +199,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     ) : hasActiveTree && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeType')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit tree type">
                         <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
-                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <Pencil className="h-3 w-3 text-gray-500 shrink-0" />
                       </button>
                     ) : (
                       <span className={TEXT_COLOR.prominent}>{state.treeType ? TREE_TYPE_LABELS[state.treeType] : '—'}</span>
@@ -224,7 +224,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     {(hasActiveTree || hasSpawnTimer || isDeadTree) && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeHint')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit location hint">
                         <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
-                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <Pencil className="h-3 w-3 text-gray-500 shrink-0" />
                       </button>
                     ) : (
                       <span className={TEXT_COLOR.prominent}>{state.treeHint ?? '—'}</span>
@@ -262,7 +262,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     {(hasActiveTree || hasSpawnTimer || isDeadTree) && canEdit ? (
                       <button type="button" onClick={() => startEdit('treeExactLocation')} className="flex items-start text-left gap-1.5 hover:text-blue-300 transition-colors cursor-pointer" aria-label="Edit exact location">
                         <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
-                        <Pencil className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <Pencil className="h-3 w-3 text-gray-500 shrink-0" />
                       </button>
                     ) : (
                       <span className={TEXT_COLOR.prominent}>{state.treeExactLocation ?? '—'}</span>
@@ -487,7 +487,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-2">
-      <dt className={`text-sm ${TEXT_COLOR.muted} w-28 flex-shrink-0`}>{label}</dt>
+      <dt className={`text-sm ${TEXT_COLOR.muted} w-28 shrink-0`}>{label}</dt>
       <dd className="text-sm min-w-0">{children}</dd>
     </div>
   );

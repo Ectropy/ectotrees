@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
   const isDev = mode !== 'production';
@@ -18,7 +19,7 @@ export default defineConfig(({ mode }) => {
       ],
       dedupe: ['react', 'react-dom'],
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     server: {
       proxy: {
         '/api': {

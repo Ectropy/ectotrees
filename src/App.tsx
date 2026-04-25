@@ -588,7 +588,7 @@ export default function App() {
     // Outer shell is pinned to the viewport — nothing scrolls at the page level
     <div className="flex flex-col h-screen">
       <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
-        <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded flex-shrink-0">
+        <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded shrink-0">
           <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
             Ectotrees
             <small className="hidden sm:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
@@ -616,7 +616,7 @@ export default function App() {
               )}
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
-              <TreeDeciduous className="h-3.5 w-3.5 flex-shrink-0" />
+              <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
               <span>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
             </span>
             {(() => {
@@ -750,10 +750,10 @@ export default function App() {
       <UpdateBanner />
 
       {/* Footer is a direct flex child of h-screen — always anchored to the bottom */}
-      <footer className="px-2 py-1 bg-gray-800 flex-shrink-0">
+      <footer className="px-2 py-1 bg-gray-800 shrink-0">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {settings.showTipTicker && <TipTicker />}
-          <span className="text-[10px] text-gray-200 leading-none flex-shrink-0 text-center sm:text-left">Ectotrees v{APP_VERSION_DISPLAY} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+          <span className="text-[10px] text-gray-200 leading-none shrink-0 text-center sm:text-left">Ectotrees v{APP_VERSION_DISPLAY} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
         </div>
       </footer>
     </div>
@@ -782,8 +782,8 @@ function NavButton({ item, isActive, onClick, variant }: {
     ? 'px-1.5 py-1'
     : 'px-2 py-2 sm:px-1.5 sm:py-1';
   const iconClass = variant === 'sidebar'
-    ? 'h-3.5 w-3.5 flex-shrink-0'
-    : 'h-5 w-5 sm:h-3.5 sm:w-3.5 flex-shrink-0';
+    ? 'h-3.5 w-3.5 shrink-0'
+    : 'h-5 w-5 sm:h-3.5 sm:w-3.5 shrink-0';
   return (
     <button
       onClick={onClick}
@@ -814,7 +814,7 @@ function SidebarWrapper({
   return (
     <div className="flex flex-col h-full bg-gray-900 border-gray-700" style={{ borderLeftWidth: side === 'right' ? 0 : undefined }}>
       {/* Toolbar */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-2 py-1 border-b border-gray-700 flex-shrink-0">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-2 py-1 border-b border-gray-700 shrink-0">
         {/* Left: dock + expand */}
         <div className="flex items-center gap-1">
           {side === 'right' ? (
@@ -892,7 +892,7 @@ function FullscreenWrapper({
 }) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <div className="bg-gray-900 border-b border-gray-700 flex-shrink-0 px-4 sm:px-6 py-1">
+      <div className="bg-gray-900 border-b border-gray-700 shrink-0 px-4 sm:px-6 py-1">
         <div className="max-w-lg mx-auto relative flex items-center">
           {/* Left: dock buttons (desktop only — never rendered on mobile) */}
           {showDockControls && (

@@ -73,7 +73,7 @@ export function MemberPanel({ members, myRole, myName, lastInvite, onCreateInvit
               <td className="py-1 pr-2 max-w-0">
                 <span className="flex items-center gap-1.5">
                   <span
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.online ? 'bg-green-500' : 'bg-gray-600'}`}
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${m.online ? 'bg-green-500' : 'bg-gray-600'}`}
                     title={m.online ? 'Connected' : 'Disconnected'}
                   />
                   <span className="truncate text-gray-200" title={m.name}>

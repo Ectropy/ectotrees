@@ -14,7 +14,7 @@ interface SplitButtonProps {
 export function SplitButton({ borderClass, divideClass, hoverClass, className, children }: SplitButtonProps) {
   return (
     <HoverContext.Provider value={hoverClass}>
-      <div className={cn('flex items-stretch border rounded overflow-hidden divide-x flex-shrink-0', borderClass, divideClass, className)}>
+      <div className={cn('flex items-stretch border rounded overflow-hidden divide-x shrink-0', borderClass, divideClass, className)}>
         {children}
       </div>
     </HoverContext.Provider>

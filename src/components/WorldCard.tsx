@@ -83,7 +83,7 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
       style={{ height: '85px', position: 'relative', isolation: 'isolate', ...flashStyle }}
       onClick={onCardClick}
     >
-      <div className="flex items-center justify-between px-1.5 pt-1 flex-shrink-0">
+      <div className="flex items-center justify-between px-1.5 pt-1 shrink-0">
         <div className="flex items-center gap-1">
           <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}</span>
           <button
@@ -117,7 +117,7 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
 
       {canEdit && (
         <div
-          className="flex items-center justify-around px-1 pb-1 flex-shrink-0"
+          className="flex items-center justify-around px-1 pb-1 shrink-0"
           onClick={e => e.stopPropagation()}
         >
           <ToolButton icon={Timer} title="Set spawn timer" toolHover={SPAWN_COLOR.borderHover} toolHoverBorder={SPAWN_COLOR.borderHoverBorder} onClick={() => onOpenTool('spawn')} />
