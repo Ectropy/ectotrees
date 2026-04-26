@@ -175,8 +175,8 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                             { label: 'Evil Trees', items: ['mature', 'tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
                           ]
                         : [
-                            { label: 'Strange Sapling', items: ['sapling', 'mature'] as string[] },
-                            { label: 'Evil Trees', items: ['tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
+                            { label: 'Strange Sapling', items: ['sapling'] as string[] },
+                            { label: 'Evil Trees', items: ['mature', 'tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[] },
                           ]
                       }
                       itemToStringLabel={item => TREE_TYPE_LABELS[item as TreeType] ?? item}
