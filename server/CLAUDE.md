@@ -30,7 +30,7 @@ Security response headers applied to all HTTP responses:
 | `LOG_TZ` | `America/New_York` | IANA timezone for server log timestamps (e.g. `UTC`, `Europe/London`) |
 | `NODE_ENV` | — | Set to `production` to enable origin allowlisting (`ALLOWED_ORIGINS`) |
 | `EXTRA_ORIGINS` | — | Comma-separated extra allowed origins appended to the production allowlist |
-| `APP_URL` | `http://localhost:5173` | Public base URL of the app, used to build invite links (no trailing slash) |
+| `APP_URL` | `http://localhost:5173` (dev only) | Public base URL of the app, used for the WS origin allowlist and invite-link generation. **Required in production** — server hard-fails on startup if unset or invalid when `NODE_ENV=production`. |
 
 ## REST Endpoints
 | Method | Path | Description |

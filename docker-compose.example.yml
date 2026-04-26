@@ -22,6 +22,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      # Required in production: public URL where the app is served.
+      # Drives the WebSocket origin allowlist and invite-link generation.
+      # The server hard-fails on startup if this is unset or invalid.
+      APP_URL: https://ectotrees.example.com
+      # Optional: comma-separated additional allowed origins (e.g. legacy domains).
+      # EXTRA_ORIGINS: https://old.example.com
     expose:
       - "3001"
     restart: unless-stopped

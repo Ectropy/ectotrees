@@ -88,6 +88,18 @@ function errorMsg(message: string): ServerMessage {
 // --- Origin allowlist ---
 
 const IS_PROD = process.env.NODE_ENV === 'production';
+
+if (IS_PROD) {
+  if (!process.env.APP_URL) {
+    log('[startup] FATAL: APP_URL must be set in production. Without it, the WebSocket origin allowlist defaults to http://localhost:5173 and rejects all browser connections.');
+    process.exit(1);
+  }
+  if (!URL.canParse(process.env.APP_URL)) {
+    log(`[startup] FATAL: APP_URL must be a valid URL. Got: ${process.env.APP_URL}`);
+    process.exit(1);
+  }
+}
+
 const ALLOWED_ORIGINS = new Set([
   APP_URL,
   ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : []),
