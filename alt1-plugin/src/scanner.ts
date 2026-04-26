@@ -7,8 +7,15 @@ import worldsData from '../../src/data/worlds.json';
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 
-// DialogReader is the pre-built RS3 NPC dialog reader (default export).
-import DialogReader from 'alt1/dialog';
+// DialogReader is the pre-built RS3 NPC dialog reader.
+// Vite 8's Rolldown CJS interop wraps modules that already declare
+// `__esModule: true` (alt1/* UMD bundles) as `{ default: <exports> }` — so
+// the class actually lives at `<import>.default`, one level deeper than
+// TypeScript's types claim. The `?? _DialogReader` fallback keeps the code
+// working if a future Rolldown release stops double-wrapping.
+import _DialogReader from 'alt1/dialog';
+const DialogReader: typeof _DialogReader =
+  (_DialogReader as unknown as { default?: typeof _DialogReader }).default ?? _DialogReader;
 
 // ── Spirit Tree dialog ──────────────────────────────────────────────────────
 

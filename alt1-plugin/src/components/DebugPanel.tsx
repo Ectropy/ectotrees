@@ -6,9 +6,24 @@
 import { useState, useRef } from 'react';
 import 'alt1/base';
 import * as A1lib from 'alt1/base';
-import DialogReader from 'alt1/dialog';
-import ChatBoxReader from 'alt1/chatbox';
-import TooltipReader from 'alt1/tooltip';
+// Vite 8's Rolldown CJS interop wraps modules whose `module.exports` already
+// has `__esModule: true` (alt1/* UMD bundles) as `{ default: <exports> }` —
+// so the actual class lives at `<import>.default` rather than `<import>` as
+// TypeScript types claim. The `?? Imported` fallback is resilient: if a
+// future Rolldown release stops double-wrapping, the import will already be
+// the class and `.default` will be undefined.
+import _DialogReader from 'alt1/dialog';
+import _ChatBoxReader from 'alt1/chatbox';
+import _TooltipReader from 'alt1/tooltip';
+const DialogReader: typeof _DialogReader =
+  (_DialogReader as unknown as { default?: typeof _DialogReader }).default ?? _DialogReader;
+const ChatBoxReader: typeof _ChatBoxReader =
+  (_ChatBoxReader as unknown as { default?: typeof _ChatBoxReader }).default ?? _ChatBoxReader;
+const TooltipReader: typeof _TooltipReader =
+  (_TooltipReader as unknown as { default?: typeof _TooltipReader }).default ?? _TooltipReader;
+type DialogReader = InstanceType<typeof DialogReader>;
+type ChatBoxReader = InstanceType<typeof ChatBoxReader>;
+type TooltipReader = InstanceType<typeof TooltipReader>;
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
