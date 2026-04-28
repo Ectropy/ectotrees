@@ -1,48 +1,16 @@
-import type { TreeType } from '../../shared/types.ts';
 import { LOCATION_HINTS, LOCATION_COORDS } from '../../shared/hints.ts';
 
 export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../../shared/types.ts';
 export type { TreeType } from '../../shared/types.ts';
-export { LOCATION_HINTS, LOCATION_COORDS } from '../../shared/hints.ts';
+export {
+  LOCATION_HINTS,
+  LOCATION_COORDS,
+  hintForLocation,
+  locationsForHint,
+  resolveExactLocation,
+} from '../../shared/hints.ts';
 export type { LocationHint } from '../../shared/hints.ts';
-
-export const TREE_TYPE_LABELS: Record<TreeType, string> = {
-  sapling:        'Strange Sapling',
-  'sapling-tree': 'Strange Sapling (Tree)',
-  'sapling-oak': 'Strange Sapling (Oak)',
-  'sapling-willow': 'Strange Sapling (Willow)',
-  'sapling-maple': 'Strange Sapling (Maple)',
-  'sapling-yew': 'Strange Sapling (Yew)',
-  'sapling-magic': 'Strange Sapling (Magic)',
-  'sapling-elder': 'Strange Sapling (Elder)',
-  mature:  'Mature (unknown)',
-  tree:    'Evil Tree (normal)',
-  oak:     'Evil Oak',
-  willow:  'Evil Willow',
-  maple:   'Evil Maple',
-  yew:     'Evil Yew',
-  magic:   'Evil Magic',
-  elder:   'Evil Elder',
-};
-
-export const TREE_TYPE_SHORT: Record<TreeType, string> = {
-  sapling:        'Sapling (unknown)',
-  'sapling-tree': 'Sapling (Tree)',
-  'sapling-oak': 'Sapling (Oak)',
-  'sapling-willow': 'Sapling (Willow)',
-  'sapling-maple': 'Sapling (Maple)',
-  'sapling-yew': 'Sapling (Yew)',
-  'sapling-magic': 'Sapling (Magic)',
-  'sapling-elder': 'Sapling (Elder)',
-  mature:  'Mature (unknown)',
-  tree:    'Tree (normal)',
-  oak:     'Oak',
-  willow:  'Willow',
-  maple:   'Maple',
-  yew:     'Yew',
-  magic:   'Magic',
-  elder:   'Elder',
-};
+export { TREE_TYPE_LABELS, TREE_TYPE_SHORT } from '../../shared-browser/treeLabels.ts';
 
 export const FILTERABLE_TREE_TYPES = [
   { key: 'unknown', label: 'Unknown' },
@@ -56,19 +24,6 @@ export const FILTERABLE_TREE_TYPES = [
   { key: 'elder',   label: 'Elder' },
 ] as const;
 
-
-export function locationsForHint(hint: string): string[] {
-  return LOCATION_HINTS.find(lh => lh.hint === hint)?.locations ?? [];
-}
-
-export function resolveExactLocation(hint: string): string {
-  const match = LOCATION_HINTS.find(lh => lh.hint === hint);
-  return match?.locations.length === 1 ? match.locations[0] : '';
-}
-
-export function hintForLocation(location: string): string {
-  return LOCATION_HINTS.find(lh => lh.locations.includes(location))?.hint ?? '';
-}
 
 export function hintsForLocation(location: string): string[] {
   return LOCATION_HINTS.filter(lh => lh.locations.includes(location)).map(lh => lh.hint);

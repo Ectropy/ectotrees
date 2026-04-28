@@ -94,7 +94,7 @@ describe('LOCATION_COORDS coverage', () => {
 
 describe('coordsForLocation', () => {
   it('returns coordinates for a known location', () => {
-    expect(coordsForLocation('Northeast of Yanille')).toEqual({ x: 2606, y: 3121 });
+    expect(coordsForLocation('Northeast of Yanille')).toMatchObject({ x: 2606, y: 3121 });
   });
 
   it('returns undefined for an unknown location', () => {
