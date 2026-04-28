@@ -2,13 +2,20 @@ import { useState, useRef, useEffect } from 'react';
 import worldsData from '../../src/data/worlds.json';
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
+import { hintForLocation, locationsForHint, resolveExactLocation } from '@shared/hints';
 import { useScoutSession } from './hooks/useScoutSession';
 import { useAlt1 } from './hooks/useAlt1';
 import { SessionPanel } from './components/SessionPanel';
 import { WorldInput } from './components/WorldInput';
+import { ModeNav } from './components/ModeNav';
 import { ReportForm } from './components/ReportForm';
+import { PostSpawnForm } from './components/PostSpawnForm';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DebugPanel } from './components/DebugPanel';
+import type { TreeType } from '@shared/types';
+import type { ClientMessage } from '@shared/protocol';
+
+type Mode = 'prespawn' | 'postspawn';
 
 type StatusKind = 'ok' | 'warn' | 'error' | '';
 
@@ -27,6 +34,7 @@ export function App() {
     reconnectAttempt, reconnectAt,
     ackCount, leaveSession, sendMutation, dismissError,
     joinWithToken, reportWorld,
+    worldStates,
   } = useScoutSession();
 
   // Form state
@@ -34,9 +42,14 @@ export function App() {
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [hint, setHint] = useState('');
+  const [treeType, setTreeType] = useState('');
+  const [exactLocation, setExactLocation] = useState('');
+  const [mode, setMode] = useState<Mode>('prespawn');
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
-  type SubmittedValues = { world: string; hours: string; minutes: string; hint: string };
+  type SubmittedValues =
+    | { mode: 'prespawn'; world: string; hours: string; minutes: string; hint: string }
+    | { mode: 'postspawn'; world: string; treeType: string; exactLocation: string; hint: string };
   const submittedValuesRef = useRef<SubmittedValues | null>(null);
 
   // Auto-submit state
@@ -46,8 +59,28 @@ export function App() {
   const [blinkFrame, setBlinkFrame] = useState(false);
   const cloudCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSubmitRef = useRef<() => void>(() => {});
-  type PendingSubmit = { worldId: number; msFromNow: number; hintText: string };
+  type PendingSubmit =
+    | { mode: 'prespawn'; worldId: number; msFromNow: number; hintText: string }
+    | { mode: 'postspawn'; worldId: number; treeType: string; exactLocation: string; hintText: string };
   const pendingSubmitRef = useRef<PendingSubmit | null>(null);
+
+  // Flush-on-world-hop state. The snapshot is anchored to whichever world the
+  // data was entered for — on world change we either submit the snapshot to its
+  // captured worldId or clear it (if it wasn't complete enough to submit). The
+  // retry slot kicks in only after the WS layer has fully given up reconnecting
+  // (status === 'disconnected'); during 'connecting' we trust the WS replay.
+  const flushQueueRef = useRef<{
+    payload: PendingSubmit;
+    oldWorldId: number;
+    newWorldId: number;
+    ackBaseline: number;
+    attempts: number;
+  } | null>(null);
+  const flushSawDisconnectRef = useRef(false);
+  const prevWorldRef = useRef('');
+  const prevModeRef = useRef<Mode>('prespawn');
+  const ackCountRef = useRef(0);
+  ackCountRef.current = ackCount;
 
   // Auto-world state
   const [autoWorld, setAutoWorld] = useState(() => localStorage.getItem('scout_autoWorld') === 'true');
@@ -97,9 +130,14 @@ export function App() {
     showStatus('Submitted!', 'ok');
     if (sv) {
       setWorld(w => (w.trim() === sv.world ? '' : w));
-      setHours(v => (v === sv.hours ? '' : v));
-      setMinutes(v => (v === sv.minutes ? '' : v));
       setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
+      if (sv.mode === 'prespawn') {
+        setHours(v => (v === sv.hours ? '' : v));
+        setMinutes(v => (v === sv.minutes ? '' : v));
+      } else {
+        setTreeType(v => (v === sv.treeType ? '' : v));
+        setExactLocation(v => (v === sv.exactLocation ? '' : v));
+      }
     }
     if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
     setCloudCheck(true);
@@ -131,6 +169,9 @@ export function App() {
       if (hopTs !== lastWorldHopRef.current) {
         lastWorldHopRef.current = hopTs;
         const w = alt1.currentWorld;
+        // Reset mode — every world has independent tree state. The next scan
+        // (or default 'prespawn') determines the form for the new world.
+        setMode('prespawn');
         if (VALID_WORLD_IDS.has(w)) {
           setWorld(String(w));
           setIsWorldScanning(true);
@@ -199,29 +240,30 @@ export function App() {
   // Derived before early returns so effects can reference it
   const canSubmit = (() => {
     const wv = parseInt(world.trim(), 10);
-    const h = parseInt(hours || '0', 10) || 0;
-    const m = parseInt(minutes || '0', 10) || 0;
-    return VALID_WORLD_IDS.has(wv) && (h * 60 + m) * 60_000 > 0 && status === 'connected' && !submitting;
+    if (!VALID_WORLD_IDS.has(wv) || status !== 'connected' || submitting) return false;
+    if (mode === 'prespawn') {
+      const h = parseInt(hours || '0', 10) || 0;
+      const m = parseInt(minutes || '0', 10) || 0;
+      return (h * 60 + m) * 60_000 > 0;
+    }
+    // postspawn — mirrors dashboard TreeInfoView: treeType + hint are required
+    // (generics like "Mature (unknown)" are valid); exactLocation stays optional
+    return treeType !== '' && hint.trim().length > 0;
   })();
 
-  // Auto-submit requires a hint in addition to the base canSubmit conditions
   const canAutoSubmit = canSubmit && hint.trim().length > 0;
 
   const isCountingDown = autoCountdown !== null;
 
-  // Start auto-submit countdown when all conditions are met
+  // Start auto-submit countdown when all conditions are met. The snapshot used
+  // to be captured here as a defense against world hops mid-countdown — that's
+  // now handled by the world-change effect below, which also lets in-flight
+  // edits to other fields flow through (so a user correcting "Mature (unknown)"
+  // → "Evil Tree (normal)" submits the corrected value).
   useEffect(() => {
     if (autoSubmit && canAutoSubmit && autoCountdown === null && !submitting && !cloudCheck) {
-      const worldId = getWorldId();
-      if (worldId !== null) {
-        pendingSubmitRef.current = {
-          worldId,
-          msFromNow: getTotalMs(),
-          hintText: hint.trim().slice(0, 200),
-        };
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setAutoCountdown(10);
-      }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAutoCountdown(10);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSubmit, canAutoSubmit, submitting, cloudCheck]);
@@ -259,6 +301,106 @@ export function App() {
     const id = setInterval(() => setBlinkFrame(f => !f), 500);
     return () => clearInterval(id);
   }, [isCountingDown]);
+
+  // Flush snapshot when the world changes. Data fields are stale relative to
+  // the new world, so we either submit them to the OLD world (if complete) or
+  // clear them (if partial). Always runs regardless of autoSubmit — bad-data
+  // routing is a stronger concern than losing a partial entry on world hop.
+  useEffect(() => {
+    const oldWorld = prevWorldRef.current;
+    const oldMode = prevModeRef.current;
+    prevWorldRef.current = world;
+    prevModeRef.current = mode;
+
+    if (oldWorld === world) return;
+
+    const oldWorldId = parseInt(oldWorld, 10);
+    if (!VALID_WORLD_IDS.has(oldWorldId)) return;
+
+    // If a regular submit is already in flight, it's already routing the old
+    // world's data — skip the flush to avoid a duplicate.
+    if (submittingRef.current) {
+      clearDataFields();
+      return;
+    }
+
+    const h = parseInt(hours || '0', 10) || 0;
+    const m = parseInt(minutes || '0', 10) || 0;
+    const newWorldId = parseInt(world, 10);
+    const submittable = oldMode === 'prespawn'
+      ? (h * 60 + m) * 60_000 > 0
+      : treeType !== '' && hint.trim().length > 0;
+
+    if (submittable) {
+      const payload: PendingSubmit = oldMode === 'prespawn'
+        ? {
+            mode: 'prespawn',
+            worldId: oldWorldId,
+            msFromNow: (h * 60 + m) * 60_000,
+            hintText: hint.trim().slice(0, 200),
+          }
+        : {
+            mode: 'postspawn',
+            worldId: oldWorldId,
+            treeType,
+            exactLocation,
+            hintText: hint.trim().slice(0, 200),
+          };
+      flushQueueRef.current = {
+        payload,
+        oldWorldId,
+        newWorldId,
+        ackBaseline: ackCountRef.current,
+        attempts: 1,
+      };
+      flushSawDisconnectRef.current = false;
+      sendMutation(buildFlushMutation(payload));
+      showStatus(`Hopped W${world} → submitted W${oldWorldId} data`, 'ok');
+    } else {
+      showStatus(`Hopped W${world} → cleared partial data for W${oldWorldId}`, 'warn');
+    }
+    clearDataFields();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, mode]);
+
+  // Clear flush queue on any ack — assumes the next ack after a flush is the
+  // flush ack. False positives (a different mutation acking first) are rare in
+  // a world-hop scenario where no other submit is in flight.
+  useEffect(() => {
+    const queue = flushQueueRef.current;
+    if (queue && ackCount > queue.ackBaseline) {
+      flushQueueRef.current = null;
+      flushSawDisconnectRef.current = false;
+    }
+  }, [ackCount]);
+
+  // Retry-once on flush failure. status === 'disconnected' only fires after the
+  // WS layer has fully given up (max reconnect / fatal error) and cleared its
+  // pending mutations — that's our cue that the in-flight flush will not
+  // recover on its own. On the next reconnect we resend once; if THAT also ends
+  // in 'disconnected', we drop the queue and surface the failure.
+  useEffect(() => {
+    if (status === 'disconnected') {
+      const queue = flushQueueRef.current;
+      if (!queue) return;
+      if (queue.attempts >= 2) {
+        showStatus(`Could not submit W${queue.oldWorldId} data — re-scout if needed.`, 'error');
+        flushQueueRef.current = null;
+        flushSawDisconnectRef.current = false;
+      } else {
+        flushSawDisconnectRef.current = true;
+      }
+    } else if (status === 'connected') {
+      const queue = flushQueueRef.current;
+      if (queue && flushSawDisconnectRef.current && queue.attempts < 2) {
+        flushSawDisconnectRef.current = false;
+        queue.attempts++;
+        queue.ackBaseline = ackCountRef.current;
+        sendMutation(buildFlushMutation(queue.payload));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // Not in Alt1 — show install prompt
   if (!isAlt1) {
@@ -303,6 +445,53 @@ export function App() {
     return (h * 60 + m) * 60_000;
   }
 
+  function clearDataFields() {
+    setHours('');
+    setMinutes('');
+    setHint('');
+    setTreeType('');
+    setExactLocation('');
+    setAutoCountdown(null);
+    pendingSubmitRef.current = null;
+  }
+
+  // Mirrors handleSubmit's mutation routing: postspawn data goes through
+  // updateTreeFields when the world has an active tree (preserves matureAt /
+  // treeHealth / deadAt) and through setTreeInfo otherwise.
+  function buildFlushMutation(payload: PendingSubmit): ClientMessage {
+    if (payload.mode === 'prespawn') {
+      return {
+        type: 'setSpawnTimer',
+        worldId: payload.worldId,
+        msFromNow: payload.msFromNow,
+        treeInfo: payload.hintText ? { treeHint: payload.hintText } : undefined,
+      };
+    }
+    const existing = worldStates[payload.worldId];
+    const hasActiveTree = existing !== undefined &&
+      (existing.treeStatus === 'sapling' || existing.treeStatus === 'mature' || existing.treeStatus === 'alive');
+    if (hasActiveTree) {
+      return {
+        type: 'updateTreeFields',
+        worldId: payload.worldId,
+        fields: {
+          treeType: payload.treeType as TreeType,
+          treeHint: payload.hintText,
+          ...(payload.exactLocation && { treeExactLocation: payload.exactLocation }),
+        },
+      };
+    }
+    return {
+      type: 'setTreeInfo',
+      worldId: payload.worldId,
+      info: {
+        treeType: payload.treeType as TreeType,
+        treeHint: payload.hintText,
+        ...(payload.exactLocation && { treeExactLocation: payload.exactLocation }),
+      },
+    };
+  }
+
   // Handlers
   function handleScanWorld() {
     if (!hasPixel && !hasGameState) {
@@ -321,16 +510,59 @@ export function App() {
 
   function applyDialogScan(result: NonNullable<ReturnType<typeof scanDialog>>, prefix: string) {
     const detected: string[] = [];
+
+    // Tree-just-died signal: the Spirit Tree confirms no current tree and no
+    // upcoming spawn timer. Fire markDead unconditionally (idempotent), cancel
+    // any pending auto-submit (its data is for the previous tree), and reset
+    // mode to prespawn since postspawn fields no longer apply.
+    if (result.treeDied) {
+      const worldId = getWorldId();
+      pendingSubmitRef.current = null;
+      setAutoCountdown(null);
+      setMode('prespawn');
+      if (worldId !== null) {
+        sendMutation({ type: 'markDead', worldId });
+        detected.push(`marked W${worldId} dead`);
+      } else {
+        detected.push('tree dead (no world set)');
+      }
+    }
+
+    // Mode transitions: bare greeting sets mode; explicit field detections
+    // override (the last setMode call wins). Pre-spawn timer / post-spawn
+    // location & type are mutually exclusive in the source dialogs, so the
+    // ordering here only matters for defensiveness.
+    if (result.greetingMode) setMode(result.greetingMode);
+    if (result.hours > 0 || result.minutes > 0) setMode('prespawn');
+    if (result.exactLocation || result.treeType) setMode('postspawn');
+
+    // Pre-spawn fields
     if (result.hours > 0 || result.minutes > 0) {
       setHours(String(result.hours));
       setMinutes(String(result.minutes));
       detected.push(`${result.hours}h ${result.minutes}m`);
     }
-    if (result.hint) {
-      setHint(result.hint);
-      const truncated = result.hint.length > 40 ? result.hint.slice(0, 40) + '...' : result.hint;
+
+    // Post-spawn fields
+    if (result.exactLocation) {
+      setExactLocation(result.exactLocation);
+      detected.push(`@ ${result.exactLocation}`);
+    }
+    if (result.treeType) {
+      setTreeType(result.treeType);
+      detected.push(`type: ${result.treeType}`);
+    }
+
+    // Shared. The post-spawn dialog ("It is an abomination of nature, which has
+    // appeared just north of Yanille...") yields an exact location but no hint
+    // text — back-derive the canonical hint so both fields submit together.
+    const derivedHint = result.hint ?? (result.exactLocation ? hintForLocation(result.exactLocation) : '');
+    if (derivedHint) {
+      setHint(derivedHint);
+      const truncated = derivedHint.length > 40 ? derivedHint.slice(0, 40) + '...' : derivedHint;
       detected.push(`"${truncated}"`);
     }
+
     if (detected.length > 0) {
       showStatus(`${prefix}: ${detected.join(' · ')}`, 'ok');
     }
@@ -358,14 +590,69 @@ export function App() {
   function handleSubmit() {
     const pending = pendingSubmitRef.current;
     pendingSubmitRef.current = null;
+    if (status === 'disconnected') return;
 
+    const submitMode: Mode = pending?.mode ?? mode;
     const worldId = pending?.worldId ?? getWorldId();
-    const msFromNow = pending?.msFromNow ?? getTotalMs();
-    const hintText = pending?.hintText ?? hint.trim().slice(0, 200);
-
-    if (!worldId || msFromNow <= 0 || status === 'disconnected') return;
+    if (!worldId) return;
 
     setAutoCountdown(null);
+
+    if (submitMode === 'postspawn') {
+      const tt = pending?.mode === 'postspawn' ? pending.treeType : treeType;
+      const xl = pending?.mode === 'postspawn' ? pending.exactLocation : exactLocation;
+      const ht = pending?.mode === 'postspawn' ? pending.hintText : hint.trim().slice(0, 200);
+      if (!tt) return;
+
+      setSubmitting(true);
+      submittingRef.current = true;
+      showStatus('Submitting...');
+
+      submittedValuesRef.current = {
+        mode: 'postspawn',
+        world: String(worldId),
+        treeType: tt,
+        exactLocation: xl,
+        hint: ht,
+      };
+
+      // Mirror dashboard's TreeInfoView routing: when an active tree already
+      // exists (sapling/mature/alive), patch via updateTreeFields to preserve
+      // matureAt/treeHealth/deadAt. Otherwise fall through to setTreeInfo,
+      // which is the correct create path for fresh sightings (and also for
+      // dead/none worlds where there's no live timer to lose).
+      const existing = worldStates[worldId];
+      const hasActiveTree = existing !== undefined &&
+        (existing.treeStatus === 'sapling' || existing.treeStatus === 'mature' || existing.treeStatus === 'alive');
+
+      if (hasActiveTree) {
+        sendMutation({
+          type: 'updateTreeFields',
+          worldId,
+          fields: {
+            treeType: tt as TreeType,
+            treeHint: ht,
+            ...(xl && { treeExactLocation: xl }),
+          },
+        });
+      } else {
+        sendMutation({
+          type: 'setTreeInfo',
+          worldId,
+          info: {
+            treeType: tt as TreeType,
+            treeHint: ht,
+            ...(xl && { treeExactLocation: xl }),
+          },
+        });
+      }
+      return;
+    }
+
+    // prespawn
+    const msFromNow = pending?.mode === 'prespawn' ? pending.msFromNow : getTotalMs();
+    const hintText = pending?.mode === 'prespawn' ? pending.hintText : hint.trim().slice(0, 200);
+    if (msFromNow <= 0) return;
 
     setSubmitting(true);
     submittingRef.current = true;
@@ -374,6 +661,7 @@ export function App() {
     const h = Math.floor(msFromNow / 3_600_000);
     const m = Math.floor((msFromNow % 3_600_000) / 60_000);
     submittedValuesRef.current = {
+      mode: 'prespawn',
       world: String(worldId),
       hours: h > 0 ? String(h) : '',
       minutes: m > 0 ? String(m) : '',
@@ -388,12 +676,33 @@ export function App() {
     });
   }
 
+  // Bidirectional hint ↔ exact-location sync, mirroring src/hooks/useLocationHint
+  // for parity with the dashboard's TreeInfoView / WorldDetailView.
+  function handleHintChange(newHint: string) {
+    setHint(newHint);
+    if (exactLocation && !locationsForHint(newHint).includes(exactLocation)) {
+      setExactLocation('');
+    } else {
+      setExactLocation(resolveExactLocation(newHint));
+    }
+  }
+
+  function handleExactLocationChange(loc: string) {
+    setExactLocation(loc);
+    if (loc && (!hint || !locationsForHint(hint).includes(loc))) {
+      const derived = hintForLocation(loc);
+      if (derived) setHint(derived);
+    }
+  }
+
   function handleClear() {
     setAutoCountdown(null);
     setWorld('');
     setHours('');
     setMinutes('');
     setHint('');
+    setTreeType('');
+    setExactLocation('');
     clearStatus();
   }
 
@@ -406,6 +715,16 @@ export function App() {
     setAutoSubmit(v => {
       const next = !v;
       localStorage.setItem('scout_autoSubmit', String(next));
+      return next;
+    });
+  }
+
+  function handleAutoScanToggle() {
+    setAutoScan(s => {
+      if (!s) showStatus('Auto-detect on. Clicks will trigger a scan. Keyboard interactions do not.');
+      else clearStatus();
+      const next = !s;
+      localStorage.setItem('scout_autoScan', String(next));
       return next;
     });
   }
@@ -459,39 +778,57 @@ export function App() {
           }}
         />
 
-        <hr className="border-t border-border" />
+        <ModeNav mode={mode} onChange={setMode} />
 
-        <ReportForm
-          hours={hours}
-          minutes={minutes}
-          hint={hint}
-          statusMsg={statusMsg}
-          statusKind={statusKind}
-          hasPixel={hasPixel}
-          canSubmit={canSubmit}
-          onHoursChange={setHours}
-          onMinutesChange={setMinutes}
-          onHintChange={setHint}
-          autoScan={autoScan}
-          isScanning={isScanning}
-          onScanDialog={handleScanDialog}
-          onAutoScanToggle={() => {
-            setAutoScan(s => {
-              if (!s) showStatus('Auto-detect on. Clicks will trigger a scan. Keyboard interactions do not.');
-              else clearStatus();
-              const next = !s;
-              localStorage.setItem('scout_autoScan', String(next));
-              return next;
-            });
-          }}
-          autoSubmit={autoSubmit}
-          autoCountdown={autoCountdown}
-          cloudCheck={cloudCheck}
-          blinkFrame={blinkFrame}
-          onAutoSubmitToggle={handleAutoSubmitToggle}
-          onSubmit={handleSubmit}
-          onClear={handleClear}
-        />
+        {mode === 'postspawn' ? (
+          <PostSpawnForm
+            treeType={treeType}
+            exactLocation={exactLocation}
+            hint={hint}
+            statusMsg={statusMsg}
+            statusKind={statusKind}
+            hasPixel={hasPixel}
+            canSubmit={canSubmit}
+            onTreeTypeChange={setTreeType}
+            onExactLocationChange={handleExactLocationChange}
+            onHintChange={handleHintChange}
+            autoScan={autoScan}
+            isScanning={isScanning}
+            onScanDialog={handleScanDialog}
+            onAutoScanToggle={handleAutoScanToggle}
+            autoSubmit={autoSubmit}
+            autoCountdown={autoCountdown}
+            cloudCheck={cloudCheck}
+            blinkFrame={blinkFrame}
+            onAutoSubmitToggle={handleAutoSubmitToggle}
+            onSubmit={handleSubmit}
+            onClear={handleClear}
+          />
+        ) : (
+          <ReportForm
+            hours={hours}
+            minutes={minutes}
+            hint={hint}
+            statusMsg={statusMsg}
+            statusKind={statusKind}
+            hasPixel={hasPixel}
+            canSubmit={canSubmit}
+            onHoursChange={setHours}
+            onMinutesChange={setMinutes}
+            onHintChange={handleHintChange}
+            autoScan={autoScan}
+            isScanning={isScanning}
+            onScanDialog={handleScanDialog}
+            onAutoScanToggle={handleAutoScanToggle}
+            autoSubmit={autoSubmit}
+            autoCountdown={autoCountdown}
+            cloudCheck={cloudCheck}
+            blinkFrame={blinkFrame}
+            onAutoSubmitToggle={handleAutoSubmitToggle}
+            onSubmit={handleSubmit}
+            onClear={handleClear}
+          />
+        )}
 
         {import.meta.env.MODE === 'development' && <DebugPanel />}
       </div>
