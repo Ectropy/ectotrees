@@ -12,6 +12,7 @@
     "serve:dist": "npm run build && npm run preview"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "@radix-ui/react-tooltip": "^1.2.8",
     "alt1": "^0.1.2",
     "lucide-react": "^1.11.0",

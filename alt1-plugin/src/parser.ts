@@ -14,7 +14,8 @@
  * preserve the last known value when a scan returns a non-matching page.
  */
 
-import { LOCATION_HINTS } from '@shared/hints';
+import { LOCATION_HINTS, findExactLocationFromSpiritTreeClue } from '@shared/hints';
+import type { TreeType } from '@shared/types';
 
 // ── Spawn timer ─────────────────────────────────────────────────────────────
 
@@ -105,4 +106,118 @@ export function parseHint(text: string): string | null {
   }
 
   return parsed;
+}
+
+// ── Tree just died (Spirit Tree timer page, no time given) ───────────────────
+
+/**
+ * Detects "the previous evil tree is dead" dialog text. Two NPCs use the
+ * same closing sentence — anchoring on it covers both:
+ *
+ *   Spirit Tree (prespawn greeting branch):
+ *     "The taint of the evil tree is not currently on the land. There won't
+ *      be another evil tree for a long time."
+ *
+ *   Nature's Sentinel Helm (right-click → Contact):
+ *     "There are no nasty spirits possessing trees right now. There won't be
+ *      another evil tree for a long time."
+ *
+ * This text only appears between the previous tree's death and the moment a
+ * new spawn timer becomes known to the game (the 10-minute fallen-tree
+ * reward window). Crucially, parseSpawnTime returns null in this case —
+ * there's no "approximately X minutes" — so the two parsers never conflict.
+ *
+ * The apostrophe regex tolerates straight, curly, or missing apostrophes
+ * (OCR sometimes drops them).
+ */
+export function parseTreeDead(text: string): boolean {
+  return /won['’]?t\s+be\s+another\s+evil\s+tree\s+for\s+a\s+long\s+time/i.test(text);
+}
+
+// ── Greeting mode (Spirit Tree first line) ───────────────────────────────────
+
+/**
+ * Detects which Spirit Tree greeting branch the dialog opened with. The
+ * greetings share their first sentence ("If you are a friend of the gnome
+ * people..."), and only differ on the closing question:
+ *
+ *   prespawn  — "...do you wish to ask about the evil tree?"
+ *               (no tree currently spawned, OR the previous tree is dead)
+ *
+ *   postspawn — "...are you here to help dispatch the evil tree?"
+ *               (an evil tree is currently alive on this world)
+ *             — "...are you interested in the strange sapling?"
+ *               (a strange sapling exists; collapsed into postspawn since the
+ *                same form handles both — sapling species are valid TreeType
+ *                values)
+ *
+ * Returns null when no greeting phrase appears (e.g. dialog page 2 just
+ * showing the timer or hint, or unrelated text).
+ */
+export function parseGreetingMode(text: string): 'prespawn' | 'postspawn' | null {
+  if (/dispatch\s+the\s+evil\s+tree/i.test(text)) return 'postspawn';
+  if (/strange\s+sapling/i.test(text)) return 'postspawn';
+  if (/ask\s+about\s+the\s+evil\s+tree/i.test(text)) return 'prespawn';
+  return null;
+}
+
+// ── Post-spawn exact location (Spirit Tree) ──────────────────────────────────
+
+/**
+ * Parses the Spirit Tree's post-spawn dialog (shown once an evil tree has
+ * appeared) for a clue that maps to one specific exact location. Returns the
+ * canonical location key from LOCATION_COORDS, or null if no clue matches.
+ *
+ * Example dialog:
+ *   "It is an abomination of nature, which has appeared beside the road
+ *    south of the Tree Gnome Stronghold. You should go there immediately
+ *    to help."
+ *
+ * The clue → location mapping is data — `spiritTreeClue` fields on entries
+ * in `LOCATION_COORDS` (shared/hints.ts). Add a new entry there as you
+ * encounter each in-game phrasing.
+ */
+export function parsePostSpawnLocation(text: string): string | null {
+  return findExactLocationFromSpiritTreeClue(text);
+}
+
+// ── Sentinel Helm tree species ───────────────────────────────────────────────
+
+const SPECIES_TREE_TYPES = ['oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as const;
+
+/**
+ * Parses the Nature's Sentinel Helm dialog (and any other in-game text that
+ * names the active evil tree's species) for a TreeType. Returns the species,
+ * or null if no species is named.
+ *
+ * Example dialogs:
+ *   "Nasty spirits have got a magic tree. It can be found to the south of
+ *    a tree gnome settlement."
+ *     → 'magic'
+ *
+ *   "Nasty spirits have got at an elder tree sapling. It can be found north
+ *    as the crow flies from Seers' Village."
+ *     → 'sapling-elder'
+ *
+ * Sapling-species variants must be checked before the bare-species pass —
+ * otherwise `\belder\s+tree\b` matches inside "elder tree sapling" and
+ * mis-returns the mature 'elder' variant.
+ *
+ * Falls through to the generic 'sapling' / 'tree' TreeTypes when the dialog
+ * mentions a sapling/tree but not its species.
+ */
+export function parseSentinelTreeType(text: string): TreeType | null {
+  for (const species of SPECIES_TREE_TYPES) {
+    if (new RegExp(`\\b${species}\\s+tree\\s+sapling\\b`, 'i').test(text)) {
+      return `sapling-${species}` as TreeType;
+    }
+  }
+  for (const species of SPECIES_TREE_TYPES) {
+    if (new RegExp(`\\b${species}\\s+tree\\b`, 'i').test(text)) {
+      return species;
+    }
+  }
+  if (/\bsapling\b/i.test(text)) return 'sapling';
+  if (/\bgot\s+(?:at\s+)?an?(?:\s+evil)?\s+tree\b/i.test(text)) return 'tree';
+  return null;
 }

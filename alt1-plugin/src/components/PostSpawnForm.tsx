@@ -1,13 +1,28 @@
 import { ScanText, ScanEye, EyeClosed, Eye, Cloud, CloudOff, CloudUpload, CloudCheck } from 'lucide-react';
-import { LOCATION_HINTS } from '@shared/hints';
+import { LOCATION_COORDS, LOCATION_HINTS, locationsForHint } from '@shared/hints';
+import { TREE_TYPE_LABELS } from '@shared-browser/treeLabels';
 import { Tooltip } from './ui/tooltip';
 import { SelectCombobox } from './ui/combobox';
 
+const TREE_TYPE_GROUPS = [
+  {
+    label: 'Strange Sapling',
+    items: [
+      'sapling', 'sapling-tree', 'sapling-oak', 'sapling-willow',
+      'sapling-maple', 'sapling-yew', 'sapling-magic', 'sapling-elder',
+    ] as string[],
+  },
+  {
+    label: 'Evil Trees',
+    items: ['mature', 'tree', 'oak', 'willow', 'maple', 'yew', 'magic', 'elder'] as string[],
+  },
+];
+const LOCATION_OPTIONS = Object.keys(LOCATION_COORDS).sort();
 const HINT_OPTIONS = LOCATION_HINTS.map(lh => lh.hint).sort();
 
-interface ReportFormProps {
-  hours: string;
-  minutes: string;
+interface PostSpawnFormProps {
+  treeType: string;
+  exactLocation: string;
   hint: string;
   statusMsg: string;
   statusKind: 'ok' | 'warn' | 'error' | '';
@@ -19,8 +34,8 @@ interface ReportFormProps {
   autoCountdown: number | null;
   cloudCheck: boolean;
   blinkFrame: boolean;
-  onHoursChange: (v: string) => void;
-  onMinutesChange: (v: string) => void;
+  onTreeTypeChange: (v: string) => void;
+  onExactLocationChange: (v: string) => void;
   onHintChange: (v: string) => void;
   onScanDialog: () => void;
   onAutoScanToggle: () => void;
@@ -29,9 +44,9 @@ interface ReportFormProps {
   onClear: () => void;
 }
 
-export function ReportForm({
-  hours,
-  minutes,
+export function PostSpawnForm({
+  treeType,
+  exactLocation,
   hint,
   statusMsg,
   statusKind,
@@ -43,15 +58,15 @@ export function ReportForm({
   autoCountdown,
   cloudCheck,
   blinkFrame,
-  onHoursChange,
-  onMinutesChange,
+  onTreeTypeChange,
+  onExactLocationChange,
   onHintChange,
   onScanDialog,
   onAutoScanToggle,
   onAutoSubmitToggle,
   onSubmit,
   onClear,
-}: ReportFormProps) {
+}: PostSpawnFormProps) {
   const statusColors = {
     ok: 'text-success',
     warn: 'text-warning',
@@ -59,48 +74,48 @@ export function ReportForm({
     '': 'text-muted-foreground',
   };
 
+  const availableLocations = hint ? locationsForHint(hint) : LOCATION_OPTIONS;
+
   return (
     <section className="px-3 py-2">
-      {/* Spawn timer */}
+      {/* Tree type */}
       <div className="flex flex-col">
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-          Time until spawn
+          Tree type
         </label>
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min={0}
-            max={1}
-            placeholder="0"
-            value={hours}
-            onChange={(e) => onHoursChange(e.target.value)}
-            className="max-w-[60px] text-center bg-input border border-border rounded px-2 py-1 text-foreground text-base font-semibold focus:outline-none focus:border-primary placeholder:text-muted-foreground"
-          />
-          <span className="text-xs text-muted-foreground shrink-0">hr</span>
-          <input
-            type="number"
-            min={0}
-            max={59}
-            placeholder="0"
-            value={minutes}
-            onChange={(e) => onMinutesChange(e.target.value)}
-            className="max-w-[60px] text-center bg-input border border-border rounded px-2 py-1 text-foreground text-base font-semibold focus:outline-none focus:border-primary placeholder:text-muted-foreground"
-          />
-          <span className="text-xs text-muted-foreground shrink-0">min</span>
-        </div>
+        <SelectCombobox
+          items={TREE_TYPE_GROUPS}
+          itemToStringLabel={item => TREE_TYPE_LABELS[item as keyof typeof TREE_TYPE_LABELS] ?? item}
+          value={treeType || null}
+          onValueChange={(v) => onTreeTypeChange(v ?? '')}
+          placeholder="Select or type a tree type"
+        />
       </div>
 
-      {/* Hint with inline scan icon */}
+      {/* Location hint */}
       <div className="flex flex-col mt-2">
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
           Location hint
         </label>
+        <SelectCombobox
+          items={HINT_OPTIONS}
+          value={hint || null}
+          onValueChange={(v) => onHintChange(v ?? '')}
+          placeholder="Select or type a location hint"
+        />
+      </div>
+
+      {/* Exact location with inline scan buttons */}
+      <div className="flex flex-col mt-2">
+        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+          Exact location
+        </label>
         <div className="flex items-center gap-1.5">
           <SelectCombobox
-            items={HINT_OPTIONS}
-            value={hint || null}
-            onValueChange={(v) => onHintChange(v ?? '')}
-            placeholder="Select or type a location hint"
+            items={availableLocations}
+            value={exactLocation || null}
+            onValueChange={(v) => onExactLocationChange(v ?? '')}
+            placeholder="Select or type an exact location"
             className="flex-1"
           />
           <Tooltip
@@ -136,12 +151,11 @@ export function ReportForm({
         </div>
       </div>
 
-      {/* Status line — always rendered to reserve height and prevent reflow */}
+      {/* Status line */}
       <div className={`mt-1.5 text-[11px] min-h-[16px] ${statusColors[statusKind]}`}>
         {statusMsg}
       </div>
 
-      {/* Divider */}
       <hr className="border-t border-border my-2" />
 
       {/* Submit / Clear */}
@@ -163,7 +177,7 @@ export function ReportForm({
                 ? `Submitting in ${autoCountdown}s — click to cancel`
                 : autoSubmit
                 ? 'Click to disable auto-submit.'
-                : 'Click to enable auto-submit. Submits 10s after all fields are filled.'
+                : 'Click to enable auto-submit. Submits 10s after a field is filled.'
             }
             side="top"
           >

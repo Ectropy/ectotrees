@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ClientMessage, ServerMessage } from '@shared/protocol';
+import type { WorldStates } from '@shared/types';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@shared/reconnect';
 import { extractIdentityToken } from '@shared-browser/sessionUrl';
 
@@ -31,6 +32,8 @@ export interface ScoutSessionState {
   reconnectAt: number | null;
   /** Increments on each server ACK. Watch this to detect when a mutation was confirmed. */
   ackCount: number;
+  /** Live mirror of session world state. Empty until the snapshot arrives. */
+  worldStates: WorldStates;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -69,6 +72,7 @@ export function useScoutSession() {
     reconnectAttempt: 0,
     reconnectAt: null,
     ackCount: 0,
+    worldStates: {},
   }));
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -125,7 +129,7 @@ export function useScoutSession() {
     intentionalCloseRef.current = false;
 
     snapshotReceivedRef.current = false;
-    setState(prev => ({ ...prev, status: 'connecting', error: null }));
+    setState(prev => ({ ...prev, status: 'connecting', error: null, worldStates: {} }));
 
     const ws = new WebSocket(buildWsUrl());
     wsRef.current = ws;
@@ -177,9 +181,18 @@ export function useScoutSession() {
           break;
 
         case 'snapshot':
-          // Scout plugin only submits data — snapshot contents are not displayed.
           snapshotReceivedRef.current = true;
+          setState(prev => ({ ...prev, worldStates: msg.worlds }));
           replayPendingMutations();
+          break;
+
+        case 'worldUpdate':
+          setState(prev => {
+            const next = { ...prev.worldStates };
+            if (msg.state === null) delete next[msg.worldId];
+            else next[msg.worldId] = msg.state;
+            return { ...prev, worldStates: next };
+          });
           break;
 
         case 'identity':
@@ -294,6 +307,7 @@ export function useScoutSession() {
       reconnectAttempt: 0,
       reconnectAt: null,
       ackCount: 0,
+      worldStates: {},
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

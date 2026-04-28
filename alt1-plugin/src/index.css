@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@source "../../src/constants/toolColors.ts";
+
 @theme inline {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
