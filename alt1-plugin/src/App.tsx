@@ -10,12 +10,13 @@ import { WorldInput } from './components/WorldInput';
 import { ModeNav } from './components/ModeNav';
 import { ReportForm } from './components/ReportForm';
 import { PostSpawnForm } from './components/PostSpawnForm';
+import { DeadForm } from './components/DeadForm';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DebugPanel } from './components/DebugPanel';
 import type { TreeType } from '@shared/types';
 import type { ClientMessage } from '@shared/protocol';
 
-type Mode = 'prespawn' | 'postspawn';
+type Mode = 'prespawn' | 'postspawn' | 'dead';
 
 type StatusKind = 'ok' | 'warn' | 'error' | '';
 
@@ -49,7 +50,8 @@ export function App() {
   const submittingRef = useRef(false);
   type SubmittedValues =
     | { mode: 'prespawn'; world: string; hours: string; minutes: string; hint: string }
-    | { mode: 'postspawn'; world: string; treeType: string; exactLocation: string; hint: string };
+    | { mode: 'postspawn'; world: string; treeType: string; exactLocation: string; hint: string }
+    | { mode: 'dead'; world: string };
   const submittedValuesRef = useRef<SubmittedValues | null>(null);
 
   // Auto-submit state
@@ -127,16 +129,20 @@ export function App() {
     submittedValuesRef.current = null;
     setSubmitting(false);
     submittingRef.current = false;
-    showStatus('Submitted!', 'ok');
+    showStatus(sv?.mode === 'dead' ? 'Marked dead!' : 'Submitted!', 'ok');
     if (sv) {
       setWorld(w => (w.trim() === sv.world ? '' : w));
-      setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
       if (sv.mode === 'prespawn') {
+        setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
         setHours(v => (v === sv.hours ? '' : v));
         setMinutes(v => (v === sv.minutes ? '' : v));
-      } else {
+      } else if (sv.mode === 'postspawn') {
+        setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
         setTreeType(v => (v === sv.treeType ? '' : v));
         setExactLocation(v => (v === sv.exactLocation ? '' : v));
+      } else {
+        // dead: reset to prespawn since the tree is gone, spawn timer is next
+        setMode('prespawn');
       }
     }
     if (cloudCheckTimerRef.current) clearTimeout(cloudCheckTimerRef.current);
@@ -246,6 +252,7 @@ export function App() {
       const m = parseInt(minutes || '0', 10) || 0;
       return (h * 60 + m) * 60_000 > 0;
     }
+    if (mode === 'dead') return true;
     // postspawn — mirrors dashboard TreeInfoView: treeType + hint are required
     // (generics like "Mature (unknown)" are valid); exactLocation stays optional
     return treeType !== '' && hint.trim().length > 0;
@@ -327,6 +334,8 @@ export function App() {
     const h = parseInt(hours || '0', 10) || 0;
     const m = parseInt(minutes || '0', 10) || 0;
     const newWorldId = parseInt(world, 10);
+    // World cleared to '' after a successful submit — not a real hop.
+    if (!VALID_WORLD_IDS.has(newWorldId)) return;
     const submittable = oldMode === 'prespawn'
       ? (h * 60 + m) * 60_000 > 0
       : treeType !== '' && hint.trim().length > 0;
@@ -598,6 +607,15 @@ export function App() {
 
     setAutoCountdown(null);
 
+    if (submitMode === 'dead') {
+      setSubmitting(true);
+      submittingRef.current = true;
+      showStatus('Submitting...');
+      submittedValuesRef.current = { mode: 'dead', world: String(worldId) };
+      sendMutation({ type: 'markDead', worldId });
+      return;
+    }
+
     if (submitMode === 'postspawn') {
       const tt = pending?.mode === 'postspawn' ? pending.treeType : treeType;
       const xl = pending?.mode === 'postspawn' ? pending.exactLocation : exactLocation;
@@ -801,6 +819,14 @@ export function App() {
             cloudCheck={cloudCheck}
             blinkFrame={blinkFrame}
             onAutoSubmitToggle={handleAutoSubmitToggle}
+            onSubmit={handleSubmit}
+            onClear={handleClear}
+          />
+        ) : mode === 'dead' ? (
+          <DeadForm
+            statusMsg={statusMsg}
+            statusKind={statusKind}
+            canSubmit={canSubmit}
             onSubmit={handleSubmit}
             onClear={handleClear}
           />

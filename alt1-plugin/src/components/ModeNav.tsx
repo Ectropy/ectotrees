@@ -1,9 +1,9 @@
-import { Timer, TreeDeciduous } from 'lucide-react';
-import { SPAWN_COLOR, TREE_COLOR } from '../../../src/constants/toolColors';
+import { Timer, TreeDeciduous, Skull } from 'lucide-react';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from '../../../src/constants/toolColors';
 
 interface ModeNavProps {
-  mode: 'prespawn' | 'postspawn';
-  onChange: (mode: 'prespawn' | 'postspawn') => void;
+  mode: 'prespawn' | 'postspawn' | 'dead';
+  onChange: (mode: 'prespawn' | 'postspawn' | 'dead') => void;
 }
 
 const TABS = [
@@ -22,6 +22,14 @@ const TABS = [
     activeColor: TREE_COLOR.text,
     hoverBg: TREE_COLOR.borderHover,
     underline: TREE_COLOR.underline,
+  },
+  {
+    kind: 'dead' as const,
+    icon: Skull,
+    label: 'Dead',
+    activeColor: DEAD_COLOR.text,
+    hoverBg: DEAD_COLOR.borderHover,
+    underline: DEAD_COLOR.underline,
   },
 ];
 

@@ -3,6 +3,15 @@
 @source "../../src/constants/toolColors.ts";
 
 @theme inline {
+  /* Palette colors used via toolColors.ts — inlined as hex so utilities don't
+     emit var(--color-*) references, which resolve to oklch() at runtime and
+     silently fail in Alt1's embedded Chromium (pre-oklch CEF version). */
+  --color-red-500:   #fb2c36;
+  --color-blue-300:  #90c5ff;
+  --color-blue-700:  #1447e6;
+  --color-green-400: #05df72;
+  --color-gray-300:  #d1d5db;
+
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-background: hsl(var(--background));
