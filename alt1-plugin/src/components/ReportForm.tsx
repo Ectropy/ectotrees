@@ -1,5 +1,6 @@
 import { ScanText, ScanEye, EyeClosed, Eye, Cloud, CloudOff, CloudUpload, CloudCheck } from 'lucide-react';
 import { LOCATION_HINTS } from '@shared/hints';
+import { SPAWN_COLOR } from '../../../src/constants/toolColors';
 import { Tooltip } from './ui/tooltip';
 import { SelectCombobox } from './ui/combobox';
 
@@ -146,15 +147,15 @@ export function ReportForm({
 
       {/* Submit / Clear */}
       <div className="flex gap-2">
-        <div className="flex flex-1 rounded overflow-hidden">
+        <div className={`flex flex-1 rounded overflow-hidden ${SPAWN_COLOR.border}`}>
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className="flex-1 bg-success text-white py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:opacity-90 transition-opacity"
+            className={`flex-1 bg-transparent ${SPAWN_COLOR.label} py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-300-a20 transition-colors`}
           >
             {autoCountdown !== null ? `Submit (${autoCountdown}s)` : 'Submit'}
           </button>
-          <div className="w-px bg-white/20 self-stretch" />
+          <div className="w-px bg-blue-300-a50 self-stretch" />
           <Tooltip
             content={
               cloudCheck
@@ -170,7 +171,7 @@ export function ReportForm({
             <button
               onClick={onAutoSubmitToggle}
               aria-label="Toggle auto-submit"
-              className={`flex items-center justify-center px-2.5 text-white hover:opacity-90 transition-opacity ${autoSubmit || cloudCheck ? 'bg-success' : 'bg-success/40'}`}
+              className={`flex items-center justify-center px-2.5 ${SPAWN_COLOR.text} hover:opacity-90 transition-all ${autoSubmit || cloudCheck ? 'bg-blue-300-a25' : 'opacity-40'}`}
             >
               {cloudCheck ? (
                 <CloudCheck size={14} />

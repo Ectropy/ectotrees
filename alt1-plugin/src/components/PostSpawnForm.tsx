@@ -1,5 +1,6 @@
 import { ScanText, ScanEye, EyeClosed, Eye, Cloud, CloudOff, CloudUpload, CloudCheck } from 'lucide-react';
 import { LOCATION_COORDS, LOCATION_HINTS, locationsForHint } from '@shared/hints';
+import { TREE_COLOR } from '../../../src/constants/toolColors';
 import { TREE_TYPE_LABELS } from '@shared-browser/treeLabels';
 import { Tooltip } from './ui/tooltip';
 import { SelectCombobox } from './ui/combobox';
@@ -160,15 +161,15 @@ export function PostSpawnForm({
 
       {/* Submit / Clear */}
       <div className="flex gap-2">
-        <div className="flex flex-1 rounded overflow-hidden">
+        <div className={`flex flex-1 rounded overflow-hidden ${TREE_COLOR.border}`}>
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className="flex-1 bg-success text-white py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:opacity-90 transition-opacity"
+            className={`flex-1 bg-transparent ${TREE_COLOR.label} py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-400-a20 transition-colors`}
           >
             {autoCountdown !== null ? `Submit (${autoCountdown}s)` : 'Submit'}
           </button>
-          <div className="w-px bg-white/20 self-stretch" />
+          <div className="w-px bg-green-400-a50 self-stretch" />
           <Tooltip
             content={
               cloudCheck
@@ -184,7 +185,7 @@ export function PostSpawnForm({
             <button
               onClick={onAutoSubmitToggle}
               aria-label="Toggle auto-submit"
-              className={`flex items-center justify-center px-2.5 text-white hover:opacity-90 transition-opacity ${autoSubmit || cloudCheck ? 'bg-success' : 'bg-success/40'}`}
+              className={`flex items-center justify-center px-2.5 ${TREE_COLOR.text} hover:opacity-90 transition-all ${autoSubmit || cloudCheck ? 'bg-green-400-a25' : 'opacity-40'}`}
             >
               {cloudCheck ? (
                 <CloudCheck size={14} />

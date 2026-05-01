@@ -33,7 +33,7 @@ export function DeadForm({ statusMsg, statusKind, canSubmit, onSubmit, onClear }
         <button
           onClick={onSubmit}
           disabled={!canSubmit}
-          className={`flex-1 flex items-center justify-center gap-1.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded`}
+          className={`flex-1 flex items-center justify-center gap-1.5 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} hover:bg-red-500-a20 py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded`}
         >
           <Skull size={13} />
           Mark Dead

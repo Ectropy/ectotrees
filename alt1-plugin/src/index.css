@@ -5,12 +5,22 @@
 @theme inline {
   /* Palette colors used via toolColors.ts — inlined as hex so utilities don't
      emit var(--color-*) references, which resolve to oklch() at runtime and
-     silently fail in Alt1's embedded Chromium (pre-oklch CEF version). */
-  --color-red-500:   #fb2c36;
-  --color-blue-300:  #90c5ff;
-  --color-blue-700:  #1447e6;
-  --color-green-400: #05df72;
-  --color-gray-300:  #d1d5db;
+     silently fail in Alt1's embedded Chromium (pre-oklch CEF version).
+     Opacity variants (/20, /25, /50) are also pre-computed as rgba() here for
+     the same reason — the slash-modifier syntax compiles to color-mix(in oklch)
+     which is equally broken in pre-oklch CEF. */
+  --color-red-500:       #fb2c36;
+  --color-red-500-a20:   rgba(251, 44, 54, 0.20);
+  --color-blue-300:      #90c5ff;
+  --color-blue-300-a20:  rgba(144, 197, 255, 0.20);
+  --color-blue-300-a25:  rgba(144, 197, 255, 0.25);
+  --color-blue-300-a50:  rgba(144, 197, 255, 0.50);
+  --color-blue-700:      #1447e6;
+  --color-green-400:     #05df72;
+  --color-green-400-a20: rgba(5, 223, 114, 0.20);
+  --color-green-400-a25: rgba(5, 223, 114, 0.25);
+  --color-green-400-a50: rgba(5, 223, 114, 0.50);
+  --color-gray-300:      #d1d5db;
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
