@@ -401,8 +401,21 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
       return { type: 'reportLightning', worldId, health, msgId };
     }
 
-    case 'markDead':
-      return { type: 'markDead', worldId, msgId };
+    case 'markDead': {
+      let treeHint: string | undefined;
+      let treeExactLocation: string | undefined;
+      if (raw.treeHint !== undefined) {
+        const clean = validateHint(raw.treeHint);
+        if (clean === null) return { error: 'Invalid treeHint.' };
+        treeHint = clean;
+      }
+      if (raw.treeExactLocation !== undefined) {
+        const clean = validateExactLocation(raw.treeExactLocation);
+        if (clean === null) return { error: 'Invalid treeExactLocation.' };
+        treeExactLocation = clean;
+      }
+      return { type: 'markDead', worldId, treeHint, treeExactLocation, msgId };
+    }
 
     case 'clearWorld':
       return { type: 'clearWorld', worldId, msgId };

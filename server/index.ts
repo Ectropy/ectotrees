@@ -718,7 +718,10 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
 
     case 'markDead': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} markDead`);
-      const next = applyMarkDead(session.worldStates, msg.worldId, now);
+      const deadFields = (msg.treeHint !== undefined || msg.treeExactLocation !== undefined)
+        ? { treeHint: msg.treeHint, treeExactLocation: msg.treeExactLocation }
+        : undefined;
+      const next = applyMarkDead(session.worldStates, msg.worldId, now, deadFields);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
       break;
     }

@@ -51,8 +51,10 @@ export function App() {
   type SubmittedValues =
     | { mode: 'prespawn'; world: string; hours: string; minutes: string; hint: string }
     | { mode: 'postspawn'; world: string; treeType: string; exactLocation: string; hint: string }
-    | { mode: 'dead'; world: string };
+    | { mode: 'dead'; world: string; hint: string; exactLocation: string };
   const submittedValuesRef = useRef<SubmittedValues | null>(null);
+  // Set when dead is detected from dialog scan — enables auto-submit without requiring a hint
+  const [chatDetectedDead, setChatDetectedDead] = useState(false);
 
   // Auto-submit state
   const [autoSubmit, setAutoSubmit] = useState(() => localStorage.getItem('scout_autoSubmit') === 'true');
@@ -61,6 +63,11 @@ export function App() {
   const [blinkFrame, setBlinkFrame] = useState(false);
   const cloudCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSubmitRef = useRef<() => void>(() => {});
+  // applyDialogScan reads `world` via closure, but the auto-scan setInterval
+  // only re-subscribes on [autoScan, hasPixel] — so without this ref it would
+  // call a stale applyDialogScan and report "no world set" even after the
+  // scout has typed/auto-detected a world.
+  const applyDialogScanRef = useRef<(result: NonNullable<ReturnType<typeof scanDialog>>, prefix: string) => void>(() => {});
   type PendingSubmit =
     | { mode: 'prespawn'; worldId: number; msFromNow: number; hintText: string }
     | { mode: 'postspawn'; worldId: number; treeType: string; exactLocation: string; hintText: string };
@@ -140,8 +147,13 @@ export function App() {
         setHint(v => (v.trim().slice(0, 200) === sv.hint ? '' : v));
         setTreeType(v => (v === sv.treeType ? '' : v));
         setExactLocation(v => (v === sv.exactLocation ? '' : v));
-      } else {
-        // dead: reset to prespawn since the tree is gone, spawn timer is next
+      } else { // dead
+        setChatDetectedDead(false);
+        if (sv.mode === 'dead') {
+          setHint(v => (v.trim() === sv.hint ? '' : v));
+          setExactLocation(v => (v === sv.exactLocation ? '' : v));
+        }
+        // reset to prespawn since the tree is gone, spawn timer is next
         setMode('prespawn');
       }
     }
@@ -232,7 +244,7 @@ export function App() {
 
       const result = scanDialog();
       if (result) {
-        applyDialogScan(result, 'Auto-detected');
+        applyDialogScanRef.current(result, 'Auto-detected');
       }
     }, 300);
     return () => {
@@ -258,15 +270,11 @@ export function App() {
     return treeType !== '' && hint.trim().length > 0;
   })();
 
-  const canAutoSubmit = canSubmit && hint.trim().length > 0;
+  const canAutoSubmit = canSubmit && (chatDetectedDead || hint.trim().length > 0);
 
   const isCountingDown = autoCountdown !== null;
 
-  // Start auto-submit countdown when all conditions are met. The snapshot used
-  // to be captured here as a defense against world hops mid-countdown — that's
-  // now handled by the world-change effect below, which also lets in-flight
-  // edits to other fields flow through (so a user correcting "Mature (unknown)"
-  // → "Evil Tree (normal)" submits the corrected value).
+  // Start auto-submit countdown when all conditions are met.
   useEffect(() => {
     if (autoSubmit && canAutoSubmit && autoCountdown === null && !submitting && !cloudCheck) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -517,33 +525,44 @@ export function App() {
     }
   }
 
+  // Centralized mode change. ANY mode swap clears stale form data so a leftover
+  // hint/timer/treeType from the previous mode can't be submitted by accident.
+  // Auto-world-hop is intentionally NOT routed through here — it has its own
+  // flush flow (submit-old-world-data-then-clear) at the world-change effect.
+  function swapMode(newMode: Mode) {
+    if (newMode !== mode) {
+      clearDataFields();
+      setChatDetectedDead(false);
+    }
+    setMode(newMode);
+  }
+
   function applyDialogScan(result: NonNullable<ReturnType<typeof scanDialog>>, prefix: string) {
     const detected: string[] = [];
 
-    // Tree-just-died signal: the Spirit Tree confirms no current tree and no
-    // upcoming spawn timer. Fire markDead unconditionally (idempotent), cancel
-    // any pending auto-submit (its data is for the previous tree), and reset
-    // mode to prespawn since postspawn fields no longer apply.
+    // Resolve mode by signal specificity (most → least specific):
+    //   treeDied   — replaces the timer line with "won't be another for a long time"
+    //   postspawn  — exact location or tree type appears in dialog
+    //   prespawn   — explicit "approximately X minutes" timer
+    //   greeting   — bare greeting only (fallback)
+    // The dead and prespawn dialogs share the same opening greeting, so
+    // greetingMode='prespawn' is NOT authoritative when treeDied also fires —
+    // hence the explicit ordering below instead of separate setMode() calls.
+    const resolvedMode: Mode | null =
+      result.treeDied ? 'dead'
+      : (result.exactLocation || result.treeType) ? 'postspawn'
+      : (result.hours > 0 || result.minutes > 0) ? 'prespawn'
+      : result.greetingMode ?? null;
+
+    if (resolvedMode) swapMode(resolvedMode);
+
     if (result.treeDied) {
-      const worldId = getWorldId();
       pendingSubmitRef.current = null;
       setAutoCountdown(null);
-      setMode('prespawn');
-      if (worldId !== null) {
-        sendMutation({ type: 'markDead', worldId });
-        detected.push(`marked W${worldId} dead`);
-      } else {
-        detected.push('tree dead (no world set)');
-      }
+      setChatDetectedDead(true);
+      const deadWorldId = getWorldId();
+      detected.push(deadWorldId !== null ? `dead detected (W${deadWorldId})` : 'dead detected (no world set)');
     }
-
-    // Mode transitions: bare greeting sets mode; explicit field detections
-    // override (the last setMode call wins). Pre-spawn timer / post-spawn
-    // location & type are mutually exclusive in the source dialogs, so the
-    // ordering here only matters for defensiveness.
-    if (result.greetingMode) setMode(result.greetingMode);
-    if (result.hours > 0 || result.minutes > 0) setMode('prespawn');
-    if (result.exactLocation || result.treeType) setMode('postspawn');
 
     // Pre-spawn fields
     if (result.hours > 0 || result.minutes > 0) {
@@ -611,8 +630,14 @@ export function App() {
       setSubmitting(true);
       submittingRef.current = true;
       showStatus('Submitting...');
-      submittedValuesRef.current = { mode: 'dead', world: String(worldId) };
-      sendMutation({ type: 'markDead', worldId });
+      const deadHint = hint.trim();
+      submittedValuesRef.current = { mode: 'dead', world: String(worldId), hint: deadHint, exactLocation };
+      sendMutation({
+        type: 'markDead',
+        worldId,
+        ...(deadHint && { treeHint: deadHint }),
+        ...(exactLocation && { treeExactLocation: exactLocation }),
+      });
       return;
     }
 
@@ -715,6 +740,7 @@ export function App() {
 
   function handleClear() {
     setAutoCountdown(null);
+    setChatDetectedDead(false);
     setWorld('');
     setHours('');
     setMinutes('');
@@ -748,6 +774,7 @@ export function App() {
   }
 
   handleSubmitRef.current = handleSubmit;
+  applyDialogScanRef.current = applyDialogScan;
 
   return (
     <TooltipProvider>
@@ -796,7 +823,7 @@ export function App() {
           }}
         />
 
-        <ModeNav mode={mode} onChange={setMode} />
+        <ModeNav mode={mode} onChange={swapMode} />
 
         {mode === 'postspawn' ? (
           <PostSpawnForm
@@ -827,6 +854,14 @@ export function App() {
             statusMsg={statusMsg}
             statusKind={statusKind}
             canSubmit={canSubmit}
+            hint={hint}
+            exactLocation={exactLocation}
+            autoSubmit={autoSubmit}
+            autoCountdown={autoCountdown}
+            cloudCheck={cloudCheck}
+            blinkFrame={blinkFrame}
+            onHintChange={handleHintChange}
+            onAutoSubmitToggle={handleAutoSubmitToggle}
             onSubmit={handleSubmit}
             onClear={handleClear}
           />

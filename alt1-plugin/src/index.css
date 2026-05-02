@@ -11,6 +11,8 @@
      which is equally broken in pre-oklch CEF. */
   --color-red-500:       #fb2c36;
   --color-red-500-a20:   rgba(251, 44, 54, 0.20);
+  --color-red-500-a25:   rgba(251, 44, 54, 0.25);
+  --color-red-500-a50:   rgba(251, 44, 54, 0.50);
   --color-blue-300:      #90c5ff;
   --color-blue-300-a20:  rgba(144, 197, 255, 0.20);
   --color-blue-300-a25:  rgba(144, 197, 255, 0.25);

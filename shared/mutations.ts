@@ -226,6 +226,7 @@ export function applyMarkDead(
   states: WorldStates,
   worldId: number,
   now: number,
+  fields?: { treeHint?: string; treeExactLocation?: string },
 ): WorldStates {
   const current = states[worldId] ?? { treeStatus: 'none' as const };
   return {
@@ -237,6 +238,8 @@ export function applyMarkDead(
       treeHealth: undefined,
       nextSpawnTarget: undefined,
       spawnSetAt: undefined,
+      ...(fields?.treeHint !== undefined && { treeHint: fields.treeHint }),
+      ...(fields?.treeExactLocation !== undefined && { treeExactLocation: fields.treeExactLocation }),
     },
   };
 }
