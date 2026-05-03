@@ -12,7 +12,6 @@
     "allowSyntheticDefaultImports": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@shared/*": ["../shared/*"],
       "@shared-browser/*": ["../shared-browser/*"]
