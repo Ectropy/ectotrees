@@ -16,7 +16,7 @@ import { chromium } from '@playwright/test';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const STORYBOOK_DIR = join(ROOT, 'storybook-static');
-const OUTPUT_PATH = join(ROOT, 'public', 'og-image.png');
+const OUTPUT_PATH = join(ROOT, 'public', 'og-image.jpg');
 const STORY_ID = 'marketing-ogimage--default';
 const VIEWPORT = { width: 1200, height: 630 };
 const PORT = 6007;
@@ -112,7 +112,7 @@ async function main() {
     await mkdir(dirname(OUTPUT_PATH), { recursive: true });
     const root = await page.$('#storybook-root > *');
     if (!root) throw new Error('Could not find rendered story root.');
-    await root.screenshot({ path: OUTPUT_PATH, type: 'png' });
+    await root.screenshot({ path: OUTPUT_PATH, type: 'jpeg', quality: 85 });
     console.log(`✓ Wrote ${OUTPUT_PATH}`);
   } finally {
     await browser.close();

@@ -19,7 +19,7 @@ export const Default: Story = {
     return (
       <OgImage
         wordmark="Ectotrees"
-        tagline="Real time Evil Tree tracker for RS3"
+        tagline="Realtime Evil Tree tracker for RS3"
         mapView={{ center: [3450, 2943], zoom: 0 }}
         card={{
           world: { id: 104, type: 'P2P' },
