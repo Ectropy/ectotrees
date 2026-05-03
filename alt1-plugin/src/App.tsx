@@ -554,12 +554,23 @@ export function App() {
       : (result.hours > 0 || result.minutes > 0) ? 'prespawn'
       : result.greetingMode ?? null;
 
-    if (resolvedMode) swapMode(resolvedMode);
+    // The hint dialog page in RS3 often includes the player's previous choice
+    // text ("Ask about the evil tree"), which triggers greetingMode='prespawn'.
+    // If chatDetectedDead is already set, don't let a bare greeting override the
+    // confirmed dead state — stay in 'dead' so the countdown and hint both survive.
+    if (resolvedMode && !(chatDetectedDead && resolvedMode === 'prespawn')) swapMode(resolvedMode);
 
     if (result.treeDied) {
-      pendingSubmitRef.current = null;
-      setAutoCountdown(null);
-      setChatDetectedDead(true);
+      // One-shot latch. Auto-scan polls every 300ms during the post-click
+      // window, so the same dead dialog produces 2–3 scans. Re-resetting
+      // autoCountdown here on each repeat would clobber an already-running
+      // countdown without restarting it — the start effect's deps don't
+      // include autoCountdown, so it won't notice the null and re-fire.
+      if (!chatDetectedDead) {
+        pendingSubmitRef.current = null;
+        setAutoCountdown(null);
+        setChatDetectedDead(true);
+      }
       const deadWorldId = getWorldId();
       detected.push(deadWorldId !== null ? `dead detected (W${deadWorldId})` : 'dead detected (no world set)');
     }
