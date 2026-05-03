@@ -62,18 +62,30 @@ Any member can **fork** the current session into a new **managed (invite-only) s
 - **Session visibility** — set a session name, optional description, and toggle **Listed** to appear in the public session browser. Listing a session also admits anonymous read-only viewers who discover it from the browser
 - World updates in managed sessions show the submitter's name and role
 
-## Alt1 Scout Plugin *(beta)*
+## Alt1 Scout Plugin
 
-An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit spawn timer intel directly from inside RuneScape without switching windows.
+An [Alt1 Toolkit](https://runeapps.org/alt1) plugin for scouts — players who hop worlds looking for active trees. It connects to an Ectotrees sync session and lets you submit intel directly from inside RuneScape without switching windows. Three reporting modes cover the full scouting workflow:
+
+### Common features
 
 - **Session**: join by entering a 12-character identity token or pasting an identity link (a URL containing `#identity=TOKEN`). For unmanaged sessions, the dashboard's Session panel exposes a **Copy identity link** button that generates a token for your scout to paste; for managed sessions, use the invite link from an admin. Session is remembered and auto-resumed on next launch
 - **Scout linking**: once authenticated by identity token, the dashboard shows a live indicator of which world you are on as you hop. In managed sessions your scout is recognized by name
-- **Auto-world** (toggle) — polls Alt1 gamestate every 5 seconds; when a world hop is detected, the world field updates automatically and the linked dashboard is notified in real time
-- **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
-- **Auto-scan** (toggle) — watches for clicks inside RuneScape and automatically triggers a dialog scan 150–800 ms after each click, catching the dialog as soon as it opens
-- **Auto-submit** (toggle) — starts a 10-second countdown once world, time, and hint are all filled in; the submission payload is snapshotted at countdown start so a world hop during the countdown doesn't corrupt it; cancel by clicking the auto-submit button or clearing a field; manual submit is always available (hint not required)
+- **Auto-world** (toggle) — polls Alt1 gamestate; when a world hop is detected, the world field updates automatically and the linked dashboard is notified in real time
 
-> **Beta:** The plugin covers the core scouting workflow. Additional features (tree info reporting, mark-dead, etc.) are planned but not yet included.
+### Reporting modes
+
+1. **Timer mode** — pre-spawn timer reporting
+   - **Manual dialog scan** — reads the in-game Spirit Tree dialog via Alt1 pixel scanning to extract the spawn timer and location hint in one click
+   - **Auto-scan** (toggle) — watches for clicks inside RuneScape and automatically triggers a dialog scan 150–800 ms after each click, catching the dialog as soon as it opens
+   - **Auto-submit** (toggle) — starts a 10-second countdown once world, time, and hint are all filled in; the submission payload is snapshotted at countdown start so a world hop during the countdown doesn't corrupt it; cancel by clicking the auto-submit button or clearing a field; hint is optional, manual submit is always available
+
+2. **Tree mode** — post-spawn tree info reporting
+   - Submit tree type, location hint, and exact location once a tree has spawned
+
+3. **Dead mode** — dead tree marking
+   - Mark a tree as dead with optional location info
+   - Location hint is preserved when transitioning from pre-spawn reporting
+   - Auto-submit enabled if chat detection identifies a tree death
 
 The plugin is built separately from the main app (`alt1-plugin/`) and is served at `/alt1` in both dev and production. To add it to Alt1 Toolkit, open `http://localhost:5173/alt1` inside Alt1 and click **Add to Alt1**, or use the `alt1://addapp/` install link shown on that page.
 

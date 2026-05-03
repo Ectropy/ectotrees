@@ -31,6 +31,7 @@ npm run dev          # start Vite dev server (http://localhost:5173)
 npm run host         # dev server + alt1-plugin watch, exposed to network (concurrently)
 npm run build        # tsc -b && vite build && alt1-plugin build (sequential)
 npm run lint         # eslint
+npm run preview      # preview production build locally (http://localhost:4173)
 npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
 npm run server:check # type-check server only (npx tsc --noEmit -p server/tsconfig.json)
@@ -52,7 +53,7 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 | Directory | Purpose |
 |---|---|
 | `shared/` | Pure TS shared between client and server — types, protocol, mutations, hints |
-| `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (clipboard, `useCopyFeedback`, `buildIdentityUrl`, `useNow`, `useCountdown`). Not imported by server. |
+| `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (`clipboard.ts`, `sessionUrl.ts`, `useCopyFeedback.ts`, `useNow.ts`, `useCountdown.ts`, `treeLabels.ts`). Not imported by server. |
 | `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync |
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |
