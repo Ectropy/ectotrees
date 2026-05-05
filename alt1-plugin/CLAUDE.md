@@ -9,7 +9,7 @@ alt1-plugin/src/
   main.tsx              # Entry point: mounts React root, sets up Alt1 API
   index.css             # Base styles imported by main.tsx
   App.tsx               # Root component: orchestrates session, world, scan, and form state
-  scanner.ts            # Alt1 pixel scanning logic: reads spawn timer and location hint from dialog
+  scanner.ts            # Alt1 pixel scanning: scanSpiritTreeDialog() returns raw dialog text ({ rawText }); scanWorldFromFriendsList() returns current world via alt1.currentWorld (gamestate)
   parser.ts             # Parses raw dialog text into { hours, minutes, hint }
   hooks/
     useScoutSession.ts  # WebSocket session management for the scout: create/join/leave, reconnection, mutations
