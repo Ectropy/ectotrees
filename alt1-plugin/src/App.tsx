@@ -13,6 +13,7 @@ import { PostSpawnForm } from './components/PostSpawnForm';
 import { DeadForm } from './components/DeadForm';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DebugPanel } from './components/DebugPanel';
+import { NotConnectedPrompt } from './components/NotConnectedPrompt';
 import type { TreeType } from '@shared/types';
 import type { ClientMessage } from '@shared/protocol';
 
@@ -805,101 +806,107 @@ export function App() {
 
         <hr className="border-t border-border" />
 
-        <WorldInput
-          world={world}
-          hasPixel={hasPixel}
-          hasGameState={hasGameState}
-          autoWorld={autoWorld}
-          isWorldScanning={isWorldScanning}
-          onChange={(v) => { setWorld(v); }}
-          onScan={handleScanWorld}
-          onAutoWorldToggle={() => {
-            setAutoWorld(s => {
-              if (!s) {
-                // Test gamestate access before enabling
-                const result = scanWorld();
-                if (!result) {
-                  showStatus('Could not detect world. Right click on "Alt1 Toolkit," then enable "Show current world."', 'warn');
-                  return false;
-                }
-                setWorld(String(result.world));
-                showStatus(`World ${result.world} detected. Auto-detect on.`, 'ok');
-              } else {
-                clearStatus();
-              }
-              const next = !s;
-              localStorage.setItem('scout_autoWorld', String(next));
-              return next;
-            });
-          }}
-        />
+        {status === 'connected' ? (
+          <>
+            <WorldInput
+              world={world}
+              hasPixel={hasPixel}
+              hasGameState={hasGameState}
+              autoWorld={autoWorld}
+              isWorldScanning={isWorldScanning}
+              onChange={(v) => { setWorld(v); }}
+              onScan={handleScanWorld}
+              onAutoWorldToggle={() => {
+                setAutoWorld(s => {
+                  if (!s) {
+                    // Test gamestate access before enabling
+                    const result = scanWorld();
+                    if (!result) {
+                      showStatus('Could not detect world. Right click on "Alt1 Toolkit," then enable "Show current world."', 'warn');
+                      return false;
+                    }
+                    setWorld(String(result.world));
+                    showStatus(`World ${result.world} detected. Auto-detect on.`, 'ok');
+                  } else {
+                    clearStatus();
+                  }
+                  const next = !s;
+                  localStorage.setItem('scout_autoWorld', String(next));
+                  return next;
+                });
+              }}
+            />
 
-        <ModeNav mode={mode} onChange={swapMode} />
+            <ModeNav mode={mode} onChange={swapMode} />
 
-        {mode === 'postspawn' ? (
-          <PostSpawnForm
-            treeType={treeType}
-            exactLocation={exactLocation}
-            hint={hint}
-            statusMsg={statusMsg}
-            statusKind={statusKind}
-            hasPixel={hasPixel}
-            canSubmit={canSubmit}
-            onTreeTypeChange={setTreeType}
-            onExactLocationChange={handleExactLocationChange}
-            onHintChange={handleHintChange}
-            autoScan={autoScan}
-            isScanning={isScanning}
-            onScanDialog={handleScanDialog}
-            onAutoScanToggle={handleAutoScanToggle}
-            autoSubmit={autoSubmit}
-            autoCountdown={autoCountdown}
-            cloudCheck={cloudCheck}
-            blinkFrame={blinkFrame}
-            onAutoSubmitToggle={handleAutoSubmitToggle}
-            onSubmit={handleSubmit}
-            onClear={handleClear}
-          />
-        ) : mode === 'dead' ? (
-          <DeadForm
-            statusMsg={statusMsg}
-            statusKind={statusKind}
-            canSubmit={canSubmit}
-            hint={hint}
-            exactLocation={exactLocation}
-            autoSubmit={autoSubmit}
-            autoCountdown={autoCountdown}
-            cloudCheck={cloudCheck}
-            blinkFrame={blinkFrame}
-            onHintChange={handleHintChange}
-            onAutoSubmitToggle={handleAutoSubmitToggle}
-            onSubmit={handleSubmit}
-            onClear={handleClear}
-          />
+            {mode === 'postspawn' ? (
+              <PostSpawnForm
+                treeType={treeType}
+                exactLocation={exactLocation}
+                hint={hint}
+                statusMsg={statusMsg}
+                statusKind={statusKind}
+                hasPixel={hasPixel}
+                canSubmit={canSubmit}
+                onTreeTypeChange={setTreeType}
+                onExactLocationChange={handleExactLocationChange}
+                onHintChange={handleHintChange}
+                autoScan={autoScan}
+                isScanning={isScanning}
+                onScanDialog={handleScanDialog}
+                onAutoScanToggle={handleAutoScanToggle}
+                autoSubmit={autoSubmit}
+                autoCountdown={autoCountdown}
+                cloudCheck={cloudCheck}
+                blinkFrame={blinkFrame}
+                onAutoSubmitToggle={handleAutoSubmitToggle}
+                onSubmit={handleSubmit}
+                onClear={handleClear}
+              />
+            ) : mode === 'dead' ? (
+              <DeadForm
+                statusMsg={statusMsg}
+                statusKind={statusKind}
+                canSubmit={canSubmit}
+                hint={hint}
+                exactLocation={exactLocation}
+                autoSubmit={autoSubmit}
+                autoCountdown={autoCountdown}
+                cloudCheck={cloudCheck}
+                blinkFrame={blinkFrame}
+                onHintChange={handleHintChange}
+                onAutoSubmitToggle={handleAutoSubmitToggle}
+                onSubmit={handleSubmit}
+                onClear={handleClear}
+              />
+            ) : (
+              <ReportForm
+                hours={hours}
+                minutes={minutes}
+                hint={hint}
+                statusMsg={statusMsg}
+                statusKind={statusKind}
+                hasPixel={hasPixel}
+                canSubmit={canSubmit}
+                onHoursChange={setHours}
+                onMinutesChange={setMinutes}
+                onHintChange={handleHintChange}
+                autoScan={autoScan}
+                isScanning={isScanning}
+                onScanDialog={handleScanDialog}
+                onAutoScanToggle={handleAutoScanToggle}
+                autoSubmit={autoSubmit}
+                autoCountdown={autoCountdown}
+                cloudCheck={cloudCheck}
+                blinkFrame={blinkFrame}
+                onAutoSubmitToggle={handleAutoSubmitToggle}
+                onSubmit={handleSubmit}
+                onClear={handleClear}
+              />
+            )}
+          </>
         ) : (
-          <ReportForm
-            hours={hours}
-            minutes={minutes}
-            hint={hint}
-            statusMsg={statusMsg}
-            statusKind={statusKind}
-            hasPixel={hasPixel}
-            canSubmit={canSubmit}
-            onHoursChange={setHours}
-            onMinutesChange={setMinutes}
-            onHintChange={handleHintChange}
-            autoScan={autoScan}
-            isScanning={isScanning}
-            onScanDialog={handleScanDialog}
-            onAutoScanToggle={handleAutoScanToggle}
-            autoSubmit={autoSubmit}
-            autoCountdown={autoCountdown}
-            cloudCheck={cloudCheck}
-            blinkFrame={blinkFrame}
-            onAutoSubmitToggle={handleAutoSubmitToggle}
-            onSubmit={handleSubmit}
-            onClear={handleClear}
-          />
+          <NotConnectedPrompt />
         )}
 
         {import.meta.env.MODE === 'development' && <DebugPanel />}
