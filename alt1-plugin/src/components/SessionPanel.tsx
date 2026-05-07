@@ -196,7 +196,7 @@ export function SessionPanel({
       <div className="flex items-center gap-1.5">
         <input
           type="text"
-          placeholder="Invite code"
+          placeholder="Identity code"
           autoComplete="off"
           spellCheck={false}
           value={inputCode}

@@ -22,6 +22,9 @@
   --color-green-400-a20: rgba(5, 223, 114, 0.20);
   --color-green-400-a25: rgba(5, 223, 114, 0.25);
   --color-green-400-a50: rgba(5, 223, 114, 0.50);
+  --color-cyan-400:     #22d3ee;
+  --color-cyan-400-a20: rgba(34, 211, 238, 0.20);
+  --color-cyan-400-a50: rgba(34, 211, 238, 0.50);
   --color-gray-300:      #d1d5db;
 
   --color-border: hsl(var(--border));
