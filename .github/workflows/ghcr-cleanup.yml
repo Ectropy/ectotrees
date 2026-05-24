@@ -4,22 +4,31 @@ on:
   schedule:
     - cron: "0 5 * * 0"
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run (log deletions without performing them)"
+        type: boolean
+        default: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   prune:
-    name: Prune old container versions
+    name: Prune old sha-* container versions
     runs-on: ubuntu-latest
     permissions:
       packages: write
 
     steps:
       - name: Delete old sha-* versions
-        uses: actions/delete-package-versions@v5
+        uses: snok/container-retention-policy@v3.0.1
         with:
-          package-name: ectotrees
-          package-type: container
-          min-versions-to-keep: 30
-          ignore-versions: '^(?!sha-[0-9a-f]+$).*$'
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: ectotrees
+          image-tags: "sha-*"
+          tag-selection: tagged
+          cut-off: 1s
+          keep-n-most-recent: 30
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
