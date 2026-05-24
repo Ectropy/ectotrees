@@ -17,15 +17,12 @@ jobs:
   prune:
     name: Prune old sha-* container versions
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-
     steps:
       - name: Delete old sha-* versions
         uses: snok/container-retention-policy@v3.0.1
         with:
           account: ${{ github.repository_owner }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GHCR_CLEANUP_TOKEN }}
           image-names: ectotrees
           image-tags: "sha-*"
           tag-selection: tagged
