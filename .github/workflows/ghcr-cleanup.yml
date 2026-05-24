@@ -25,7 +25,7 @@ jobs:
           token: ${{ secrets.GHCR_CLEANUP_TOKEN }}
           image-names: ectotrees
           image-tags: "sha-*"
-          tag-selection: tagged
-          cut-off: 1s
+          tag-selection: both
+          cut-off: 1d
           keep-n-most-recent: 30
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
