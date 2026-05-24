@@ -21,7 +21,7 @@ jobs:
       - name: Delete old sha-* versions
         uses: snok/container-retention-policy@v3.0.1
         with:
-          account: ${{ github.repository_owner }}
+          account: user
           token: ${{ secrets.GHCR_CLEANUP_TOKEN }}
           image-names: ectotrees
           image-tags: "sha-*"
