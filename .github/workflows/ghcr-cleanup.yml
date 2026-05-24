@@ -14,8 +14,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  prune:
-    name: Prune old sha-* container versions
+  prune-tagged:
+    name: Prune old sha-* tagged versions
     runs-on: ubuntu-latest
     steps:
       - name: Delete old sha-* versions
@@ -25,7 +25,25 @@ jobs:
           token: ${{ secrets.GHCR_CLEANUP_TOKEN }}
           image-names: ectotrees
           image-tags: "sha-*"
-          tag-selection: both
+          tag-selection: tagged
           cut-off: 1d
           keep-n-most-recent: 30
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+
+  prune-untagged-orphans:
+    name: Prune orphaned untagged versions
+    runs-on: ubuntu-latest
+    needs: prune-tagged
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Identify and delete untagged orphans
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_CLEANUP_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: ectotrees
+          OWNER_TYPE: user
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+        run: node scripts/ghcr-cleanup-orphans.mjs
