@@ -65,3 +65,23 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Trigger Portainer redeploy
+    needs: build
+    # Only on version tags — these are the pushes that publish a fresh :latest.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Portainer webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        # Skip cleanly when no webhook is configured (forks/clones).
+        # Set the PORTAINER_WEBHOOK_URL secret to enable auto-deploy.
+        # -f makes a non-2xx response fail this job (red check on the tag).
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "PORTAINER_WEBHOOK_URL not set — skipping redeploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$WEBHOOK_URL"
