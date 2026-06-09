@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prune-tagged
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
