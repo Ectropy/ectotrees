@@ -72,6 +72,8 @@ jobs:
     # Only on version tags — these are the pushes that publish a fresh :latest.
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    # No GitHub API access needed — this job only curls an external webhook.
+    permissions: {}
     steps:
       - name: Ping Portainer webhook
         env:

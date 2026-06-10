@@ -17,6 +17,8 @@ jobs:
   prune-tagged:
     name: Prune old sha-* tagged versions
     runs-on: ubuntu-latest
+    # No GITHUB_TOKEN access needed — auth uses the GHCR_CLEANUP_TOKEN PAT.
+    permissions: {}
     steps:
       - name: Delete old sha-* versions
         uses: snok/container-retention-policy@v3.1.0
@@ -34,6 +36,9 @@ jobs:
     name: Prune orphaned untagged versions
     runs-on: ubuntu-latest
     needs: prune-tagged
+    # contents: read for checkout; deletion auth uses the GHCR_CLEANUP_TOKEN PAT.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6.0.3
       - uses: actions/setup-node@v6
