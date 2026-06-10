@@ -14,14 +14,14 @@ Stories live alongside the components they document, named `*.stories.tsx`:
 
 - `src/components/WorldCard.stories.tsx`
 - `src/components/UpdateBanner.stories.tsx`
-- `src/components/OgImage.stories.tsx` — composes `MapView` + scaled `WorldCard` at 1200×630. **This is the story `scripts/generate-og-image.mjs` screenshots** (story id `marketing-ogimage--default`). Changing the OG image means editing this story (or its `default` args), running `npm run og:generate`, and committing the resulting `public/og-image.png`.
+- `src/components/OgImage.stories.tsx` — composes `MapView` + scaled `WorldCard` at 1200×630. **This is the story `scripts/generate-og-image.mjs` screenshots** (story id `marketing-ogimage--default`). Changing the OG image means editing this story (or its `default` args), running `npm run og:generate`, and committing the resulting `public/og-image.jpg`.
 
 ## Commands
 
 ```bash
 npm run storybook         # dev server on :6006
 npm run build-storybook   # static build → storybook-static/
-npm run og:generate       # builds Storybook then renders OG story to public/og-image.png
+npm run og:generate       # builds Storybook then renders OG story to public/og-image.jpg
 ```
 
 ## Notes

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generate public/og-image.png by screenshotting the Marketing/OgImage
+// Generate public/og-image.jpg by screenshotting the Marketing/OgImage
 // Storybook story at 1200x630. Run after visual changes to the map/cards:
 //   npm run og:generate
 //
