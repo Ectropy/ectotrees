@@ -1,0 +1,31 @@
+name: Actionlint
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths: [".github/workflows/**"]
+  push:
+    branches: ["main"]
+    paths: [".github/workflows/**"]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: actionlint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: Lint workflow files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      # Wrapper is pinned (dependabot bumps it); the actionlint binary
+      # itself defaults to latest so new checks arrive automatically.
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2.1.2

@@ -28,7 +28,7 @@ updates:
           - "minor"
           - "patch"
 
-  # GitHub Actions workflows (ci.yml, release.yml, docker-build.yml)
+  # GitHub Actions workflows (everything in .github/workflows/)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
