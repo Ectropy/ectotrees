@@ -91,6 +91,10 @@ export const LOCATION_HINTS: LocationHint[] = [
   {
     hint: "Close to the village you humans call 'Wendlewick'",
     locations: ['East of the Marigold Farm on Havenhythe'],
+  },
+  {
+    hint: "Close to the village you humans call 'Amberfell'",
+    locations: ['North of Amberfell'],
   }
 ];
 
@@ -164,6 +168,8 @@ export const LOCATION_COORDS: Record<string, LocationCoord> = {
     spiritTreeClue: 'beside the road south of the Tree Gnome Stronghold' },
   'East of the Marigold Farm on Havenhythe': { x: 4308, y: 3265,
     spiritTreeClue: 'to the south-east of Wendlewick, by the farm' },
+  'North of Amberfell': { x: 4439, y: 3409,
+    spiritTreeClue: 'north of Amberfell' },
 };
 
 /**
