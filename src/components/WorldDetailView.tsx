@@ -6,7 +6,7 @@ import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { PartyHatGlasses } from './icons/PartyHatGlasses';
 import type { WorldConfig, WorldState, TreeFieldsPayload } from '../types';
 import type { TreeType } from '../constants/evilTree';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TREE_STATE_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE, FOCUS_RING } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ViewHeader } from './ViewHeader';
 import { TREE_TYPE_LABELS, LOCATION_HINTS, locationsForHint, resolveExactLocation, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
@@ -112,20 +112,26 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                   ) : null
                 );
               })()}>
-            <button
-              onClick={() => {
-                trackUiEvent('ui_world_action', {
-                  panel: 'detail',
-                  world_id: world.id,
-                  action: 'toggle_favorite',
-                  result: 'success',
-                });
-                onToggleFavorite();
-              }}
-              className={`transition-colors ${isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
-            >
-              <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    trackUiEvent('ui_world_action', {
+                      panel: 'detail',
+                      world_id: world.id,
+                      action: 'toggle_favorite',
+                      result: 'success',
+                    });
+                    onToggleFavorite();
+                  }}
+                  aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  className={`transition-colors ${isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
+                >
+                  <Star className={`h-4 w-4${isFavorite ? ' fill-current' : ''}`} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{isFavorite ? 'Remove from favorites' : 'Add to favorites'}</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -140,6 +146,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                     else setShowHideHint(false);
                     onToggleHidden();
                   }}
+                  aria-label={isHidden ? 'Unhide world' : 'Hide world'}
                   className={`transition-colors ${isHidden ? ERROR_COLOR.text : 'text-gray-600 hover:text-gray-400'}`}
                 >
                   <EyeOff className="h-4 w-4" />
@@ -382,19 +389,19 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
             <div className="@container flex gap-2">
               <button
                 onClick={() => onOpenTool('spawn')}
-                className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+                className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} ${FOCUS_RING} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
               >
                 <Timer className="h-3.5 w-3.5" /> <span className="hidden @[340px]:inline">Spawn </span>Timer
               </button>
               <button
                 onClick={() => onOpenTool('tree')}
-                className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+                className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} ${FOCUS_RING} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
               >
                 <TreeDeciduous className="h-3.5 w-3.5" /> Tree<span className="hidden @[340px]:inline"> Info</span>
               </button>
               <button
                 onClick={() => onOpenTool('dead')}
-                className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
+                className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} ${FOCUS_RING} text-sm rounded py-2 transition-colors flex items-center justify-center gap-1`}
               >
                 <Skull className="h-3.5 w-3.5" /> <span className="hidden @[340px]:inline">Mark </span>Dead
               </button>
@@ -415,7 +422,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
             if (state.nextSpawnTarget !== undefined) {
               const remaining = state.nextSpawnTarget - now;
               items.push(remaining > 0
-                ? `Spawn timer (${Math.ceil(remaining / 60000)}m remaining)`
+                ? `Spawn timer (${formatMs(remaining)} remaining)`
                 : 'Spawn timer (already triggered — "Spawned!" state)');
             }
             if (state.treeStatus !== 'none') items.push(`Tree status: ${state.treeStatus}`);
@@ -453,7 +460,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
                       });
                       onClear();
                     }}
-                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded py-2 transition-colors`}
+                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} ${FOCUS_RING} font-medium rounded py-2 transition-colors`}
                   >
                     Yes, clear
                   </button>
@@ -471,8 +478,8 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
               <button
                 onClick={() => setConfirmClear(true)}
                 disabled={isBlank}
-                className="text-sm text-gray-500 hover:text-red-400 underline underline-offset-2 transition-colors
-                  disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                className={`text-sm text-gray-500 hover:text-red-400 underline underline-offset-2 transition-colors
+                  ${DISABLED_STYLE} disabled:no-underline`}
               >
                 Clear world state
               </button>
@@ -509,7 +516,7 @@ function EditButtons({ onSave, onCancel, saveDisabled }: { onSave: () => void; o
         type="button"
         onClick={onSave}
         disabled={saveDisabled}
-        className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded py-1.5 transition-colors`}
+        className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} ${DISABLED_STYLE} ${FOCUS_RING} text-sm font-medium rounded py-1.5 transition-colors`}
       >
         Save
       </button>

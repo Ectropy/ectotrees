@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TreeDeciduous } from 'lucide-react';
 import { TREE_TYPE_LABELS, TREE_TYPE_SHORT, LOCATION_HINTS, locationsForHint } from '../constants/evilTree';
-import { TREE_COLOR, DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
+import { TREE_COLOR, DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE, FOCUS_RING } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useLocationHint } from '../hooks/useLocationHint';
 import { useSettings } from '../hooks/useSettings';
@@ -69,7 +69,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
   }
 
   return (
-    <ToolView icon={<TreeDeciduous className="h-5 w-5" />} title="Tree Info" world={world}>
+    <ToolView icon={<TreeDeciduous className="h-5 w-5" />} title="Set Tree Info" world={world}>
       {lightningSeq > 0 && settings.effectsLightning && (
         <LightningEffect key={lightningSeq} onComplete={() => {}} />
       )}
@@ -178,22 +178,27 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
           )}
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={!hint || !treeType}
-              className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
-                font-medium rounded py-2 transition-colors`}
-            >
-              {isUpdateMode ? 'Update Tree Info' : 'Confirm'}
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className={`flex-1 ${BUTTON_SECONDARY} py-2`}
-            >
-              Cancel
-            </button>
+          <div className="pt-4 space-y-2">
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={!hint || !treeType}
+                className={`flex-1 bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} ${DISABLED_STYLE} ${FOCUS_RING}
+                  font-medium rounded py-2.5 transition-colors`}
+              >
+                {isUpdateMode ? 'Update Tree Info' : 'Confirm'}
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}
+              >
+                Cancel
+              </button>
+            </div>
+            {(!hint || !treeType) && (
+              <p className={`text-xs ${TEXT_COLOR.faint} text-center`}>Select a tree type and location hint first</p>
+            )}
           </div>
 
           {/* Override option (update mode only) */}
@@ -218,7 +223,7 @@ export function TreeInfoView({ world, existingState, onSubmit, onUpdate, onBack 
                         lightningPreset: isStrangeSapling ? undefined : lightningPreset,
                       }, 'override');
                     }}
-                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed font-medium rounded py-2 text-sm transition-colors`}
+                    className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} ${DISABLED_STYLE} ${FOCUS_RING} font-medium rounded py-2 text-sm transition-colors`}
                   >
                     Yes, override
                   </button>

@@ -177,6 +177,12 @@ export const ERROR_COLOR = {
   panelBorder: 'border border-red-500/50',  // thin red border, no bg — mirrors MANAGED_COLOR.panelBorder style
 } as const;
 
+/** Standard keyboard-focus ring for buttons (matches the sidebar resize handle in ui/resizable.tsx) */
+export const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400';
+
 /** Base classes for secondary (gray) action buttons.
  *  Add sizing (py-2 / py-2.5) and layout (flex-1, w-full, mt-6) per usage. */
-export const BUTTON_SECONDARY = 'bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 font-medium rounded transition-colors';
+export const BUTTON_SECONDARY = `bg-transparent border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 font-medium rounded transition-colors ${FOCUS_RING}`;
+
+/** Standard disabled state for any button with a `disabled` prop */
+export const DISABLED_STYLE = 'disabled:opacity-50 disabled:cursor-not-allowed';

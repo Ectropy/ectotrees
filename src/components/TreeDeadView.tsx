@@ -2,7 +2,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { WorldConfig } from '../types';
 import { DEAD_CLEAR_MS } from '../constants/evilTree';
 import { Skull, Check } from 'lucide-react';
-import { DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { DEAD_COLOR, TEXT_COLOR, BUTTON_SECONDARY, FOCUS_RING } from '../constants/toolColors';
 import { ToolView } from './ToolView';
 
 interface Props {
@@ -42,7 +42,7 @@ export function TreeDeadView({ world, onConfirm, onBack }: Props) {
             <button
               autoFocus
               onClick={onConfirm}
-              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} font-medium rounded py-2.5 transition-colors text-lg`}
+              className={`flex-1 bg-transparent ${DEAD_COLOR.border} ${DEAD_COLOR.label} ${DEAD_COLOR.borderHover} ${FOCUS_RING} font-medium rounded py-2.5 transition-colors text-lg`}
             >
               Confirm Dead
             </button>

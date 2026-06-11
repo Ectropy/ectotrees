@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
 import { LOCATION_HINTS, resolveExactLocation } from '../constants/evilTree';
-import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY } from '../constants/toolColors';
+import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY, DISABLED_STYLE, FOCUS_RING } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ToolView } from './ToolView';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
@@ -243,22 +243,27 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={(hours * 60 + minutes) === 0}
-              className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} disabled:opacity-40 disabled:cursor-not-allowed
-                font-medium rounded py-2 transition-colors`}
-            >
-              Set Timer
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className={`flex-1 ${BUTTON_SECONDARY} py-2`}
-            >
-              Cancel
-            </button>
+          <div className="pt-4 space-y-2">
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={(hours * 60 + minutes) === 0}
+                className={`flex-1 bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} ${DISABLED_STYLE} ${FOCUS_RING}
+                  font-medium rounded py-2.5 transition-colors`}
+              >
+                Set Timer
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className={`flex-1 ${BUTTON_SECONDARY} py-2.5`}
+              >
+                Cancel
+              </button>
+            </div>
+            {(hours * 60 + minutes) === 0 && (
+              <p className={`text-xs ${TEXT_COLOR.faint} text-center`}>Set a time greater than zero</p>
+            )}
           </div>
       </form>
     </ToolView>
