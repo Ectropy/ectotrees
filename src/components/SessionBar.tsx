@@ -8,8 +8,9 @@ import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { CONNECTION_COLOR, STATUS_BORDER_COLORS, STATUS_HOVER_BG, STATUS_DIVIDE_COLORS, TREE_COLOR, SPAWN_COLOR, ALT1_COLOR, MANAGED_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { MemberCount } from './MemberCount';
+import { DismissableError } from '@shared-browser/DismissableError';
 
 interface SessionBarProps {
   session: SessionState;
@@ -22,19 +23,6 @@ interface SessionBarProps {
   onLinkWithAlt1: () => Promise<string | null>;
   onOpenBrowser: () => void;
   forkDismissed: boolean;
-}
-
-
-function DismissableError({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  return (
-    <button
-      onClick={onDismiss}
-      className={`${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors`}
-      title={`${message} (click to dismiss)`}
-    >
-      {message}
-    </button>
-  );
 }
 
 function StatusDot({ status }: { status: SessionStatus }) {
@@ -97,7 +85,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
             </SplitButtonSegment>
           )}
           {!canRejoin && (
-            <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link">
+            <SplitButtonSegment onClick={handleCopyCode} className="px-1.5" title="Copy session link" aria-label="Copy session link">
               {copied
                 ? <Check className="w-3 h-3 text-green-400" />
                 : <Copy className="w-3 h-3 text-white" />
@@ -151,7 +139,11 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
         )}
 
         {session.error && session.errorKind === 'application' && (
-          <DismissableError message={session.error} onDismiss={onDismissError} />
+          <DismissableError
+            message={session.error}
+            onDismiss={onDismissError}
+            className={`${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover}`}
+          />
         )}
 
         {/* Fork invite indicator */}
@@ -179,7 +171,7 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
       <button
         onClick={handleCreate}
         disabled={loading}
-        className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-50 text-white rounded transition-colors`}
+        className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} ${DISABLED_STYLE} text-white rounded transition-colors`}
       >
         {loading ? '...' : 'Create Session'}
       </button>
@@ -200,7 +192,11 @@ export function SessionBar({ session, onCreateSession, onRejoinSession, onLeaveS
       </button>
 
       {session.error && (
-        <DismissableError message={session.error} onDismiss={onDismissError} />
+        <DismissableError
+          message={session.error}
+          onDismiss={onDismissError}
+          className={`${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover}`}
+        />
       )}
     </div>
   );

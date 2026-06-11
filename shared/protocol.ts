@@ -2,6 +2,9 @@ import type { WorldState, WorldStates, TreeInfoPayload, TreeFieldsPayload } from
 
 export type MemberRole = 'owner' | 'moderator' | 'scout' | 'viewer';
 
+/** Client-side input cap for member display names (server allows up to 200) */
+export const MAX_MEMBER_NAME_LEN = 32;
+
 export interface MemberInfo {
   name: string;
   role: MemberRole;

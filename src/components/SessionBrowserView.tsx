@@ -4,7 +4,9 @@ import { MemberCount } from './MemberCount';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
-import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY, ERROR_COLOR } from '../constants/toolColors';
+import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
+import { DismissableError } from '@shared-browser/DismissableError';
 
 const RUNESCAPE_USERNAME_INPUT_PROPS = {
   type: 'text' as const,
@@ -120,7 +122,7 @@ export function SessionBrowserView({
             <button
               onClick={fetchSessions}
               disabled={browsing}
-              className={`p-1.5 rounded transition-colors ${TEXT_COLOR.muted} hover:text-gray-200 hover:bg-gray-700 disabled:opacity-50`}
+              className={`p-1.5 rounded transition-colors ${TEXT_COLOR.muted} hover:text-gray-200 hover:bg-gray-700 ${DISABLED_STYLE}`}
               title="Refresh sessions"
             >
               <RefreshCw className={`h-4 w-4 ${browsing ? 'animate-spin' : ''}`} />
@@ -136,7 +138,7 @@ export function SessionBrowserView({
               <button
                 onClick={handleCreate}
                 disabled={busy}
-                className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} disabled:opacity-50 text-white text-xs rounded transition-colors whitespace-nowrap`}
+                className={`px-2 py-0.5 border ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} ${DISABLED_STYLE} text-white text-xs rounded transition-colors whitespace-nowrap`}
               >
                 {creating ? 'Creating…' : 'Create Session'}
               </button>
@@ -165,15 +167,13 @@ export function SessionBrowserView({
             </div>
             {badPaste && <p className={`text-xs ${ERROR_COLOR.text} mt-1`}>Not a valid code or link</p>}
             {session.error && (
-              <button
-                onClick={onDismissError}
-                className={`mt-1 ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors`}
-                title={`${session.error} (click to dismiss)`}
-              >
-                {session.error === 'Session not found.' && joinCode.length > 0
+              <DismissableError
+                message={session.error === 'Session not found.' && joinCode.length > 0
                   ? 'Session not found. Keep typing to enter a 12-digit invite token.'
                   : session.error}
-              </button>
+                onDismiss={onDismissError}
+                className={`mt-1 ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover}`}
+              />
             )}
           </div>
 
@@ -234,13 +234,13 @@ export function SessionBrowserView({
                           value={openJoinName}
                           onChange={e => setOpenJoinName(e.target.value)}
                           placeholder="Your username"
-                          maxLength={32}
+                          maxLength={MAX_MEMBER_NAME_LEN}
                           className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
                         />
                         <button
                           type="submit"
                           disabled={!openJoinName.trim() || openJoining}
-                          className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 text-xs font-medium rounded transition-colors`}
+                          className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
                         >
                           {openJoining ? '…' : 'Join →'}
                         </button>

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @source "../../src/constants/toolColors.ts";
+@source "../../shared-browser";
 
 @theme inline {
   /* Palette colors used via toolColors.ts — inlined as hex so utilities don't

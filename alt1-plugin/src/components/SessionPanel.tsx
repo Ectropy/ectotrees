@@ -4,6 +4,7 @@ import type { SessionStatus } from '../hooks/useScoutSession';
 import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
+import { DismissableError } from '@shared-browser/DismissableError';
 import { formatReconnectMessage } from '@shared/reconnect';
 
 const VALID_TOKEN_RE = /^[A-HJ-NP-Z2-9]{12}$/;
@@ -208,13 +209,11 @@ export function SessionPanel({
       </div>
       {badPaste && !error && <p className="text-[11px] text-destructive mt-1">Not a valid code or link</p>}
       {error && (
-        <button
-          onClick={onDismissError}
-          className="text-[11px] text-destructive mt-1 hover:opacity-70 transition-opacity text-left"
-          title={`${error} (click to dismiss)`}
-        >
-          {error}
-        </button>
+        <DismissableError
+          message={error}
+          onDismiss={onDismissError}
+          className="text-[11px] text-destructive mt-1"
+        />
       )}
       <div className="flex items-center justify-between mt-1">
         <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
