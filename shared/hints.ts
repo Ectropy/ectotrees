@@ -85,10 +85,6 @@ export const LOCATION_HINTS: LocationHint[] = [
     locations: ['South of Tree Gnome Stronghold and east of the Outpost', 'South of Tree Gnome Village and northwest of Yanille'],
   },
   {
-    hint: 'South-east of Wendlewick, by the farm',
-    locations: ['East of the Marigold Farm on Havenhythe'],
-  },
-  {
     hint: "Close to the village you humans call 'Wendlewick'",
     locations: ['East of the Marigold Farm on Havenhythe'],
   },
