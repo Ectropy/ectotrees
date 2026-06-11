@@ -48,6 +48,8 @@ The **Session panel** (open via the session bar) shows full session controls, sc
 
 Session codes use unambiguous characters only (no `0`/`O` or `1`/`I`). Session limits: max 1000 concurrent sessions, max 1000 clients per session (500 in managed mode). Sessions expire after 10 days of inactivity or 24 hours with no connected clients.
 
+Sessions survive server restarts and redeploys: session state (world states, members, settings) is snapshotted to disk and restored when the server comes back up, so a redeploy mid-wave doesn't lose your tracking data — clients reconnect automatically.
+
 > **Tip:** If you already have local tracking data when you join a session, you'll be prompted to contribute it to the session — only worlds not already tracked in the session will be added.
 
 ### Managed sessions
@@ -131,7 +133,7 @@ npm run build          # production build (output in dist/)
 npm run lint           # run ESLint
 npx tsc --noEmit       # type-check client
 npm run server:check   # type-check server
-npm test               # unit tests (Vitest — mutations, validation)
+npm test               # unit tests (Vitest — mutations, validation, persistence)
 npm run test:e2e       # E2E tests (Playwright — auto-starts dev server)
 npm run test:e2e:ui    # Playwright visual UI for debugging tests
 ```
@@ -155,10 +157,20 @@ What this means:
 ### 2) Run the container
 
 ```bash
-docker run --name ectotrees-local -p 3001:3001 -d ectotrees:local
+docker run --name ectotrees-local -p 3001:3001 \
+  -e APP_URL=http://localhost:3001 \
+  -e DATA_DIR=/app/data \
+  -v ectotrees-local-data:/app/data \
+  -d ectotrees:local
 ```
 
 Then open `http://localhost:3001`.
+
+What this means:
+- The image runs in production mode, which **requires** `APP_URL` and `DATA_DIR` — the server refuses to start without them rather than running misconfigured
+- `APP_URL` is the public base URL of the app (used for the WebSocket origin allowlist and invite links)
+- `DATA_DIR` is where session state is snapshotted so sessions survive restarts
+- `-v ectotrees-local-data:/app/data` mounts a named Docker volume at that path, so the snapshot outlives the container itself
 
 ### 3) Rebuild after code changes
 
@@ -167,8 +179,14 @@ If you already have a previous local container, remove it first:
 ```bash
 docker rm -f ectotrees-local
 docker build -t ectotrees:local .
-docker run --name ectotrees-local -p 3001:3001 -d ectotrees:local
+docker run --name ectotrees-local -p 3001:3001 \
+  -e APP_URL=http://localhost:3001 \
+  -e DATA_DIR=/app/data \
+  -v ectotrees-local-data:/app/data \
+  -d ectotrees:local
 ```
+
+Removing the container does not remove the `ectotrees-local-data` volume, so your sessions carry over to the new container. Run `docker volume rm ectotrees-local-data` if you want a clean slate.
 
 ### 4) Useful checks
 
@@ -198,6 +216,8 @@ docker compose up -d
 ```
 
 Caddy routes `/api/*` and `/ws` to the Node backend and falls through to the app for all other requests.
+
+The compose file mounts `./data` into the container as `DATA_DIR`, so session state survives redeploys. Keep that directory out of backups and logs — the snapshot contains member identity tokens.
 
 ### Host-agnostic endpoint configuration
 
