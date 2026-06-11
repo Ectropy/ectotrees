@@ -53,7 +53,7 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 | Directory | Purpose |
 |---|---|
 | `shared/` | Pure TS shared between client and server — types, protocol, mutations, hints |
-| `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (`clipboard.ts`, `sessionUrl.ts`, `useCopyFeedback.ts`, `useNow.ts`, `useCountdown.ts`, `treeLabels.ts`). Not imported by server. |
+| `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (`clipboard.ts`, `sessionUrl.ts`, `useCopyFeedback.ts` — also exports keyed list variant `useKeyedCopyFeedback`, `useNow.ts`, `useCountdown.ts`, `treeLabels.ts`, `DismissableError.tsx` — click-to-dismiss inline error with X icon + hover underline; host app passes color classes via `className`). Not imported by server. |
 | `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync, JSON snapshot persistence (`DATA_DIR`) |
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |

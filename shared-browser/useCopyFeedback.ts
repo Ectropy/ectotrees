@@ -20,3 +20,23 @@ export function useCopyFeedback(duration = 2000) {
 
   return { copied, copy };
 }
+
+/**
+ * Keyed variant of useCopyFeedback for lists where each row has its own
+ * copy button. Call `copy(text, key)`; `copiedKey` equals that key for
+ * `duration` ms so only the matching row shows the confirmation.
+ */
+export function useKeyedCopyFeedback(duration = 2000) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  async function copy(text: string, key: string): Promise<boolean> {
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(prev => prev === key ? null : prev), duration);
+    }
+    return ok;
+  }
+
+  return { copiedKey, copy };
+}

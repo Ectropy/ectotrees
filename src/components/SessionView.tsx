@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Unlink, Link2, Users, Copy, Check, ExternalLink, HelpCircle } from 'lucide-react';
 import type { SessionState } from '../hooks/useSession';
 import { Switch } from '@/components/ui/switch';
@@ -7,8 +7,10 @@ import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
-import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+import { CONNECTION_COLOR, STATUS_DOT_COLORS, TEXT_COLOR, BUTTON_SECONDARY, ALT1_COLOR, MANAGED_COLOR, ROLE_COLORS, ROLE_LABELS, DEAD_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { MemberPanel } from './MemberPanel';
+import { DismissableError } from '@shared-browser/DismissableError';
 import { MemberCount } from './MemberCount';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -120,7 +122,7 @@ export function SessionView({
   session,
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
-  onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onBack,
+  onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onTransferOwnership, onBack,
   onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
   forkDismissed, onDismissFork,
@@ -150,12 +152,28 @@ export function SessionView({
   const [descInput, setDescInput] = useState(session.sessionDescription ?? '');
   const [listedInput, setListedInput] = useState(session.sessionListed);
   const [prevSettings, setPrevSettings] = useState({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
+  // 'saving' until the server echoes the change back (sessionSettingsUpdated has no ack)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   if (prevSettings.name !== session.sessionName || prevSettings.desc !== session.sessionDescription || prevSettings.listed !== session.sessionListed) {
     setPrevSettings({ name: session.sessionName, desc: session.sessionDescription, listed: session.sessionListed });
     setNameInput(session.sessionName ?? '');
     setDescInput(session.sessionDescription ?? '');
     setListedInput(session.sessionListed);
+    if (saveState === 'saving') setSaveState('saved');
+  }
+
+  useEffect(() => {
+    if (saveState !== 'saved') return;
+    const timer = setTimeout(() => setSaveState('idle'), 1500);
+    return () => clearTimeout(timer);
+  }, [saveState]);
+
+  // A server error (e.g. profanity rejection) means the echo never arrives
+  const [prevError, setPrevError] = useState(session.error);
+  if (session.error !== prevError) {
+    setPrevError(session.error);
+    if (session.error && saveState === 'saving') setSaveState('idle');
   }
 
   const hasSettingsChanges = nameInput !== (session.sessionName ?? '') || descInput !== (session.sessionDescription ?? '');
@@ -267,13 +285,13 @@ export function SessionView({
                 <button
                   onClick={() => setManagedSetupStep('naming')}
                   disabled={!!(session.forkInvite && (forkDismissed || !session.forkInvite.selfRegisterToken))}
-                  className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 text-xs rounded transition-colors`}
+                  className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} px-3 py-1.5 text-xs rounded transition-colors`}
                 >
                   Fork to Managed Session{session.forkInvite && forkCountdown !== null && forkCountdown > 0 && ` (${forkCountdown}s)`} →
                 </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                    <button aria-label="Help" className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
                       <HelpCircle className="w-4 h-4" />
                     </button>
                   </PopoverTrigger>
@@ -319,7 +337,7 @@ export function SessionView({
                 </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+                    <button aria-label="Help" className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
                       <HelpCircle className="w-4 h-4" />
                     </button>
                   </PopoverTrigger>
@@ -342,13 +360,11 @@ export function SessionView({
 
           {/* Error */}
           {session.error && (
-            <button
-              onClick={onDismissError}
-              className={`w-full text-left ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} transition-colors ${ERROR_COLOR.panelBorder} rounded p-3`}
-              title="Click to dismiss"
-            >
-              {session.error}
-            </button>
+            <DismissableError
+              message={session.error}
+              onDismiss={onDismissError}
+              className={`w-full ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} ${ERROR_COLOR.panelBorder} rounded p-3`}
+            />
           )}
 
           {/* Actions / Leave confirmation */}
@@ -443,12 +459,19 @@ export function SessionView({
           {isConnected && isAdmin && hasSettingsChanges && (
             <button
               onClick={() => {
+                setSaveState('saving');
                 onUpdateSessionSettings({ name: nameInput, description: descInput, listed: session.sessionListed });
               }}
-              className={`w-full ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-sm py-1.5 rounded transition-colors`}
+              disabled={saveState === 'saving'}
+              className={`w-full ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-sm py-1.5 rounded transition-colors`}
             >
-              Save Settings
+              {saveState === 'saving' ? 'Saving…' : 'Save Settings'}
             </button>
+          )}
+          {isConnected && isAdmin && !hasSettingsChanges && saveState === 'saved' && (
+            <p className="text-xs text-green-400 flex items-center gap-1">
+              <Check className="w-3 h-3" /> Settings saved
+            </p>
           )}
 
           {/* Non-admin: read-only description */}
@@ -569,19 +592,18 @@ export function SessionView({
               onKickMember={onKickMember}
               onBanMember={onBanMember}
               onSetMemberRole={onSetMemberRole}
+              onTransferOwnership={onTransferOwnership}
             />
           </div>
         )}
 
         {/* Error */}
         {session.error && (
-          <button
-            onClick={onDismissError}
-            className="w-full text-left text-red-400 text-xs hover:text-red-300 transition-colors bg-red-900/20 border border-red-800/30 rounded p-3"
-            title="Click to dismiss"
-          >
-            {session.error}
-          </button>
+          <DismissableError
+            message={session.error}
+            onDismiss={onDismissError}
+            className={`w-full ${ERROR_COLOR.text} text-xs ${ERROR_COLOR.textHover} ${ERROR_COLOR.panelBorder} rounded p-3`}
+          />
         )}
 
         {/* Actions / Leave confirmation */}
@@ -636,7 +658,7 @@ function Alt1LinkedSection({
         <span className={`text-xs ${TEXT_COLOR.muted}`}>Alt1 plugin</span>
         <Popover>
           <PopoverTrigger asChild>
-            <button className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
+            <button aria-label="Help" className={`${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}>
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
           </PopoverTrigger>
@@ -655,6 +677,7 @@ function Alt1LinkedSection({
           onClick={() => copyToken(buildIdentityUrl(identityToken))}
           className={`flex items-center ${TEXT_COLOR.muted} hover:text-gray-200 transition-colors`}
           title="Copy Alt1 link"
+          aria-label="Copy Alt1 link"
         >
           {tokenCopied
             ? <Check className="w-3 h-3 text-green-400" />
@@ -694,6 +717,7 @@ function ForkInviteBanner({
   onJoinManagedFork: (managedCode: string, name: string, selfRegisterToken: string, identityToken?: string) => Promise<void>;
   onDismiss: () => void;
 }) {
+  const [joining, setJoining] = useState(false);
   return (
     <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
       <p className="text-xs font-medium text-yellow-300">
@@ -710,10 +734,15 @@ function ForkInviteBanner({
             onSubmit={async (e) => {
               e.preventDefault();
               const name = joinForkName.trim();
-              if (!name) return;
-              setJoinForkStep('idle');
-              setJoinForkName('');
-              await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.identityToken);
+              if (!name || joining) return;
+              setJoining(true);
+              try {
+                await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.identityToken);
+              } finally {
+                setJoining(false);
+                setJoinForkStep('idle');
+                setJoinForkName('');
+              }
             }}
           >
             <input
@@ -723,20 +752,22 @@ function ForkInviteBanner({
               value={joinForkName}
               onChange={e => setJoinForkName(e.target.value)}
               placeholder="Your username"
-              maxLength={32}
-              className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+              maxLength={MAX_MEMBER_NAME_LEN}
+              disabled={joining}
+              className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 disabled:opacity-50"
             />
             <button
               type="submit"
-              disabled={!joinForkName.trim()}
-              className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-40 px-3 py-1 text-xs rounded transition-colors`}
+              disabled={!joinForkName.trim() || joining}
+              className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} px-3 py-1 text-xs rounded transition-colors`}
             >
-              Join →
+              {joining ? 'Joining…' : 'Join →'}
             </button>
             <button
               type="button"
+              disabled={joining}
               onClick={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
-              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+              className={`px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors ${DISABLED_STYLE}`}
             >
               Cancel
             </button>
@@ -802,9 +833,9 @@ function ForkNameForm({
         {...RUNESCAPE_USERNAME_INPUT_PROPS}
         name="managed-session-alias"
         value={managedName}
-        onChange={(e) => setManagedName(e.target.value.slice(0, 30))}
+        onChange={(e) => setManagedName(e.target.value.slice(0, MAX_MEMBER_NAME_LEN))}
         placeholder="Enter your username"
-        maxLength={30}
+        maxLength={MAX_MEMBER_NAME_LEN}
         autoFocus
         className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 text-white rounded text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400"
       />
@@ -812,7 +843,7 @@ function ForkNameForm({
         <button
           type="submit"
           disabled={!managedName.trim()}
-          className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} disabled:opacity-50 px-3 py-1.5 text-xs rounded transition-colors`}
+          className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} px-3 py-1.5 text-xs rounded transition-colors`}
         >
           Fork to managed
         </button>

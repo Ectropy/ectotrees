@@ -7,7 +7,7 @@ src/
   data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
   constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, LOCATION_COORDS, filterable types; re-exports TREE_TYPE_LABELS and TREE_TYPE_SHORT from shared-browser/treeLabels.ts; also exports formatMs(ms) duration formatter and hint/location helpers (locationsForHint, resolveExactLocation, hintForLocation, hintsForLocation, coordsForLocation)
-  constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY)
+  constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY, DISABLED_STYLE — standard disabled-button classes, FOCUS_RING — standard focus-visible ring for buttons)
   constants/__tests__/
     evilTree.test.ts     # Vitest unit tests for evilTree helpers
   types/index.ts         # Re-exports from shared/types.ts
@@ -40,7 +40,7 @@ src/
     WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator; opens SessionView panel
     SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites, follow-scout toggle)
-    MemberPanel.tsx      # Member list with role badges, admin controls (role change, ban), and invite creation form
+    MemberPanel.tsx      # Member list with role badges, admin controls (role change, kick/ban with inline confirmation, owner-only "Make owner" ownership transfer), and invite creation form
     MemberCount.tsx      # Compact member-count chip used in SessionBar / SessionView
     Alt1TokenButton.tsx  # Header-area button that surfaces the Alt1 identity-link copy/regenerate flow
     SessionBrowserView.tsx # Full-screen/sidebar: session discovery panel — browse/join listed sessions, create session, enter code/token
