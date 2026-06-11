@@ -80,10 +80,34 @@ jobs:
           WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
         # Skip cleanly when no webhook is configured (forks/clones).
         # Set the PORTAINER_WEBHOOK_URL secret to enable auto-deploy.
-        # -f makes a non-2xx response fail this job (red check on the tag).
+        # No -f: we want Portainer's error body in the log, not just curl exit 22.
+        # No retries: webhook failures (orphaned webhook, bad token) are permanent
+        # until fixed in Portainer, so fail fast and loud.
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "PORTAINER_WEBHOOK_URL not set — skipping redeploy."
             exit 0
           fi
-          curl -fsS -X POST "$WEBHOOK_URL"
+          echo "POSTing to the Portainer webhook..."
+          status=$(curl -sS -o response.txt -w '%{http_code}' -X POST "$WEBHOOK_URL")
+          echo "Portainer responded with HTTP $status"
+          if [ -s response.txt ]; then
+            echo "Response body:"
+            cat response.txt
+            echo
+          else
+            echo "(empty response body)"
+          fi
+          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+            echo "Redeploy triggered successfully."
+          else
+            echo "::error::Portainer webhook returned HTTP $status — redeploy did NOT happen."
+            echo "Troubleshooting:"
+            echo "  - HTTP 500: the webhook is likely orphaned. Recreating or editing the"
+            echo "    container in Portainer (anything other than the webhook itself) breaks"
+            echo "    the webhook-to-container binding (portainer/portainer#7631)."
+            echo "  - HTTP 404: the webhook token no longer exists in Portainer."
+            echo "  Fix for both: re-enable the container webhook in Portainer, then update"
+            echo "  the PORTAINER_WEBHOOK_URL repo secret with the new URL."
+            exit 1
+          fi
