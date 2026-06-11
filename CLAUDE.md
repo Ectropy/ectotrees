@@ -36,7 +36,7 @@ npx tsc --noEmit     # type-check client only (run after every change)
 npm run server       # start backend server (tsx server/index.ts, http://localhost:3001)
 npm run server:check # type-check server only (npx tsc --noEmit -p server/tsconfig.json)
 npm run typecheck    # type-check client + server (both in sequence)
-npm test             # run vitest unit tests (mutations + validation)
+npm test             # run vitest unit tests (mutations + validation + persistence)
 npm run test:watch   # vitest in watch mode
 npm run test:e2e     # run Playwright E2E tests (auto-starts dev server)
 npm run test:e2e:ui  # Playwright visual test runner UI
@@ -54,7 +54,7 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 |---|---|
 | `shared/` | Pure TS shared between client and server — types, protocol, mutations, hints |
 | `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (`clipboard.ts`, `sessionUrl.ts`, `useCopyFeedback.ts`, `useNow.ts`, `useCountdown.ts`, `treeLabels.ts`). Not imported by server. |
-| `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync |
+| `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync, JSON snapshot persistence (`DATA_DIR`) |
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |
 | `e2e/` | Playwright E2E tests |

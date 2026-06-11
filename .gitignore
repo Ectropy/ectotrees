@@ -25,6 +25,7 @@ storybook-static
 *.sln
 *.sw?
 test-results/*
+data/
 plan.md
 plans/*
 research.md

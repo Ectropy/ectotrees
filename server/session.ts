@@ -4,6 +4,7 @@ import type { WorldStates, WorldState } from '../shared/types.ts';
 import type { ServerMessage, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { containsProfanity } from './profanity.ts';
+import { scheduleSave, type PersistedStateV1 } from './persistence.ts';
 import { log, warn } from './log.ts';
 
 export const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
@@ -123,40 +124,103 @@ export function createSession(): { code: string } | { error: string } {
     nextClientId: 1,
     members: new Map(),
     wsToIdentityToken: new Map(),
-    transitionTimer: setInterval(() => {
-      const s = sessions.get(code);
-      if (!s) return;
-
-      const now2 = Date.now();
-
-      // Sweep expired fork invite
-      if (s.pendingFork && now2 > s.pendingFork.expiresAt) {
-        s.pendingFork = undefined;
-        broadcast(s, { type: 'forkInviteExpired' });
-      }
-
-      const prev = s.worldStates;
-      const next = applyTransitions(prev, now2);
-      if (next !== prev) {
-        for (const key of Object.keys(next)) {
-          const id = Number(key);
-          if (next[id] !== prev[id]) {
-            broadcast(s, { type: 'worldUpdate', worldId: id, state: next[id] });
-          }
-        }
-        for (const key of Object.keys(prev)) {
-          const id = Number(key);
-          if (!(id in next)) {
-            broadcast(s, { type: 'worldUpdate', worldId: id, state: null });
-          }
-        }
-        s.worldStates = next;
-      }
-    }, TRANSITION_INTERVAL_MS),
+    transitionTimer: startTransitionTimer(code),
   };
 
   sessions.set(code, session);
+  scheduleSave();
   return { code };
+}
+
+function startTransitionTimer(code: string): ReturnType<typeof setInterval> {
+  return setInterval(() => {
+    const s = sessions.get(code);
+    if (!s) return;
+
+    const now = Date.now();
+
+    // Sweep expired fork invite
+    if (s.pendingFork && now > s.pendingFork.expiresAt) {
+      s.pendingFork = undefined;
+      broadcast(s, { type: 'forkInviteExpired' });
+    }
+
+    const prev = s.worldStates;
+    const next = applyTransitions(prev, now);
+    if (next !== prev) {
+      for (const key of Object.keys(next)) {
+        const id = Number(key);
+        if (next[id] !== prev[id]) {
+          broadcast(s, { type: 'worldUpdate', worldId: id, state: next[id] });
+        }
+      }
+      for (const key of Object.keys(prev)) {
+        const id = Number(key);
+        if (!(id in next)) {
+          broadcast(s, { type: 'worldUpdate', worldId: id, state: null });
+        }
+      }
+      s.worldStates = next;
+      scheduleSave();
+    }
+  }, TRANSITION_INTERVAL_MS);
+}
+
+/**
+ * Rebuild in-memory sessions from a persisted snapshot at boot. Ephemeral
+ * state (connections, client maps, fork windows) starts fresh; every restored
+ * session gets a new transition timer and the standard 24h empty-session
+ * grace window. Sessions already past the 10-day inactivity limit are skipped.
+ */
+export function restoreSessions(persisted: PersistedStateV1 | null): { sessions: number; members: number } {
+  if (!persisted) return { sessions: 0, members: 0 };
+  const now = Date.now();
+  let sessionCount = 0;
+  let memberCount = 0;
+  for (const p of persisted.sessions) {
+    if (now - p.lastActivityAt > SESSION_INACTIVITY_MS) continue;
+    if (sessions.has(p.code)) continue;
+    const session: Session = {
+      code: p.code,
+      createdAt: p.createdAt,
+      lastActivityAt: p.lastActivityAt,
+      emptySince: now,
+      worldStates: p.worldStates,
+      clients: new Set(),
+      clientIds: new Map(),
+      clientTypes: new Map(),
+      nextClientId: 1,
+      members: new Map(),
+      wsToIdentityToken: new Map(),
+      transitionTimer: startTransitionTimer(p.code),
+      managed: p.managed,
+      ownerToken: p.ownerToken,
+      allowOpenJoin: p.allowOpenJoin,
+      name: p.name,
+      description: p.description,
+      listed: p.listed,
+      lastForkAt: p.lastForkAt,
+    };
+    for (const m of p.members) {
+      session.members.set(m.identityToken, {
+        name: m.name,
+        identityToken: m.identityToken,
+        role: m.role,
+        banned: m.banned,
+        connections: new Set(),
+        currentWorld: null,
+        lastSeen: m.lastSeen,
+      });
+      // banMember removes banned tokens from the global index; preserve that
+      if (!m.banned) {
+        identityTokenIndex.set(m.identityToken, p.code);
+      }
+      memberCount++;
+    }
+    sessions.set(p.code, session);
+    sessionCount++;
+  }
+  return { sessions: sessionCount, members: memberCount };
 }
 
 export function getSession(code: string): Session | undefined {
@@ -268,6 +332,7 @@ export function removeClient(session: Session, ws: WebSocket) {
     if (member) {
       member.connections.delete(ws);
       member.lastSeen = Date.now();
+      scheduleSave();
       if (session.managed) {
         broadcast(session, { type: 'memberLeft', name: member.name, clientType });
       }
@@ -309,6 +374,7 @@ export function updateWorldState(
   } else {
     session.worldStates[worldId] = state;
   }
+  scheduleSave();
 
   // Attribution: send ownUpdate flag to originator's dashboard connections;
   // managed sessions also broadcast source { name, role } to everyone else.
@@ -556,6 +622,7 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
     ws.send(JSON.stringify(msg));
   }
 
+  scheduleSave();
   log(`[fork] ${session.code} forked to managed session ${childResult.code} by "${name}"`);
   return { managedCode: childResult.code, identityToken: ownerToken };
 }
@@ -616,6 +683,7 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
   session.members.set(identityToken, member);
   identityTokenIndex.set(identityToken, session.code);
   session.selfRegisterTokens.set(selfRegisterToken, true);  // consume
+  scheduleSave();
   return { identityToken };
 }
 
@@ -662,6 +730,7 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   session.wsToIdentityToken.set(ws, member.identityToken);
   member.connections.add(ws);
   member.lastSeen = Date.now();
+  scheduleSave();
   session.emptySince = null;
 
   // Send snapshot
@@ -763,6 +832,7 @@ export function requestIdentityToken(session: Session, ws: WebSocket): ServerMes
   session.members.set(token, member);
   session.wsToIdentityToken.set(ws, token);
   identityTokenIndex.set(token, session.code);
+  scheduleSave();
 
   return { type: 'identityToken', token };
 }
@@ -771,6 +841,7 @@ export function setAllowOpenJoin(session: Session, ws: WebSocket, allow: boolean
   if (!session.managed) return { type: 'error', message: 'Session is not managed.' };
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
   session.allowOpenJoin = allow;
+  scheduleSave();
   broadcast(session, { type: 'allowOpenJoin', allow });
   return null;
 }
@@ -804,6 +875,7 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   };
   session.members.set(identityToken, member);
   identityTokenIndex.set(identityToken, session.code);
+  scheduleSave();
   broadcastMemberList(session);
   return { identityToken };
 }
@@ -830,6 +902,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   };
   session.members.set(identityToken, member);
   identityTokenIndex.set(identityToken, session.code);
+  scheduleSave();
 
   const link = `${APP_URL}/#identity=${identityToken}`;
   broadcastMemberList(session);
@@ -891,6 +964,7 @@ export function banMember(session: Session, ws: WebSocket, identityToken: string
 
   // Revoke the token globally
   identityTokenIndex.delete(identityToken);
+  scheduleSave();
 
   broadcastMemberList(session);
   broadcastClientCount(session);
@@ -924,6 +998,8 @@ export function kickMember(session: Session, ws: WebSocket, identityToken: strin
     session.clientTypes.delete(memberWs);
   }
   member.connections.clear();
+  member.lastSeen = Date.now();
+  scheduleSave();
   if (session.clients.size === 0) session.emptySince = Date.now();
 
   broadcastMemberList(session);
@@ -948,6 +1024,7 @@ export function renameMember(session: Session, ws: WebSocket, identityToken: str
   }
 
   member.name = name;
+  scheduleSave();
 
   // Notify the renamed member of their new identity
   notifyMember(member, { type: 'identity', name, role: member.role, sessionCode: session.code });
@@ -977,6 +1054,7 @@ export function setMemberRole(session: Session, ws: WebSocket, identityToken: st
   }
 
   member.role = role;
+  scheduleSave();
 
   // Notify the member of their new role
   notifyMember(member, { type: 'identity', name: member.name, role, sessionCode: session.code });
@@ -1006,6 +1084,7 @@ export function transferOwnership(session: Session, ws: WebSocket, identityToken
   // Promote new owner
   newOwner.role = 'owner';
   session.ownerToken = identityToken;
+  scheduleSave();
   notifyMember(newOwner, { type: 'identity', name: newOwner.name, role: 'owner', sessionCode: session.code });
 
   broadcastMemberList(session);
@@ -1086,6 +1165,7 @@ export function updateSessionSettings(
   if (settings.name !== undefined) session.name = settings.name || undefined;
   if (settings.description !== undefined) session.description = settings.description || undefined;
   if (settings.listed !== undefined) session.listed = settings.listed;
+  scheduleSave();
 
   if (session.listed && !session.name) {
     session.listed = false;
@@ -1129,6 +1209,7 @@ function destroySession(session: Session, closeReason: string) {
     });
   }
   sessions.delete(session.code);
+  scheduleSave();
 }
 
 export function cleanupExpiredSessions() {
@@ -1147,6 +1228,11 @@ export function cleanupExpiredSessions() {
 
 export function getSessionCount(): number {
   return sessions.size;
+}
+
+/** Live session provider for the persistence layer (see initPersistence). */
+export function getAllSessions(): Iterable<Session> {
+  return sessions.values();
 }
 
 export function getTotalClientCount(): number {

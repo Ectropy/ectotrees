@@ -34,4 +34,7 @@ ENV NODE_ENV=production
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3001/api/health || exit 1
-CMD ["npm", "run", "server"]
+# Run node directly as PID 1 (not via npm, whose signal forwarding is
+# unreliable) so SIGTERM from `docker stop` reaches the shutdown handler
+# and the session state flush actually runs.
+CMD ["node", "--import", "tsx", "server/index.ts"]

@@ -28,6 +28,12 @@ services:
       APP_URL: https://ectotrees.example.com
       # Optional: comma-separated additional allowed origins (e.g. legacy domains).
       # EXTRA_ORIGINS: https://old.example.com
+      # Required in production: directory where session state is snapshotted so
+      # sessions survive container redeploys. Must point at a mounted volume —
+      # the server hard-fails on startup if unset or not writable.
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
     expose:
       - "3001"
     restart: unless-stopped

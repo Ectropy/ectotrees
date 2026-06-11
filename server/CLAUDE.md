@@ -5,17 +5,19 @@
 ```
 server/
   index.ts              # Express 5 + WebSocket server entry point
-  session.ts            # In-memory session management, auto-transitions, expiry
+  session.ts            # In-memory session management, auto-transitions, expiry, restore-from-snapshot
+  persistence.ts        # JSON snapshot persistence to DATA_DIR (throttled save, atomic write, .bak fallback)
   validation.ts         # Input validation for all WebSocket messages
   profanity.ts          # containsProfanity(text): boolean — wraps the obscenity library; used in validation
   log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
   tsconfig.json         # Server-specific TypeScript config (target: ESNext)
   __tests__/
     validation.test.ts  # Vitest unit tests for validateMessage, validateInitializeState
+    persistence.test.ts # Vitest unit tests for serialize/save/load round-trip and restoreSessions
 ```
 
 ## Overview
-Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory** (no database; state is lost on server restart).
+Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory**, with **JSON snapshot persistence** to `DATA_DIR` (`persistence.ts`): durable state (world states, members/identity tokens, session settings) is saved with a 1s trailing throttle on every mutation plus a synchronous flush on SIGTERM/SIGINT, and restored at boot (`restoreSessions`). Ephemeral state (connections, client maps, in-flight fork windows) is rebuilt as clients reconnect. Crash-loss window is ~1s of mutations; graceful shutdowns lose nothing. On shutdown, clients are closed with WS code 1012 (Service Restart) so they reconnect immediately.
 
 Security response headers applied to all HTTP responses:
 - `X-Content-Type-Options: nosniff`
@@ -31,6 +33,7 @@ Security response headers applied to all HTTP responses:
 | `NODE_ENV` | — | Set to `production` to enable origin allowlisting (`ALLOWED_ORIGINS`) |
 | `EXTRA_ORIGINS` | — | Comma-separated extra allowed origins appended to the production allowlist |
 | `APP_URL` | `http://localhost:5173` (dev only) | Public base URL of the app, used for the WS origin allowlist and invite-link generation. **Required in production** — server hard-fails on startup if unset or invalid when `NODE_ENV=production`. |
+| `DATA_DIR` | `./data` (dev only) | Directory where session state is snapshotted (`sessions.json` + `.bak`) so sessions survive restarts/redeploys. Must point at a mounted volume in Docker. **Required in production** — server hard-fails on startup if unset or not writable when `NODE_ENV=production`. Snapshot contains identity tokens (credentials at rest) — keep it out of backups/logs. |
 
 ## REST Endpoints
 | Method | Path | Description |

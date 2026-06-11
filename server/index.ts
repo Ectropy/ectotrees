@@ -45,9 +45,12 @@ import {
   authenticateByIdentityToken,
   getListedSessions,
   updateSessionSettings,
+  restoreSessions,
+  getAllSessions,
   MAX_CLIENTS_PER_SESSION,
   APP_URL,
 } from './session.ts';
+import { initPersistence, loadState, saveState } from './persistence.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
 import type { Session, Member } from './session.ts';
 import { log } from './log.ts';
@@ -98,6 +101,29 @@ if (IS_PROD) {
     log(`[startup] FATAL: APP_URL must be a valid URL. Got: ${process.env.APP_URL}`);
     process.exit(1);
   }
+}
+
+// --- Persistence ---
+// Sessions are snapshotted to DATA_DIR so they survive container redeploys.
+// A production deploy that looks persistent but silently isn't would be worse
+// than no persistence at all, so misconfiguration is fatal at startup.
+
+if (IS_PROD && !process.env.DATA_DIR) {
+  log('[startup] FATAL: DATA_DIR must be set in production. Without it, all sessions are lost on every redeploy. Mount a volume and point DATA_DIR at it (see docker-compose.example.yml).');
+  process.exit(1);
+}
+const DATA_DIR = process.env.DATA_DIR ?? './data';
+try {
+  initPersistence(DATA_DIR, getAllSessions);
+} catch (err) {
+  log(`[startup] FATAL: DATA_DIR "${DATA_DIR}" is not writable: ${err}`);
+  process.exit(1);
+}
+const restored = restoreSessions(loadState());
+if (restored.sessions > 0) {
+  log(`[persistence] Restored ${restored.sessions} session(s) with ${restored.members} member(s) from ${DATA_DIR}`);
+} else {
+  log(`[persistence] No previous state restored — starting fresh (data dir: ${DATA_DIR})`);
 }
 
 const ALLOWED_ORIGINS = new Set([
@@ -780,9 +806,20 @@ server.listen(PORT, () => {
   log(`Server listening on port ${PORT} (log timezone: ${process.env.LOG_TZ ?? 'America/New_York'})`);
 });
 
+let shuttingDown = false;
 function shutdown(signal: string) {
-  log(`${signal} — shutting down (${getSessionCount()} sessions destroyed, ${getTotalClientCount()} clients disconnected)`);
-  process.exit(0);
+  if (shuttingDown) return;
+  shuttingDown = true;
+  saveState();
+  log(`${signal} — shutting down (${getSessionCount()} sessions saved to ${DATA_DIR}, ${getTotalClientCount()} clients disconnected)`);
+  // 1012 (Service Restart) makes clients' onclose fire immediately, so their
+  // first reconnect attempt lands ~1s after the new container is up instead
+  // of waiting out a dead-socket timeout.
+  for (const ws of wss.clients) {
+    ws.close(1012, 'Server restarting');
+  }
+  // Brief delay so the close frames flush before the process exits
+  setTimeout(() => process.exit(0), 500);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
