@@ -33,6 +33,7 @@ export function Alt1TokenButton({ identityToken, scoutConnected, tokenCopied, on
         className="px-1.5"
         onClick={onCopy}
         title="Copy Alt1 link"
+        aria-label="Copy Alt1 link"
       >
         {tokenCopied
           ? <Check className="w-3 h-3 text-green-400" />

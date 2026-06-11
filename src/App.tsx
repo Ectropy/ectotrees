@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search, Map } from 'lucide-react';
 import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR } from './constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR, FOCUS_RING } from './constants/toolColors';
 import worldsConfig from './data/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
@@ -608,7 +608,7 @@ export default function App() {
               {worldSearch && (
                 <button
                   onClick={() => setWorldSearch('')}
-                  className={`absolute right-1 ${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}`}
+                  className={`absolute right-1 ${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} ${FOCUS_RING} rounded`}
                   aria-label="Clear search"
                 >
                   <X className="h-3 w-3" />
@@ -632,7 +632,7 @@ export default function App() {
                     const msg = buildDiscordMessage(intelWorlds, worldStates);
                     copyDiscord(msg);
                   }}
-                  className={`flex items-center gap-1 transition-colors text-base leading-none ${hasIntel ? `${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}` : `${TEXT_COLOR.ghost} cursor-not-allowed`}`}
+                  className={`flex items-center gap-1 transition-colors text-base leading-none ${FOCUS_RING} rounded ${hasIntel ? `${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}` : `${TEXT_COLOR.ghost} cursor-not-allowed`}`}
                   title="Copy intel to clipboard in Discord-friendly format"
                   aria-label="Copy intel to clipboard"
                 >
@@ -645,7 +645,7 @@ export default function App() {
             })()}
             <button
               onClick={() => setActiveView({ kind: 'map' })}
-              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none`}
+              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none ${FOCUS_RING} rounded`}
               title="Map (PoC)"
               aria-label="Open map"
             ><Map className="h-4 w-4" /></button>
@@ -661,7 +661,7 @@ export default function App() {
                 });
                 setActiveView({ kind: 'settings' });
               }}
-              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none`}
+              className={`${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted} transition-colors text-base leading-none ${FOCUS_RING} rounded`}
               title="Settings"
               aria-label="Open settings"
             ><Settings className="h-4 w-4" /></button>
@@ -788,7 +788,8 @@ function NavButton({ item, isActive, onClick, variant }: {
     <button
       onClick={onClick}
       title={label}
-      className={`${sizeClass} ${isActive ? 'rounded-t' : 'rounded'} flex items-center gap-1 transition-colors ${isActive ? activeClass : inactiveClass}`}
+      aria-label={label}
+      className={`${sizeClass} ${isActive ? 'rounded-t' : 'rounded'} flex items-center gap-1 transition-colors ${FOCUS_RING} ${isActive ? activeClass : inactiveClass}`}
     >
       <Icon className={iconClass} />
       <span className="hidden sm:inline text-[11px]">{label}</span>
@@ -821,7 +822,8 @@ function SidebarWrapper({
             <button
               onClick={() => onChangeSide('left')}
               title="Dock left"
-              className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+              aria-label="Dock left"
+              className={`p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
             >
               <PanelLeft className="h-4 w-4" />
             </button>
@@ -829,7 +831,8 @@ function SidebarWrapper({
             <button
               onClick={() => onChangeSide('right')}
               title="Dock right"
-              className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+              aria-label="Dock right"
+              className={`p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
             >
               <PanelRight className="h-4 w-4" />
             </button>
@@ -837,6 +840,7 @@ function SidebarWrapper({
           <button
             onClick={onExpand}
             title="Open fullscreen"
+            aria-label="Open fullscreen"
             className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
           >
             <Expand className="h-4 w-4" />
@@ -859,7 +863,7 @@ function SidebarWrapper({
           <button
             onClick={onClose}
             title="Close"
-            className="flex items-center gap-1 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            className={`flex items-center gap-1 p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
           >
             <X className="h-4 w-4" />
             <span className="text-xs">Close</span>
@@ -900,14 +904,16 @@ function FullscreenWrapper({
               <button
                 onClick={onDockLeft}
                 title="Dock left"
-                className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                aria-label="Dock left"
+                className={`p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
               >
                 <PanelLeft className="h-4 w-4" />
               </button>
               <button
                 onClick={onDockRight}
                 title="Dock right"
-                className="p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                aria-label="Dock right"
+                className={`p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
               >
                 <PanelRight className="h-4 w-4" />
               </button>
@@ -929,7 +935,7 @@ function FullscreenWrapper({
           <button
             onClick={onClose}
             title="Close"
-            className="ml-auto flex items-center gap-1.5 p-2 sm:p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+            className={`ml-auto flex items-center gap-1.5 p-2 sm:p-1 rounded transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700 ${FOCUS_RING}`}
           >
             <X className="h-5 w-5 sm:h-4 sm:w-4" />
             <span className="text-xs">Close</span>

@@ -22,6 +22,8 @@ function abbreviateHint(hint: string): string {
 export function StatusSection({ state }: Props) {
   const now = useNow();
   const locationLabel = state.treeExactLocation ?? (state.treeHint ? abbreviateHint(state.treeHint) : undefined);
+  // Hover reveals the full, un-abbreviated value since the label truncates
+  const locationTitle = state.treeExactLocation ?? state.treeHint;
 
   if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
     const clearAt = state.deadAt + DEAD_CLEAR_MS;
@@ -30,7 +32,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.dead} text-[11px] font-bold leading-tight`}>R.I.P.</div>
         {locationLabel && (
-          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`} title={locationTitle}>
             {locationLabel}
           </div>
         )}
@@ -49,7 +51,7 @@ export function StatusSection({ state }: Props) {
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.sapling} text-[10px] font-bold leading-tight`}>{label}</div>
         {locationLabel && (
-          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`} title={locationTitle}>
             {locationLabel}
           </div>
         )}
@@ -72,7 +74,7 @@ export function StatusSection({ state }: Props) {
           {label}{state.treeHealth !== undefined && <span className={`${TEXT_COLOR.muted} font-normal`}> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
-          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`} title={locationTitle}>
             {locationLabel}
           </div>
         )}
@@ -93,7 +95,7 @@ export function StatusSection({ state }: Props) {
           {label}{state.treeHealth !== undefined && <span className={`${TEXT_COLOR.muted} font-normal`}> · {state.treeHealth}%</span>}
         </div>
         {locationLabel && (
-          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`} title={locationTitle}>
             {locationLabel}
           </div>
         )}
@@ -123,7 +125,7 @@ export function StatusSection({ state }: Props) {
   return locationLabel ? (
     <div className="flex flex-col justify-center h-full">
       <div className={`${TEXT_COLOR.ghost} text-[9px] leading-tight`}>—</div>
-      <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+      <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`} title={locationTitle}>
         {locationLabel}
       </div>
     </div>

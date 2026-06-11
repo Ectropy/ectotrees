@@ -88,6 +88,8 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}</span>
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             className={`text-[11px] leading-none transition-colors ${
               isFavorite ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
             }`}
@@ -97,6 +99,8 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           {isHidden && (
             <button
               onClick={e => { e.stopPropagation(); onToggleHidden(); }}
+              title="Unhide world"
+              aria-label="Unhide world"
               className={`text-[11px] leading-none ${ERROR_COLOR.text} ${ERROR_COLOR.textHover} transition-colors`}
             >
               <EyeOff className="h-2.5 w-2.5" />
