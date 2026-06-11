@@ -192,7 +192,9 @@ app.use((_req, res, next) => {
     "script-src 'self' 'unsafe-inline' https://*.googletagmanager.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "connect-src 'self' ws: wss: https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
-    "img-src 'self' data: https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
+    // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
+    // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
+    "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
     "font-src 'self'; " +
     "frame-src https://www.googletagmanager.com; " +
     "object-src 'none'; base-uri 'self'; form-action 'self'");
