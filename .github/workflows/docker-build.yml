@@ -81,6 +81,9 @@ jobs:
         # Skip cleanly when no webhook is configured (forks/clones).
         # Set the PORTAINER_WEBHOOK_URL secret to enable auto-deploy.
         # No -f: we want Portainer's error body in the log, not just curl exit 22.
+        # No -L: a redirect means the secret's URL is stale (e.g. http:// in
+        # front of an auto-HTTPS proxy) — fail loud and point at the fix
+        # instead of papering over the misconfigured secret.
         # No retries: webhook failures (orphaned webhook, bad token) are permanent
         # until fixed in Portainer, so fail fast and loud.
         run: |
@@ -107,7 +110,12 @@ jobs:
             echo "    container in Portainer (anything other than the webhook itself) breaks"
             echo "    the webhook-to-container binding (portainer/portainer#7631)."
             echo "  - HTTP 404: the webhook token no longer exists in Portainer."
-            echo "  Fix for both: re-enable the container webhook in Portainer, then update"
-            echo "  the PORTAINER_WEBHOOK_URL repo secret with the new URL."
+            echo "    Fix for 500/404: re-enable the container webhook in Portainer, then"
+            echo "    update the PORTAINER_WEBHOOK_URL repo secret with the new URL."
+            echo "  - HTTP 301/308: the URL is being redirected, not served — typically an"
+            echo "    http:// secret in front of a proxy that auto-upgrades to https"
+            echo "    (Caddy answers with a 308). curl does not follow redirects, so the"
+            echo "    POST never reached Portainer. Run 'curl -sSI -X POST <url>' locally,"
+            echo "    read the Location header, and update the secret to that URL."
             exit 1
           fi
