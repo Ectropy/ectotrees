@@ -87,8 +87,8 @@ describe('LOCATION_COORDS coverage', () => {
     expect(unused).toEqual([]);
   });
 
-  it('has 26 unique spawn locations', () => {
-    expect(Object.keys(LOCATION_COORDS)).toHaveLength(26);
+  it('has 27 unique spawn locations', () => {
+    expect(Object.keys(LOCATION_COORDS)).toHaveLength(27);
   });
 });
 
