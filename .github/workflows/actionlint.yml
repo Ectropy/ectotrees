@@ -23,7 +23,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
 
       # Wrapper is pinned (dependabot bumps it); the actionlint binary
       # itself defaults to latest so new checks arrive automatically.
