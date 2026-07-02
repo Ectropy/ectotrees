@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Timer, Lightbulb } from 'lucide-react';
-import { LOCATION_HINTS, resolveExactLocation } from '../constants/evilTree';
+import { LOCATION_HINTS } from '../constants/evilTree';
 import { SPAWN_COLOR, TEXT_COLOR, BUTTON_SECONDARY, DISABLED_STYLE, FOCUS_RING } from '../constants/toolColors';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ToolView } from './ToolView';
@@ -94,11 +94,8 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   function doSubmit(finalMinutes: number) {
     const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
     if (totalMs <= 0) return;
-    const resolved = hint ? resolveExactLocation(hint) : '';
-    const treeInfo = hint
-      ? { treeHint: hint, treeExactLocation: resolved || undefined }
-      : undefined;
-    onSubmit(totalMs, treeInfo);
+    // Single-location hints resolve to an exact location inside applySetSpawnTimer
+    onSubmit(totalMs, hint ? { treeHint: hint } : undefined);
   }
 
   function handleSubmit(e: React.FormEvent) {

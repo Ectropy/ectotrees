@@ -754,3 +754,112 @@ describe('applyReportLightning', () => {
     expect(diesAt).toBe(T + 10 * 60 * 1000);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single-location hint auto-resolution
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Wendlewick has exactly one possible location; Yanille has two (shared/hints.ts)
+const SINGLE_HINT = "Close to the village you humans call 'Wendlewick'";
+const SINGLE_LOCATION = 'East of the Marigold Farm on Havenhythe';
+const MULTI_HINT = 'Close to the town you call Yanille';
+
+describe('single-location hint auto-resolution', () => {
+  describe('applySetSpawnTimer', () => {
+    it('resolves treeExactLocation for a single-location hint', () => {
+      const result = applySetSpawnTimer({}, 1, 60_000, T, { treeHint: SINGLE_HINT });
+      expect(result[1].treeExactLocation).toBe(SINGLE_LOCATION);
+    });
+
+    it('leaves treeExactLocation undefined for a multi-location hint', () => {
+      const result = applySetSpawnTimer({}, 1, 60_000, T, { treeHint: MULTI_HINT });
+      expect(result[1].treeExactLocation).toBeUndefined();
+    });
+
+    it('explicit treeExactLocation wins over resolution', () => {
+      const result = applySetSpawnTimer({}, 1, 60_000, T, {
+        treeHint: SINGLE_HINT,
+        treeExactLocation: 'Somewhere explicit',
+      });
+      expect(result[1].treeExactLocation).toBe('Somewhere explicit');
+    });
+  });
+
+  describe('applySetTreeInfo', () => {
+    it('resolves treeExactLocation for a single-location hint', () => {
+      const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: SINGLE_HINT }, T);
+      expect(result[1].treeExactLocation).toBe(SINGLE_LOCATION);
+    });
+
+    it('leaves treeExactLocation undefined for a multi-location hint', () => {
+      const result = applySetTreeInfo({}, 1, { treeType: 'oak', treeHint: MULTI_HINT }, T);
+      expect(result[1].treeExactLocation).toBeUndefined();
+    });
+
+    it('explicit treeExactLocation wins over resolution', () => {
+      const result = applySetTreeInfo({}, 1, {
+        treeType: 'oak',
+        treeHint: SINGLE_HINT,
+        treeExactLocation: 'Somewhere explicit',
+      }, T);
+      expect(result[1].treeExactLocation).toBe('Somewhere explicit');
+    });
+  });
+
+  describe('applyUpdateTreeFields', () => {
+    it('hint change to a single-location hint without a location → resolves it', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeHint: 'old', treeExactLocation: 'old spot' } };
+      const result = applyUpdateTreeFields(states, 1, { treeHint: SINGLE_HINT }, T);
+      expect(result[1].treeExactLocation).toBe(SINGLE_LOCATION);
+    });
+
+    it('hint change to a multi-location hint without a location → clears the stored location', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeHint: 'old', treeExactLocation: 'old spot' } };
+      const result = applyUpdateTreeFields(states, 1, { treeHint: MULTI_HINT }, T);
+      expect(result[1].treeExactLocation).toBeUndefined();
+    });
+
+    it('hint change with an explicit location → explicit wins', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeExactLocation: 'old spot' } };
+      const result = applyUpdateTreeFields(states, 1, {
+        treeHint: SINGLE_HINT,
+        treeExactLocation: 'Somewhere explicit',
+      }, T);
+      expect(result[1].treeExactLocation).toBe('Somewhere explicit');
+    });
+
+    it('update without treeHint leaves the stored location untouched', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeHint: 'old', treeExactLocation: 'old spot' } };
+      const result = applyUpdateTreeFields(states, 1, { treeHealth: 50 }, T);
+      expect(result[1].treeExactLocation).toBe('old spot');
+    });
+  });
+
+  describe('applyMarkDead', () => {
+    it('resolves treeExactLocation for a single-location hint', () => {
+      const result = applyMarkDead({}, 1, T, { treeHint: SINGLE_HINT });
+      expect(result[1].treeExactLocation).toBe(SINGLE_LOCATION);
+    });
+
+    it('multi-location hint without a location → preserves the stored location', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeExactLocation: 'old spot' } };
+      const result = applyMarkDead(states, 1, T, { treeHint: MULTI_HINT });
+      expect(result[1].treeExactLocation).toBe('old spot');
+    });
+
+    it('no fields → preserves stored hint and location', () => {
+      const states = { 1: { treeStatus: 'alive' as const, treeHint: 'old', treeExactLocation: 'old spot' } };
+      const result = applyMarkDead(states, 1, T);
+      expect(result[1].treeHint).toBe('old');
+      expect(result[1].treeExactLocation).toBe('old spot');
+    });
+  });
+
+  it('resolved location survives the spawn-fire transition into the sapling', () => {
+    const afterTimer = applySetSpawnTimer({}, 1, 60_000, T, { treeHint: SINGLE_HINT });
+    const fired = applyTransitions(afterTimer, T + 60_000);
+    expect(fired[1].treeStatus).toBe('sapling');
+    expect(fired[1].treeHint).toBe(SINGLE_HINT);
+    expect(fired[1].treeExactLocation).toBe(SINGLE_LOCATION);
+  });
+});

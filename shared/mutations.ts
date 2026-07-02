@@ -1,5 +1,14 @@
 import type { WorldStates, WorldState, TreeInfoPayload, TreeFieldsPayload } from './types.ts';
 import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, ALIVE_TREE_TYPES, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from './types.ts';
+import { resolveExactLocation } from './hints.ts';
+
+// An explicit location always wins; otherwise a hint with exactly one possible
+// location resolves to it. Runs in the mutation layer so every path — client
+// optimistic apply and server authoritative apply — gets the same result.
+function resolveLocation(hint?: string, explicit?: string): string | undefined {
+  if (explicit !== undefined) return explicit;
+  return hint ? resolveExactLocation(hint) || undefined : undefined;
+}
 
 export function applyTransitions(states: WorldStates, now: number): WorldStates {
   let changed = false;
@@ -116,7 +125,7 @@ export function applySetSpawnTimer(
       nextSpawnTarget: now + msFromNow,
       spawnSetAt: now,
       treeHint: treeInfo?.treeHint,
-      treeExactLocation: treeInfo?.treeExactLocation,
+      treeExactLocation: resolveLocation(treeInfo?.treeHint, treeInfo?.treeExactLocation),
     },
   };
 }
@@ -144,7 +153,7 @@ export function applySetTreeInfo(
       ...current,
       treeType: info.treeType,
       treeHint: info.treeHint,
-      treeExactLocation: info.treeExactLocation,
+      treeExactLocation: resolveLocation(info.treeHint, info.treeExactLocation),
       treeHealth,
       treeSetAt: now,
       matureAt,
@@ -195,15 +204,20 @@ export function applyUpdateTreeFields(
     matureAtOverride = now - (lightningPreset === 50 ? LIGHTNING_1_MS : LIGHTNING_2_MS);
   }
 
-  // When treeHint changes, clear treeExactLocation unless a new one is explicitly provided
-  const shouldClearExactLocation =
-    restFields.treeHint !== undefined && restFields.treeExactLocation === undefined;
+  // When treeHint changes without an explicit treeExactLocation, the stored
+  // location can't be trusted (location options depend on the hint):
+  // single-location hints resolve deterministically, multi-location hints
+  // must clear (|| undefined turns the resolver's '' into a clear).
+  let locationPatch: { treeExactLocation?: string } = {};
+  if (restFields.treeHint !== undefined && restFields.treeExactLocation === undefined) {
+    locationPatch = { treeExactLocation: resolveExactLocation(restFields.treeHint) || undefined };
+  }
 
   return {
     ...states,
     [worldId]: {
       ...current,
-      ...(shouldClearExactLocation ? { treeExactLocation: undefined } : {}),
+      ...locationPatch,
       ...restFields,
       ...(matureAtOverride !== undefined ? { matureAt: matureAtOverride } : {}),
       ...(lightningPreset && (nextStatus === 'mature' || nextStatus === 'alive') ? { treeHealth: lightningPreset } : {}),
@@ -229,6 +243,9 @@ export function applyMarkDead(
   fields?: { treeHint?: string; treeExactLocation?: string },
 ): WorldStates {
   const current = states[worldId] ?? { treeStatus: 'none' as const };
+  // undefined = leave the stored location untouched (fields absent, or a
+  // multi-location hint arrived without an explicit location)
+  const location = resolveLocation(fields?.treeHint, fields?.treeExactLocation);
   return {
     ...states,
     [worldId]: {
@@ -239,7 +256,7 @@ export function applyMarkDead(
       nextSpawnTarget: undefined,
       spawnSetAt: undefined,
       ...(fields?.treeHint !== undefined && { treeHint: fields.treeHint }),
-      ...(fields?.treeExactLocation !== undefined && { treeExactLocation: fields.treeExactLocation }),
+      ...(location !== undefined && { treeExactLocation: location }),
     },
   };
 }

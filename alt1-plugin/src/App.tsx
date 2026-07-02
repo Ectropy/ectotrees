@@ -599,6 +599,13 @@ export function App() {
     const derivedHint = result.hint ?? (result.exactLocation ? hintForLocation(result.exactLocation) : '');
     if (derivedHint) {
       setHint(derivedHint);
+      // Hint-only scan (pre-spawn dialog): fill the location when the hint
+      // resolves to exactly one. Not routed through handleHintChange — its
+      // stale exactLocation closure would wipe a location scanned above.
+      if (!result.exactLocation) {
+        const resolved = resolveExactLocation(derivedHint);
+        if (resolved) setExactLocation(resolved);
+      }
       const truncated = derivedHint.length > 40 ? derivedHint.slice(0, 40) + '...' : derivedHint;
       detected.push(`"${truncated}"`);
     }

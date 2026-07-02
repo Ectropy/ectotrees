@@ -83,14 +83,15 @@ Defined in `shared/types.ts`, used by both client and server:
 ```
 
 ### SpawnTimerView
-SpawnTimerView only allows setting a location **hint**, not an exact location. The exact location cannot be known before a tree spawns — only the hint is available pre-spawn.
+SpawnTimerView only allows setting a location **hint**, not an exact location. The exact location cannot be known before a tree spawns — only the hint is available pre-spawn. (Exception: hints with exactly one possible location auto-resolve inside `applySetSpawnTimer`.)
 
 ### State Invariants
 - `nextSpawnTarget` and any active tree state are **mutually exclusive** (game mechanic: dead tree = no known next spawn). `markDead`, `setTreeInfo`, and auto-transitions all enforce this.
 - All three tools are **always enabled** — each serves as a correction path from any state.
 - Auto-transitions use exact timestamps for `deadAt` (e.g., `matureAt + 30min`), not `Date.now()`, to avoid drift from the poll interval.
 - `clearWorld(worldId)` deletes the key from state entirely; the grid fallback `?? { treeStatus: 'none' }` handles the missing key.
-- `applyUpdateTreeFields` clears `treeExactLocation` when `treeHint` changes (unless a new exact location is explicitly provided in the same update), because location options depend on the selected hint.
+- **Single-location hints auto-resolve in the mutation layer**: when a hint with exactly one possible location arrives without an explicit `treeExactLocation`, `applySetSpawnTimer`, `applySetTreeInfo`, `applyUpdateTreeFields`, and `applyMarkDead` fill it via `resolveExactLocation` (`shared/hints.ts`). An explicit location in the payload always wins.
+- `applyUpdateTreeFields` clears `treeExactLocation` when `treeHint` changes to a multi-location hint (unless a new exact location is explicitly provided in the same update), because location options depend on the selected hint; single-location hints resolve instead of clearing.
 
 ### Auto-Transitions
 Client checks every 1 second (for smooth countdown display), server checks every 10 seconds per session.
