@@ -31,3 +31,4 @@ plans/*
 research.md
 research/*
 .claude/settings.local.json
+.claude/.typecheck-pending

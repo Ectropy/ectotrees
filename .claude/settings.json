@@ -11,5 +11,32 @@
       "Bash(git diff*)",
       "Bash(git log*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "grep -qiE '\"file_path\":[[:space:]]*\"[^\"]*\\.(ts|tsx)\"' && touch \"$CLAUDE_PROJECT_DIR/.claude/.typecheck-pending\" || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "timeout": 300,
+            "statusMessage": "Type-checking + unit tests (TS files changed this turn)…",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/.typecheck-pending\"; [ -f \"$f\" ] || exit 0; rm -f \"$f\"; cd \"$CLAUDE_PROJECT_DIR\" || exit 0; out=$(npm run typecheck 2>&1) || { printf '%s\\n' \"$out\" | tail -60 >&2; exit 2; }; out=$(npm test 2>&1) || { printf '%s\\n' \"$out\" | tail -80 >&2; exit 2; }"
+          }
+        ]
+      }
+    ]
   }
 }
