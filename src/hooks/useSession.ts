@@ -155,7 +155,9 @@ export function useSession(onSessionLost?: () => void) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const previewWsRef = useRef<WebSocket | null>(null);
-  const previewResolveRef = useRef<((worlds: WorldStates | null) => void) | null>(null);
+  const previewResolveRef = useRef<((result: { worlds: WorldStates; allowOpenJoin: boolean; managed: boolean } | null) => void) | null>(null);
+  const previewAllowOpenJoinRef = useRef(false);
+  const previewManagedRef = useRef(false);
   const handlersRef = useRef<{
     onSnapshot: (states: WorldStates) => void;
     onWorldUpdate: (worldId: number, state: WorldState | null) => void;
@@ -683,7 +685,7 @@ export function useSession(onSessionLost?: () => void) {
     connectWs(code, identityTokenRef.current ?? undefined);
   }, []);
 
-  const previewJoin = useCallback((codeOrToken: string): Promise<WorldStates | null> => {
+  const previewJoin = useCallback((codeOrToken: string): Promise<{ worlds: WorldStates; allowOpenJoin: boolean; managed: boolean } | null> => {
     // Cancel any in-flight preview
     if (previewWsRef.current) {
       previewWsRef.current.close();
@@ -694,9 +696,11 @@ export function useSession(onSessionLost?: () => void) {
       previewResolveRef.current = null;
     }
 
+    previewAllowOpenJoinRef.current = false;
+    previewManagedRef.current = false;
     setSession(prev => ({ ...prev, error: null, errorKind: null }));
 
-    return new Promise<WorldStates | null>((resolve) => {
+    return new Promise((resolve) => {
       previewResolveRef.current = resolve;
 
       const ws = new WebSocket(`${WS_BASE}/ws`);
@@ -716,12 +720,17 @@ export function useSession(onSessionLost?: () => void) {
         let msg: ServerMessage;
         try { msg = JSON.parse(event.data as string); } catch { return; }
 
-        if (msg.type === 'snapshot') {
+        if (msg.type === 'allowOpenJoin') {
+          // Arrives before snapshot (server ordering) — recorded for when snapshot resolves.
+          // Only managed sessions send this, so its presence also marks the session managed.
+          previewAllowOpenJoinRef.current = msg.allow;
+          previewManagedRef.current = true;
+        } else if (msg.type === 'snapshot') {
           const res = previewResolveRef.current;
           previewResolveRef.current = null;
           setPreviewWorlds(msg.worlds);
           // Keep WS open — confirmPreviewJoin will close it
-          res?.(msg.worlds);
+          res?.({ worlds: msg.worlds, allowOpenJoin: previewAllowOpenJoinRef.current, managed: previewManagedRef.current });
         } else if (msg.type === 'worldUpdate') {
           setPreviewWorlds(prev => {
             if (!prev) return prev;
@@ -902,7 +911,7 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'setAllowOpenJoin', allow });
   }, []);
 
-  const openJoin = useCallback(async (code: string, name: string): Promise<boolean> => {
+  const openJoin = useCallback(async (code: string, name: string, localStates?: WorldStates): Promise<boolean> => {
     try {
       const res = await fetch(`${API_BASE}/session/${encodeURIComponent(code)}/open-join`, {
         method: 'POST',
@@ -914,6 +923,9 @@ export function useSession(onSessionLost?: () => void) {
         setSession(prev => ({ ...prev, error: data.error ?? 'Failed to join session.' }));
         return false;
       }
+      // Scouts can write, so local-only worlds are contributed on connect — the snapshot
+      // handler merges joinMergeStatesRef and sends contributeWorlds, same as a code join
+      joinMergeStatesRef.current = localStates ?? null;
       joinByIdentityToken(data.identityToken as string);
       return true;
     } catch {

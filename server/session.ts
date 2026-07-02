@@ -237,6 +237,14 @@ export function addClient(session: Session, ws: WebSocket): number | false {
   session.clientTypes.set(ws, 'unknown');
   session.emptySince = null;
 
+  // Send allowOpenJoin before the snapshot so anonymous viewers of a managed session
+  // learn whether a scout self-join option exists (previewJoin relies on this arriving
+  // first, and on message presence to detect managed sessions). Sent even when false so
+  // later setAllowOpenJoin broadcasts toggle against a known initial state.
+  if (session.managed) {
+    ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: !!session.allowOpenJoin } satisfies ServerMessage));
+  }
+
   // Send current state snapshot (only active worlds)
   const activeWorlds: WorldStates = {};
   for (const [key, state] of Object.entries(session.worldStates)) {

@@ -98,6 +98,7 @@ interface SessionViewProps {
   onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (identityToken: string) => void;
   onSetAllowOpenJoin: (allow: boolean) => void;
+  onOpenJoin: (name: string) => Promise<boolean>;
   onUpdateSessionSettings: (settings: { name?: string; description?: string; listed?: boolean }) => void;
   onRequestIdentityToken: () => void;
   onBack: () => void;
@@ -123,7 +124,7 @@ export function SessionView({
   onRejoinSession, onLeaveSession,
   onDismissError, onForkToManaged, onJoinManagedFork,
   onCreateInvite, onKickMember, onBanMember, onSetMemberRole, onTransferOwnership, onBack,
-  onSetAllowOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
+  onSetAllowOpenJoin, onOpenJoin, onUpdateSessionSettings, onRequestIdentityToken,
   followScout, onFollowScoutChange,
   forkDismissed, onDismissFork,
 }: SessionViewProps) {
@@ -146,6 +147,23 @@ export function SessionView({
   }
   const [leaveStep, setLeaveStep] = useState<'idle' | 'confirming'>('idle');
   const { copied: leaveLinkCopied, copy: copyLeaveLink } = useCopyFeedback(1500);
+
+  // Viewer → Scout upgrade (managed sessions with Open Join enabled)
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeName, setUpgradeName] = useState('');
+  const [upgrading, setUpgrading] = useState(false);
+
+  async function handleUpgradeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = upgradeName.trim();
+    if (!name) return;
+    setUpgrading(true);
+    // On success the client reconnects with the new scout identity and this panel
+    // re-renders as a scout; on failure openJoin sets session.error (shown below)
+    const ok = await onOpenJoin(name);
+    setUpgrading(false);
+    if (ok) setUpgradeOpen(false);
+  }
 
   // Managed session settings (inline — replaces SessionSettingsPanel)
   const [nameInput, setNameInput] = useState(session.sessionName ?? '');
@@ -563,6 +581,48 @@ export function SessionView({
         </div>
 
 
+
+        {/* Viewer → Scout upgrade — offered while Open Join is enabled */}
+        {isConnected && session.allowOpenJoin && (session.memberRole === null || session.memberRole === 'viewer') && (
+          <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
+            <p className={`text-xs ${TEXT_COLOR.muted}`}>This session lets anyone join as a Scout with edit access.</p>
+            {!upgradeOpen ? (
+              <button
+                onClick={() => { setUpgradeOpen(true); setUpgradeName(session.memberName ?? ''); }}
+                className={`w-full ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-sm py-1.5 rounded transition-colors`}
+              >
+                Become a Scout
+              </button>
+            ) : (
+              <form autoComplete="off" className="flex gap-2" onSubmit={handleUpgradeSubmit}>
+                <input
+                  {...RUNESCAPE_USERNAME_INPUT_PROPS}
+                  name="public-session-alias"
+                  autoFocus
+                  value={upgradeName}
+                  onChange={e => setUpgradeName(e.target.value)}
+                  placeholder="Your username"
+                  maxLength={MAX_MEMBER_NAME_LEN}
+                  className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                />
+                <button
+                  type="submit"
+                  disabled={!upgradeName.trim() || upgrading}
+                  className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
+                >
+                  {upgrading ? '…' : 'Join →'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUpgradeOpen(false)}
+                  className="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Link with Alt1 — hide for viewers (anonymous or invited; they can't use Alt1) */}
         {isConnected && session.memberRole !== 'viewer' && session.memberRole !== null && session.identityToken && (

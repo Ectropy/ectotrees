@@ -39,7 +39,7 @@ src/
     TreeDeadView.tsx     # Full-screen/sidebar: confirm mark-dead (starts 30-min reward window)
     WorldDetailView.tsx  # Full-screen/sidebar: complete world status + quick tool access + clear
     SessionBar.tsx       # Session UI: create/join/leave sync sessions, status indicator; opens SessionView panel
-    SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites, follow-scout toggle)
+    SessionView.tsx      # Full-screen/sidebar: session management panel (pairing, managed mode, member list, invites, follow-scout toggle, viewer→scout "Become a Scout" upgrade card when Open Join is on)
     MemberPanel.tsx      # Member list with role badges, admin controls (role change, kick/ban with inline confirmation, owner-only "Make owner" ownership transfer), and invite creation form
     MemberCount.tsx      # Compact member-count chip used in SessionBar / SessionView
     Alt1TokenButton.tsx  # Header-area button that surfaces the Alt1 identity-link copy/regenerate flow
@@ -93,12 +93,12 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
   | { kind: 'session' }
-  | { kind: 'session-join'; code: string }
+  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean }
   | { kind: 'browse' }
   | { kind: 'map' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 ```
-Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, invites, and the **Follow scout's world** toggle. `session-join` is shown when joining a session that has existing state — it renders `SessionJoinView` to let the user compare and decide whether to contribute their local data. `browse` opens `SessionBrowserView` and is the default initial view when the user has no active session and `showBrowseOnStartup` is true; auto-redirects to `session` once a session is created/joined. `map` (PoC) is opened from the `Map` icon in the header and renders `MapView` — analytics is currently skipped for this view.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, invites, and the **Follow scout's world** toggle. `session-join` is shown when joining a session that has existing state, or when the target session allows open join — it renders `SessionJoinView` with direct-commit action buttons: "Join as Scout [and contribute (N worlds)]" (when `allowOpenJoin`; expands an inline name form and self-issues a scout identity via `openJoin`, contributing local-only worlds), "Join as viewer" for managed sessions (always discards local data — the server rejects `contributeWorlds` from viewers), or the anonymous-session "Join and contribute" / "Join session" pair. While `session-join` is active, the world grid renders the session's live `previewWorlds` read-only (banner shown, card clicks/tools disabled) so desktop joiners see the session's intel beside the panel. `browse` opens `SessionBrowserView` and is the default initial view when the user has no active session and `showBrowseOnStartup` is true; auto-redirects to `session` once a session is created/joined. `map` (PoC) is opened from the `Map` icon in the header and renders `MapView` — analytics is currently skipped for this view.
 
 **World search bar**: a `Search` icon input in the header filters the grid by world number. When the search matches exactly one world and sidebar mode is enabled, it auto-opens the detail view for that world. Escape clears the search.
 

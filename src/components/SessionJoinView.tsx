@@ -1,15 +1,28 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import worldsConfig from '../data/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR } from '../constants/toolColors';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
+import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+
+const RUNESCAPE_USERNAME_INPUT_PROPS = {
+  type: 'text' as const,
+  autoComplete: 'off',
+  autoCorrect: 'off',
+  autoCapitalize: 'none',
+  spellCheck: false,
+  inputMode: 'text' as const,
+};
 
 interface Props {
   codeOrToken: string;
   localWorldStates: WorldStates;
   serverWorlds: WorldStates;
+  managed: boolean;
+  allowOpenJoin: boolean;
   onJoin: (localStates?: WorldStates) => void;
+  onOpenJoin: (name: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -86,9 +99,13 @@ function Section({ title, count, description, accentClass, children }: SectionPr
   );
 }
 
-export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, onJoin, onCancel }: Props) {
+export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, managed, allowOpenJoin, onJoin, onOpenJoin, onCancel }: Props) {
   const isToken = codeOrToken.length === 12;
   const displayLabel = isToken ? 'Invite' : 'Code';
+  const [scoutFormOpen, setScoutFormOpen] = useState(false);
+  const [memberName, setMemberName] = useState('');
+  const [joiningAsMember, setJoiningAsMember] = useState(false);
+  const [memberJoinError, setMemberJoinError] = useState(false);
   const { toContribute, conflicts, alreadySynced, serverGains } = useMemo(() => {
     const localActive = Object.entries(localWorldStates)
       .filter(([, s]) => isLocalActive(s))
@@ -106,6 +123,17 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
 
   function handleJoin(contribute: boolean) {
     onJoin(contribute ? localWorldStates : undefined);
+  }
+
+  async function handleOpenJoinSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = memberName.trim();
+    if (!name) return;
+    setJoiningAsMember(true);
+    setMemberJoinError(false);
+    const ok = await onOpenJoin(name);
+    setJoiningAsMember(false);
+    if (!ok) setMemberJoinError(true);
   }
 
   const canContribute = toContribute.length > 0;
@@ -128,7 +156,13 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
           <Section
             title="Your worlds to contribute"
             count={toContribute.length}
-            description="Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute."
+            description={
+              !managed
+                ? 'Active in your local data but not yet in the session. These will be shared with everyone if you choose to contribute.'
+                : allowOpenJoin
+                  ? 'Active in your local data but not yet in the session. These will be shared with everyone if you join as a Scout.'
+                  : "Active in your local data but not yet in the session. Viewers can't contribute — this local intel will be discarded when you join."
+            }
             accentClass="text-green-400"
           >
             <WorldList items={toContribute.map(({ id, state }) => (
@@ -199,9 +233,53 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
           </Section>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — every button commits (or expands a form that commits) */}
         <div className="flex flex-col gap-2 pt-1">
-          {canContribute && (
+          {allowOpenJoin && (
+            <p className={`text-xs ${TEXT_COLOR.muted}`}>This session lets anyone join as a Scout with edit access. Viewers are read-only.</p>
+          )}
+          {allowOpenJoin && !scoutFormOpen && (
+            <button
+              onClick={() => setScoutFormOpen(true)}
+              className={`w-full bg-transparent ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} font-medium rounded py-2.5 transition-colors`}
+            >
+              {canContribute
+                ? `Join as Scout and contribute (${toContribute.length} world${toContribute.length !== 1 ? 's' : ''})`
+                : 'Join as Scout'}
+            </button>
+          )}
+          {allowOpenJoin && scoutFormOpen && (
+            <form autoComplete="off" className="flex gap-2" onSubmit={handleOpenJoinSubmit}>
+              <input
+                {...RUNESCAPE_USERNAME_INPUT_PROPS}
+                name="public-session-alias"
+                autoFocus
+                value={memberName}
+                onChange={e => { setMemberName(e.target.value); setMemberJoinError(false); }}
+                placeholder="Your username"
+                maxLength={MAX_MEMBER_NAME_LEN}
+                className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+              />
+              <button
+                type="submit"
+                disabled={!memberName.trim() || joiningAsMember}
+                className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
+              >
+                {joiningAsMember ? '…' : 'Join →'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setScoutFormOpen(false); setMemberJoinError(false); }}
+                className="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+          {memberJoinError && (
+            <p className={`text-xs ${ERROR_COLOR.text}`}>Failed to join as a Scout. Please try again.</p>
+          )}
+          {!managed && canContribute && (
             <button
               onClick={() => handleJoin(true)}
               className={`w-full bg-transparent ${TREE_COLOR.border} ${TREE_COLOR.label} ${TREE_COLOR.borderHover} font-medium rounded py-2.5 transition-colors`}
@@ -212,12 +290,14 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, o
           <button
             onClick={() => handleJoin(false)}
             className={`w-full font-medium rounded py-2.5 transition-colors bg-transparent ${
-              canContribute
+              allowOpenJoin || (!managed && canContribute)
                 ? 'border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200'
                 : `${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover}`
             }`}
           >
-            {canContribute ? 'Join, discard my local data' : 'Join session'}
+            {managed
+              ? (canContribute ? 'Join as viewer, discard my local data' : 'Join as viewer')
+              : (canContribute ? 'Join, discard my local data' : 'Join session')}
           </button>
           <button
             onClick={onCancel}

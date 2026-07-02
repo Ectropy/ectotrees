@@ -37,7 +37,7 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
   | { kind: 'session' }
-  | { kind: 'session-join'; code: string }
+  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean }
   | { kind: 'browse' }
   | { kind: 'map' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
@@ -105,10 +105,12 @@ export default function App() {
   }, [joinSession]);
 
   const handleRequestSessionJoin = useCallback(async (code: string): Promise<boolean> => {
-    const serverWorlds = await previewJoin(code);
-    if (!serverWorlds) return false; // error already in session.error
+    const preview = await previewJoin(code);
+    if (!preview) return false; // error already in session.error
+    const { worlds: serverWorlds, allowOpenJoin, managed } = preview;
 
-    // Skip the join screen when it offers no decision: nothing to contribute and nothing being lost
+    // Skip the join screen when it offers no decision: nothing to contribute, nothing being
+    // lost, and no full-member option to offer instead of the default read-only viewer join
     const localActive = Object.entries(worldStatesRef.current).filter(
       ([, s]) => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
     );
@@ -124,13 +126,13 @@ export default function App() {
          || s.treeHealth         !== sv.treeHealth);
     });
 
-    if (!hasContribute && !hasConflicts) {
+    if (!hasContribute && !hasConflicts && !allowOpenJoin) {
       confirmPreviewJoin(code, undefined);
       setActiveView({ kind: 'session' });
       return true;
     }
 
-    setActiveView({ kind: 'session-join', code });
+    setActiveView({ kind: 'session-join', code, allowOpenJoin, managed });
     return true;
   }, [previewJoin, confirmPreviewJoin]);
 
@@ -138,6 +140,14 @@ export default function App() {
     confirmPreviewJoin(code, localStates);
     setActiveView({ kind: 'session' });
   }, [confirmPreviewJoin]);
+
+  const handleOpenJoinFromView = useCallback(async (code: string, name: string): Promise<boolean> => {
+    cancelPreview();
+    // Scouts can write, so local intel joins the session (server-wins merge, local fills gaps)
+    const ok = await openJoin(code, name, worldStatesRef.current);
+    if (ok) setActiveView({ kind: 'session' });
+    return ok;
+  }, [cancelPreview, openJoin]);
 
   const activeLocalCount = useMemo(() => {
     return Object.values(worldStates).filter(
@@ -257,9 +267,15 @@ export default function App() {
     }
   }, [session.identityToken, settings.followScout, updateSettings]);
 
-  const sortedFilteredWorlds = useFilteredWorlds(worlds, worldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
+  // While deciding on a join, the grid previews the session's live intel (read-only) so
+  // desktop joiners can see what they'd be joining instead of their own (often empty) data
+  const isPreviewingJoin = activeView.kind === 'session-join' && previewWorlds !== null;
+  const displayWorldStates = isPreviewingJoin ? previewWorlds : worldStates;
+
+  const sortedFilteredWorlds = useFilteredWorlds(worlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
   function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
+    if (isPreviewingJoin) return;
     const { surface, sidebarSide } = getAnalyticsContext();
     trackUiEvent('ui_tool_open', {
       panel: tool,
@@ -272,6 +288,7 @@ export default function App() {
   }
 
   function handleOpenCard(worldId: number) {
+    if (isPreviewingJoin) return;
     setActiveView({ kind: 'detail', worldId });
   }
 
@@ -416,6 +433,7 @@ export default function App() {
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowOpenJoin={setAllowOpenJoin}
+        onOpenJoin={(name: string) => openJoin(session.code!, name)}
         onUpdateSessionSettings={updateSessionSettings}
         onRequestIdentityToken={requestIdentityToken}
         onBack={handleBack}
@@ -431,7 +449,10 @@ export default function App() {
         codeOrToken={activeView.code}
         localWorldStates={worldStates}
         serverWorlds={previewWorlds ?? {}}
+        managed={activeView.managed}
+        allowOpenJoin={activeView.allowOpenJoin}
         onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}
+        onOpenJoin={(name: string) => handleOpenJoinFromView(activeView.code, name)}
         onCancel={handleBack}
       />;
 
@@ -541,47 +562,56 @@ export default function App() {
   }
 
   // World grid (shared between grid-only and sidebar modes)
-  const worldGrid = sortedFilteredWorlds.length === 0 ? (
-    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
-      <p className="text-sm">No worlds match the current filters. =(</p>
-      <button
-        onClick={() => setFilters(DEFAULT_FILTERS)}
-        className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-      >
-        Clear filters
-      </button>
-    </div>
-  ) : (
-    <div
-      className="flex-1 overflow-visible"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
-        gap: '3px',
-        alignContent: 'start',
-      }}
-    >
-      {sortedFilteredWorlds.map(world => (
-        <WorldCard
-          key={world.id}
-          world={world}
-          state={worldStates[world.id] ?? { treeStatus: 'none' }}
-          isFavorite={favorites.has(world.id)}
-          isHidden={hiddenWorlds.has(world.id)}
-          onToggleFavorite={() => toggleFavorite(world.id)}
-          onToggleHidden={() => toggleHidden(world.id)}
-          onCardClick={() => handleOpenCard(world.id)}
-          onOpenTool={(tool) => handleOpenTool(world.id, tool)}
-          lightningEvent={lightningEvents.get(world.id)}
-          onDismissLightning={() => dismissLightningEvent(world.id)}
-          effectsLightning={settings.effectsLightning}
-          effectsSparks={settings.effectsSparks}
-          isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
-          isRecentOwnSubmission={session.recentOwnWorldId === world.id}
-          canEdit={canEdit}
-        />
-      ))}
-    </div>
+  const worldGrid = (
+    <>
+      {isPreviewingJoin && (
+        <div className={`shrink-0 text-center text-xs ${TEXT_COLOR.muted} bg-gray-800 border border-gray-700 rounded px-2 py-1 mb-1`}>
+          Previewing this session's live intel — join to interact.
+        </div>
+      )}
+      {sortedFilteredWorlds.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+          <p className="text-sm">No worlds match the current filters. =(</p>
+          <button
+            onClick={() => setFilters(DEFAULT_FILTERS)}
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        <div
+          className="flex-1 overflow-visible"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
+            gap: '3px',
+            alignContent: 'start',
+          }}
+        >
+          {sortedFilteredWorlds.map(world => (
+            <WorldCard
+              key={world.id}
+              world={world}
+              state={displayWorldStates[world.id] ?? { treeStatus: 'none' }}
+              isFavorite={favorites.has(world.id)}
+              isHidden={hiddenWorlds.has(world.id)}
+              onToggleFavorite={() => toggleFavorite(world.id)}
+              onToggleHidden={() => toggleHidden(world.id)}
+              onCardClick={() => handleOpenCard(world.id)}
+              onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+              lightningEvent={isPreviewingJoin ? undefined : lightningEvents.get(world.id)}
+              onDismissLightning={() => dismissLightningEvent(world.id)}
+              effectsLightning={settings.effectsLightning}
+              effectsSparks={settings.effectsSparks}
+              isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
+              isRecentOwnSubmission={session.recentOwnWorldId === world.id}
+              canEdit={canEdit && !isPreviewingJoin}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 
   return (
@@ -617,11 +647,11 @@ export default function App() {
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
               <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
-              <span>{worlds.filter(w => isActive(worldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
             </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
-                const s = worldStates[w.id] ?? { treeStatus: 'none' as const };
+                const s = displayWorldStates[w.id] ?? { treeStatus: 'none' as const };
                 return s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined;
               });
               const hasIntel = intelWorlds.length > 0;
@@ -629,7 +659,7 @@ export default function App() {
                 <button
                   disabled={!hasIntel}
                   onClick={() => {
-                    const msg = buildDiscordMessage(intelWorlds, worldStates);
+                    const msg = buildDiscordMessage(intelWorlds, displayWorldStates);
                     copyDiscord(msg);
                   }}
                   className={`flex items-center gap-1 transition-colors text-base leading-none ${FOCUS_RING} rounded ${hasIntel ? `${TEXT_COLOR.prominent} hover:${TEXT_COLOR.muted}` : `${TEXT_COLOR.ghost} cursor-not-allowed`}`}
