@@ -9,15 +9,7 @@ import type { SessionInfo } from '../../shared/protocol.ts';
 import { SessionMetaRow, SessionStats } from './SessionMetaRow';
 import { relativeTime } from '../lib/relativeTime';
 import { isActive, worldStatesEqual, NONE_STATE } from '../lib/worldState';
-
-const RUNESCAPE_USERNAME_INPUT_PROPS = {
-  type: 'text' as const,
-  autoComplete: 'off',
-  autoCorrect: 'off',
-  autoCapitalize: 'none',
-  spellCheck: false,
-  inputMode: 'text' as const,
-};
+import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
 
 interface Props {
   codeOrToken: string;

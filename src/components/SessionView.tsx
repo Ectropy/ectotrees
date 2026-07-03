@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { buildSessionUrl } from '../lib/sessionUrl';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { useCountdown } from '@shared-browser/useCountdown';
+import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
@@ -110,15 +111,6 @@ interface SessionViewProps {
 
 // window.location.origin is constant for the page lifetime
 const ALT1_INSTALL_LINK = `alt1://addapp/${window.location.origin}/alt1/appconfig.json`;
-const RUNESCAPE_USERNAME_INPUT_PROPS = {
-  type: 'text' as const,
-  autoComplete: 'off',
-  autoCorrect: 'off',
-  autoCapitalize: 'none',
-  spellCheck: false,
-  inputMode: 'text' as const,
-};
-
 export function SessionView({
   session,
   onRejoinSession, onLeaveSession,

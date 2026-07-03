@@ -7,15 +7,7 @@ import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
 import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
 import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, SPAWN_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { DismissableError } from '@shared-browser/DismissableError';
-
-const RUNESCAPE_USERNAME_INPUT_PROPS = {
-  type: 'text' as const,
-  autoComplete: 'off',
-  autoCorrect: 'off',
-  autoCapitalize: 'none',
-  spellCheck: false,
-  inputMode: 'text' as const,
-};
+import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
 
 interface SessionBrowserViewProps {
   session: SessionState;
