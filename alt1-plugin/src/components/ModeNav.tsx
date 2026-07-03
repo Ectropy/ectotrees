@@ -6,13 +6,16 @@ interface ModeNavProps {
   onChange: (mode: 'prespawn' | 'postspawn' | 'dead') => void;
 }
 
+// Hover fills use the pre-computed -a20 rgba utilities from index.css instead
+// of the shared tokens' slash variants (hover:bg-*/20): slash opacity compiles
+// to color-mix(in oklab), which silently fails in Alt1's pre-oklch CEF.
 const TABS = [
   {
     kind: 'prespawn' as const,
     icon: Timer,
     label: 'Timer',
     activeColor: SPAWN_COLOR.text,
-    hoverBg: SPAWN_COLOR.borderHover,
+    hoverBg: 'hover:bg-blue-300-a20',
     underline: SPAWN_COLOR.underline,
   },
   {
@@ -20,7 +23,7 @@ const TABS = [
     icon: TreeDeciduous,
     label: 'Tree',
     activeColor: TREE_COLOR.text,
-    hoverBg: TREE_COLOR.borderHover,
+    hoverBg: 'hover:bg-green-400-a20',
     underline: TREE_COLOR.underline,
   },
   {
@@ -28,7 +31,7 @@ const TABS = [
     icon: Skull,
     label: 'Dead',
     activeColor: DEAD_COLOR.text,
-    hoverBg: DEAD_COLOR.borderHover,
+    hoverBg: 'hover:bg-red-500-a20',
     underline: DEAD_COLOR.underline,
   },
 ];
