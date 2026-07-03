@@ -57,7 +57,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current?.();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   useEffect(() => { saveToLocalStorageRef.current = saveToLocalStorage; });
 
@@ -421,7 +421,6 @@ export default function App() {
         onCreateInvite={createInvite}
         onKickMember={kickMember}
         onBanMember={banMember}
-        onRenameMember={renameMember}
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowOpenJoin={setAllowOpenJoin}

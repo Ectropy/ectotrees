@@ -96,7 +96,6 @@ interface SessionViewProps {
   onCreateInvite: (name: string, role?: 'scout' | 'viewer') => void;
   onKickMember: (identityToken: string) => void;
   onBanMember: (identityToken: string) => void;
-  onRenameMember: (identityToken: string, name: string) => void;
   onSetMemberRole: (identityToken: string, role: 'moderator' | 'scout' | 'viewer') => void;
   onTransferOwnership: (identityToken: string) => void;
   onSetAllowOpenJoin: (allow: boolean) => void;
@@ -817,13 +816,12 @@ function ForkInviteBanner({
 }
 
 function ForkNameForm({
-  managedName, setManagedName, onForkToManaged, onCancel, label,
+  managedName, setManagedName, onForkToManaged, onCancel,
 }: {
   managedName: string;
   setManagedName: (v: string) => void;
   onForkToManaged: (name: string) => void;
   onCancel: () => void;
-  label?: string;
 }) {
   return (
     <form
@@ -837,8 +835,8 @@ function ForkNameForm({
       }}
       className="space-y-2"
     >
-      <label className={`block text-xs ${label ? TEXT_COLOR.muted : 'text-gray-300'}`}>
-        {label ?? <>Your username <span className="text-gray-500">(visible to all members)</span></>}
+      <label className="block text-xs text-gray-300">
+        Your username <span className="text-gray-500">(visible to all members)</span>
       </label>
       <input
         {...RUNESCAPE_USERNAME_INPUT_PROPS}

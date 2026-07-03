@@ -906,10 +906,6 @@ export function useSession(onSessionLost?: () => void) {
     sendWsMessage({ type: 'banMember', identityToken });
   }, []);
 
-  const renameMemberAction = useCallback((identityToken: string, name: string) => {
-    sendWsMessage({ type: 'renameMember', identityToken, name });
-  }, []);
-
   const setMemberRoleAction = useCallback((identityToken: string, role: 'moderator' | 'scout' | 'viewer') => {
     sendWsMessage({ type: 'setMemberRole', identityToken, role });
   }, []);
@@ -997,7 +993,6 @@ export function useSession(onSessionLost?: () => void) {
     createInvite: createInviteAction,
     kickMember: kickMemberAction,
     banMember: banMemberAction,
-    renameMember: renameMemberAction,
     setMemberRole: setMemberRoleAction,
     transferOwnership: transferOwnershipAction,
     setAllowOpenJoin: setAllowOpenJoinAction,
