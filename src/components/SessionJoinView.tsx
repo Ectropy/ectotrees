@@ -273,7 +273,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
         {/* Action buttons — every button commits (or expands a form that commits) */}
         <div className="flex flex-col gap-2 pt-1">
           {allowOpenJoin && (
-            <p className={`text-xs ${TEXT_COLOR.muted}`}>This session lets anyone join as a Scout with edit access. Viewers are read-only.</p>
+            <p className={`text-xs ${TEXT_COLOR.muted}`}>This session allows anyone to join as a Scout, a role which permits edits and intel contributions. You can also join as a read-only Viewer.</p>
           )}
           {allowOpenJoin && !scoutFormOpen && (
             <button
@@ -326,14 +326,10 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
           )}
           <button
             onClick={() => handleJoin(false)}
-            className={`w-full font-medium rounded py-2.5 transition-colors bg-transparent ${
-              allowOpenJoin || (!managed && canContribute)
-                ? 'border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200'
-                : `${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover}`
-            }`}
+            className={`w-full bg-transparent ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} font-medium rounded py-2.5 transition-colors`}
           >
             {managed
-              ? (canContribute ? 'Join as viewer, discard my local data' : 'Join as viewer')
+              ? (canContribute ? 'Join as Viewer, discard my local data' : 'Join as Viewer')
               : (canContribute ? 'Join, discard my local data' : 'Join session')}
           </button>
           <button

@@ -585,13 +585,13 @@ export function SessionView({
         {/* Viewer → Scout upgrade — offered while Open Join is enabled */}
         {isConnected && session.allowOpenJoin && (session.memberRole === null || session.memberRole === 'viewer') && (
           <div className={`${MANAGED_COLOR.panelBorder} rounded p-3 space-y-2`}>
-            <p className={`text-xs ${TEXT_COLOR.muted}`}>This session lets anyone join as a Scout with edit access.</p>
+            <p className={`text-xs ${TEXT_COLOR.muted}`}>You're currently a Viewer, a read-only role. This session allows anyone to optionally become a Scout, a role which permits edits and intel contributions.</p>
             {!upgradeOpen ? (
               <button
                 onClick={() => { setUpgradeOpen(true); setUpgradeName(session.memberName ?? ''); }}
                 className={`w-full ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-sm py-1.5 rounded transition-colors`}
               >
-                Become a Scout
+                Upgrade role to Scout
               </button>
             ) : (
               <form autoComplete="off" className="flex gap-2" onSubmit={handleUpgradeSubmit}>

@@ -5,7 +5,7 @@ import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
 import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
-import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
+import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, SPAWN_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { DismissableError } from '@shared-browser/DismissableError';
 
 const RUNESCAPE_USERNAME_INPUT_PROPS = {
@@ -271,7 +271,7 @@ export function SessionBrowserView({
                             if (onJoinSession(s.code)) onSessionStarted();
                           }
                         }}
-                        className={`w-full px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
+                        className={`w-full px-3 py-1 ${SPAWN_COLOR.border} ${SPAWN_COLOR.label} ${SPAWN_COLOR.borderHover} text-xs font-medium rounded transition-colors`}
                       >
                         Join as Viewer
                       </button>
