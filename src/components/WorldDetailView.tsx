@@ -15,7 +15,7 @@ import { LightningEffect } from './LightningEffect';
 import { SparkEffect } from './SparkEffect';
 import { SelectCombobox } from './ui/select-combobox';
 import { trackUiEvent } from '../lib/analytics';
-import { useNow } from '@shared-browser/useNow';
+import { useSharedNow } from '@shared-browser/clock';
 
 interface Props {
   world: WorldConfig;
@@ -82,7 +82,7 @@ export function WorldDetailView({ world, state, isFavorite, isHidden, onToggleFa
       commitField({ treeExactLocation: editPendingValue || undefined });
     }
   }
-  const now = useNow();
+  const now = useSharedNow();
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6" style={{ position: 'relative', isolation: 'isolate' }}>

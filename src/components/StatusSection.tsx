@@ -1,7 +1,7 @@
 import type { WorldState } from '../types';
-import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, formatMs } from '../constants/evilTree';
+import { TREE_TYPE_SHORT, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
 import { TREE_STATE_COLOR, TEXT_COLOR } from '../constants/toolColors';
-import { useNow } from '@shared-browser/useNow';
+import { Countdown } from './Countdown';
 
 interface Props {
   state: WorldState;
@@ -20,14 +20,12 @@ function abbreviateHint(hint: string): string {
 }
 
 export function StatusSection({ state }: Props) {
-  const now = useNow();
   const locationLabel = state.treeExactLocation ?? (state.treeHint ? abbreviateHint(state.treeHint) : undefined);
   // Hover reveals the full, un-abbreviated value since the label truncates
   const locationTitle = state.treeExactLocation ?? state.treeHint;
 
   if (state.treeStatus === 'dead' && state.deadAt !== undefined) {
     const clearAt = state.deadAt + DEAD_CLEAR_MS;
-    const remaining = clearAt - now;
     return (
       <div className="flex flex-col justify-center h-full">
         <div className={`${TREE_STATE_COLOR.dead} text-[11px] font-bold leading-tight`}>R.I.P.</div>
@@ -36,16 +34,17 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className={`${TREE_STATE_COLOR.dead} text-[9px] leading-tight`}>
-          {`Rewards avail. for <${formatMs(remaining)}`}
-        </div>
+        <Countdown
+          target={clearAt}
+          prefix={'Rewards avail. for <'}
+          className={`${TREE_STATE_COLOR.dead} text-[9px] leading-tight`}
+        />
       </div>
     );
   }
 
   if (state.treeStatus === 'sapling' && state.treeSetAt !== undefined) {
     const matureAt = state.treeSetAt + SAPLING_MATURE_MS;
-    const remaining = matureAt - now;
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Sapling (unknown)';
     return (
       <div className="flex flex-col justify-center h-full">
@@ -55,16 +54,18 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className={`${TREE_STATE_COLOR.saplingTimer} text-[9px] leading-tight`}>
-          {`Matures in ~${formatMs(remaining)} or less`}
-        </div>
+        <Countdown
+          target={matureAt}
+          prefix="Matures in ~"
+          suffix=" or less"
+          className={`${TREE_STATE_COLOR.saplingTimer} text-[9px] leading-tight`}
+        />
       </div>
     );
   }
 
   if (state.treeStatus === 'mature' && state.matureAt !== undefined) {
     const autoDeadAt = state.matureAt + ALIVE_DEAD_MS;
-    const remaining = autoDeadAt - now;
     const label = state.treeType && state.treeType !== 'mature'
       ? TREE_TYPE_SHORT[state.treeType]
       : 'Mature';
@@ -78,16 +79,18 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}>
-          {`Dies in ~${formatMs(remaining)} or less`}
-        </div>
+        <Countdown
+          target={autoDeadAt}
+          prefix="Dies in ~"
+          suffix=" or less"
+          className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}
+        />
       </div>
     );
   }
 
   if (state.treeStatus === 'alive' && state.matureAt !== undefined) {
     const autoDeadAt = state.matureAt + ALIVE_DEAD_MS;
-    const remaining = autoDeadAt - now;
     const label = state.treeType ? TREE_TYPE_SHORT[state.treeType] : 'Tree';
     return (
       <div className="flex flex-col justify-center h-full">
@@ -99,27 +102,33 @@ export function StatusSection({ state }: Props) {
             {locationLabel}
           </div>
         )}
-        <div className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}>
-          {`Dies in ~${formatMs(remaining)} or less`}
-        </div>
+        <Countdown
+          target={autoDeadAt}
+          prefix="Dies in ~"
+          suffix=" or less"
+          className={`${TREE_STATE_COLOR.deathTimer} text-[9px] leading-tight`}
+        />
       </div>
     );
   }
 
   if (state.nextSpawnTarget !== undefined) {
-    const remaining = state.nextSpawnTarget - now;
-    if (remaining > 0) {
-      return (
-        <div className={`flex ${locationLabel ? 'flex-col justify-center' : 'items-center'} h-full`}>
-          <div className={`${TREE_STATE_COLOR.spawnTimer} text-[10px] font-bold leading-tight`}>Next: {formatMs(remaining)}</div>
-          {locationLabel && (
-            <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
-              {locationLabel}
-            </div>
-          )}
-        </div>
-      );
-    }
+    // The countdown clamps at 0; the 1s transition tick flips the world to
+    // sapling moments after the target passes, so the clamp is only visible briefly.
+    return (
+      <div className={`flex ${locationLabel ? 'flex-col justify-center' : 'items-center'} h-full`}>
+        <Countdown
+          target={state.nextSpawnTarget}
+          prefix="Next: "
+          className={`${TREE_STATE_COLOR.spawnTimer} text-[10px] font-bold leading-tight`}
+        />
+        {locationLabel && (
+          <div className={`${TEXT_COLOR.muted} text-[9px] leading-tight truncate`}>
+            {locationLabel}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return locationLabel ? (
