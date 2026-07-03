@@ -26,7 +26,7 @@ import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldStates } from './types';
 import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
-import { NONE_STATE } from './lib/worldState';
+import { NONE_STATE, worldStatesEqual } from './lib/worldState';
 import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
 import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_KEY, FILTER_STORAGE_KEY } from './hooks/useFilteredWorlds';
@@ -113,19 +113,11 @@ export default function App() {
 
     // Skip the join screen when it offers no decision: nothing to contribute, nothing being
     // lost, and no full-member option to offer instead of the default read-only viewer join
-    const localActive = Object.entries(worldStatesRef.current).filter(
-      ([, s]) => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
-    );
+    const localActive = Object.entries(worldStatesRef.current).filter(([, s]) => isActive(s));
     const hasContribute = localActive.some(([id]) => !(Number(id) in serverWorlds));
     const hasConflicts  = localActive.some(([id, s]) => {
       const sv = serverWorlds[Number(id)];
-      return sv !== undefined
-        && (s.treeStatus         !== sv.treeStatus
-         || s.nextSpawnTarget    !== sv.nextSpawnTarget
-         || s.treeType           !== sv.treeType
-         || s.treeHint           !== sv.treeHint
-         || s.treeExactLocation  !== sv.treeExactLocation
-         || s.treeHealth         !== sv.treeHealth);
+      return sv !== undefined && !worldStatesEqual(s, sv);
     });
 
     if (!hasContribute && !hasConflicts && !allowOpenJoin) {
@@ -152,9 +144,7 @@ export default function App() {
   }, [cancelPreview, openJoin]);
 
   const activeLocalCount = useMemo(() => {
-    return Object.values(worldStates).filter(
-      s => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
-    ).length;
+    return Object.values(worldStates).filter(isActive).length;
   }, [worldStates]);
 
   const handleLeaveSession = useCallback(() => {
@@ -653,10 +643,7 @@ export default function App() {
               <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
             </span>
             {(() => {
-              const intelWorlds = sortedFilteredWorlds.filter(w => {
-                const s = displayWorldStates[w.id] ?? NONE_STATE;
-                return s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined;
-              });
+              const intelWorlds = sortedFilteredWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE));
               const hasIntel = intelWorlds.length > 0;
               return (
                 <button

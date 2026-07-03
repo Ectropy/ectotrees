@@ -8,6 +8,7 @@ import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
 import type { SessionInfo } from '../../shared/protocol.ts';
 import { SessionMetaRow, SessionStats } from './SessionMetaRow';
 import { relativeTime } from '../lib/relativeTime';
+import { isActive, worldStatesEqual, NONE_STATE } from '../lib/worldState';
 
 const RUNESCAPE_USERNAME_INPUT_PROPS = {
   type: 'text' as const,
@@ -39,10 +40,6 @@ const worlds = worldsConfig.worlds as WorldConfig[];
 const worldTypeMap = new Map<number, 'P2P' | 'F2P'>(worlds.map(w => [w.id, w.type]));
 
 
-function isLocalActive(state: WorldState): boolean {
-  return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
-}
-
 function statusLabel(state: WorldState): string {
   if (state.nextSpawnTarget !== undefined && state.treeStatus === 'none') return 'Spawn timer';
   // Show dead/alive status before tree type — a dead mature tree should say "Dead", not "Mature (unknown)"
@@ -54,15 +51,6 @@ function statusLabel(state: WorldState): string {
     case 'mature':  return 'Mature';
     default:        return state.treeStatus;
   }
-}
-
-function worldStatesEqual(a: WorldState, b: WorldState): boolean {
-  return a.treeStatus === b.treeStatus
-    && a.nextSpawnTarget === b.nextSpawnTarget
-    && a.treeType === b.treeType
-    && a.treeHint === b.treeHint
-    && a.treeExactLocation === b.treeExactLocation
-    && a.treeHealth === b.treeHealth;
 }
 
 function WorldTypeBadge({ worldId }: { worldId: number }) {
@@ -112,7 +100,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
   const [memberJoinError, setMemberJoinError] = useState(false);
   const { toContribute, conflicts, alreadySynced, serverGains } = useMemo(() => {
     const localActive = Object.entries(localWorldStates)
-      .filter(([, s]) => isLocalActive(s))
+      .filter(([, s]) => isActive(s))
       .map(([id, s]) => ({ id: Number(id), state: s }));
 
     const toContribute  = localActive.filter(({ id }) => !(id in serverWorlds));
@@ -120,7 +108,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
     const alreadySynced = localActive.filter(({ id, state }) => id in serverWorlds && worldStatesEqual(state, serverWorlds[id]));
     const serverGains   = Object.entries(serverWorlds)
       .map(([id, state]) => ({ id: Number(id), state }))
-      .filter(({ id }) => !isLocalActive(localWorldStates[id] ?? { treeStatus: 'none' }));
+      .filter(({ id }) => !isActive(localWorldStates[id] ?? NONE_STATE));
 
     return { toContribute, conflicts, alreadySynced, serverGains };
   }, [serverWorlds, localWorldStates]);

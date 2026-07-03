@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import type { WorldConfig, WorldState, WorldStates } from '../types';
+import type { WorldConfig, WorldStates } from '../types';
 import type { SortMode, Filters } from '../components/SortFilterBar';
 import { DEFAULT_FILTERS } from '../components/SortFilterBar';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
-import { NONE_STATE } from '../lib/worldState';
+import { NONE_STATE, isActive } from '../lib/worldState';
 
 // --- localStorage persistence helpers ---
 
@@ -68,9 +68,7 @@ export { SORT_STORAGE_KEY, FILTER_STORAGE_KEY };
 
 // --- Filtering & sorting hook ---
 
-export function isActive(state: WorldState): boolean {
-  return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
-}
+export { isActive };
 
 export function useFilteredWorlds(
   worlds: WorldConfig[],

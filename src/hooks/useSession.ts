@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
 import type { ClientMessage, ServerMessage, MemberInfo, MemberRole, SessionInfo } from '../../shared/protocol.ts';
 import { validateSessionCode } from '../lib/sessionUrl';
+import { isActive } from '../lib/worldState';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '../../shared/reconnect.ts';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -364,9 +365,7 @@ export function useSession(onSessionLost?: () => void) {
             // Find local-only active worlds to contribute to the session
             const localOnly = Object.fromEntries(
               Object.entries(local).filter(
-                ([id, s]) =>
-                  (s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined) &&
-                  !(Number(id) in msg.worlds)
+                ([id, s]) => isActive(s) && !(Number(id) in msg.worlds)
               )
             ) as WorldStates;
             if (Object.keys(localOnly).length > 0) {
