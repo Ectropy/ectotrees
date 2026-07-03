@@ -5,6 +5,9 @@ import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+import type { SessionInfo } from '../../shared/protocol.ts';
+import { SessionMetaRow, SessionStats } from './SessionMetaRow';
+import { relativeTime } from '../lib/relativeTime';
 
 const RUNESCAPE_USERNAME_INPUT_PROPS = {
   type: 'text' as const,
@@ -24,6 +27,7 @@ interface Props {
   onJoin: (localStates?: WorldStates) => void;
   onOpenJoin: (name: string) => Promise<boolean>;
   onCancel: () => void;
+  sessionInfo?: SessionInfo;
 }
 
 interface WorldConfig {
@@ -99,7 +103,7 @@ function Section({ title, count, description, accentClass, children }: SectionPr
   );
 }
 
-export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, managed, allowOpenJoin, onJoin, onOpenJoin, onCancel }: Props) {
+export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, managed, allowOpenJoin, onJoin, onOpenJoin, onCancel, sessionInfo }: Props) {
   const isToken = codeOrToken.length === 12;
   const displayLabel = isToken ? 'Invite' : 'Code';
   const [scoutFormOpen, setScoutFormOpen] = useState(false);
@@ -145,9 +149,42 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
         {/* Header */}
         <div>
           <h1 className={`text-xl font-bold ${TEXT_COLOR.prominent}`}>Join Session</h1>
-          <p className={`text-sm ${TEXT_COLOR.muted} mt-0.5`}>
-            {displayLabel}: <span className="font-mono font-bold text-yellow-300">{codeOrToken}</span>
-          </p>
+          {sessionInfo?.name ? (
+            <div className="bg-gray-800 border border-gray-700 rounded p-3 space-y-2 mt-2">
+              <div>
+                <div className="flex justify-between items-start gap-3">
+                  <p className="text-sm font-medium text-white min-w-0 truncate">{sessionInfo.name}</p>
+                  <SessionStats
+                    activeWorldCount={sessionInfo.activeWorldCount}
+                    dashboards={sessionInfo.dashboards}
+                    scouts={sessionInfo.scouts}
+                  />
+                </div>
+                <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(sessionInfo.lastActivityAt)}</p>
+              </div>
+              {sessionInfo.description && (
+                <p className={`text-xs ${TEXT_COLOR.muted}`}>{sessionInfo.description}</p>
+              )}
+            </div>
+          ) : sessionInfo ? (
+            <div className="mt-0.5">
+              <p className={`text-sm ${TEXT_COLOR.muted}`}>
+                {displayLabel}: <span className="font-mono font-bold text-yellow-300">{codeOrToken}</span>
+              </p>
+              <div className="mt-1">
+                <SessionMetaRow
+                  activeWorldCount={sessionInfo.activeWorldCount}
+                  dashboards={sessionInfo.dashboards}
+                  scouts={sessionInfo.scouts}
+                  lastActivityAt={sessionInfo.lastActivityAt}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className={`text-sm ${TEXT_COLOR.muted} mt-0.5`}>
+              {displayLabel}: <span className="font-mono font-bold text-yellow-300">{codeOrToken}</span>
+            </p>
+          )}
         </div>
 
         {/* Comparison sections */}

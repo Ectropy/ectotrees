@@ -24,6 +24,7 @@ import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldStates } from './types';
+import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
 import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
@@ -37,7 +38,7 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
   | { kind: 'session' }
-  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean }
+  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean; info?: SessionInfo }
   | { kind: 'browse' }
   | { kind: 'map' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
@@ -107,7 +108,7 @@ export default function App() {
   const handleRequestSessionJoin = useCallback(async (code: string): Promise<boolean> => {
     const preview = await previewJoin(code);
     if (!preview) return false; // error already in session.error
-    const { worlds: serverWorlds, allowOpenJoin, managed } = preview;
+    const { worlds: serverWorlds, allowOpenJoin, managed, info } = preview;
 
     // Skip the join screen when it offers no decision: nothing to contribute, nothing being
     // lost, and no full-member option to offer instead of the default read-only viewer join
@@ -132,7 +133,7 @@ export default function App() {
       return true;
     }
 
-    setActiveView({ kind: 'session-join', code, allowOpenJoin, managed });
+    setActiveView({ kind: 'session-join', code, allowOpenJoin, managed, info });
     return true;
   }, [previewJoin, confirmPreviewJoin]);
 
@@ -454,6 +455,7 @@ export default function App() {
         onJoin={(localStates?: WorldStates) => handleJoinFromView(activeView.code, localStates)}
         onOpenJoin={(name: string) => handleOpenJoinFromView(activeView.code, name)}
         onCancel={handleBack}
+        sessionInfo={activeView.info}
       />;
 
     if (activeView.kind !== 'grid') {

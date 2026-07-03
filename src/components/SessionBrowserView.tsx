@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, TreeDeciduous, Users } from 'lucide-react';
-import { MemberCount } from './MemberCount';
+import { RefreshCw, Users } from 'lucide-react';
+import { SessionMetaRow } from './SessionMetaRow';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
@@ -28,14 +28,6 @@ interface SessionBrowserViewProps {
   showOnStartup: boolean;
   onShowOnStartupChange: (value: boolean) => void;
   onSessionStarted: () => void;
-}
-
-function relativeTime(ts: number): string {
-  const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 export function SessionBrowserView({
@@ -253,13 +245,12 @@ export function SessionBrowserView({
                         </button>
                       </form>
                     )}
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className={`flex items-center gap-1 ${TEXT_COLOR.prominent}`}>
-                        <TreeDeciduous className="w-3 h-3" /> {s.activeWorldCount}
-                      </span>
-                      <MemberCount clientCount={s.dashboards} scouts={s.scouts} connected={true} className="text-xs" />
-                    </div>
-                    <p className={`text-xs ${TEXT_COLOR.faint} mt-1`}>Active {relativeTime(s.lastActivityAt)}</p>
+                    <SessionMetaRow
+                      activeWorldCount={s.activeWorldCount}
+                      dashboards={s.dashboards}
+                      scouts={s.scouts}
+                      lastActivityAt={s.lastActivityAt}
+                    />
                   </div>
                   {/* Right column: action buttons */}
                   {openJoinCode !== s.code && (

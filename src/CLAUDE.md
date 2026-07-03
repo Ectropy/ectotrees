@@ -15,6 +15,7 @@ src/
   lib/
     utils.ts            # cn() helper (clsx + tailwind-merge). Clipboard helper lives in shared-browser/clipboard.ts
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
+    relativeTime.ts     # relativeTime(ts): short "just now"/"5m ago"/"3h ago"/"2d ago" formatter (used by SessionMetaRow)
     sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — #join=CODE fragment URL parsing/generation. For identity-token URL handling, see shared-browser/sessionUrl.ts (buildIdentityUrl, extractIdentityToken — shared with alt1-plugin)
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
@@ -44,7 +45,8 @@ src/
     MemberCount.tsx      # Compact member-count chip used in SessionBar / SessionView
     Alt1TokenButton.tsx  # Header-area button that surfaces the Alt1 identity-link copy/regenerate flow
     SessionBrowserView.tsx # Full-screen/sidebar: session discovery panel — browse/join listed sessions, create session, enter code/token
-    SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local)
+    SessionJoinView.tsx  # Full-screen/sidebar: before-you-join comparison view (shows session world state vs local). For named sessions the header renders a browser-style card (name + SessionStats counts on one row, Active line, then description) with no join code; anonymous sessions show the code + metadata (via SessionMetaRow); falls back to code-only for old servers/mocks
+    SessionMetaRow.tsx   # Exports SessionStats (counts flex row: active worlds + MemberCount) and SessionMetaRow (SessionStats + "Active {relativeTime}" line). SessionMetaRow used by SessionBrowserView cards and SessionJoinView's anonymous branch; SessionStats used directly by SessionJoinView's named-session card
     UpdateBanner.tsx     # Fixed bottom banner shown in production when a new app version is detected (polls /api/health every 15 min, compares `data.version` against `__APP_VERSION__`)
     UpdateBanner.stories.tsx # Storybook story
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
@@ -93,12 +95,12 @@ type ActiveView =
   | { kind: 'grid' }
   | { kind: 'settings' }
   | { kind: 'session' }
-  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean }
+  | { kind: 'session-join'; code: string; allowOpenJoin: boolean; managed: boolean; info?: SessionInfo }
   | { kind: 'browse' }
   | { kind: 'map' }
   | { kind: 'spawn' | 'tree' | 'dead' | 'detail'; worldId: number };
 ```
-Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, invites, and the **Follow scout's world** toggle. `session-join` is shown when joining a session that has existing state, or when the target session allows open join — it renders `SessionJoinView` with direct-commit action buttons: "Join as Scout [and contribute (N worlds)]" (when `allowOpenJoin`; expands an inline name form and self-issues a scout identity via `openJoin`, contributing local-only worlds), "Join as viewer" for managed sessions (always discards local data — the server rejects `contributeWorlds` from viewers), or the anonymous-session "Join and contribute" / "Join session" pair. While `session-join` is active, the world grid renders the session's live `previewWorlds` read-only (banner shown, card clicks/tools disabled) so desktop joiners see the session's intel beside the panel. `browse` opens `SessionBrowserView` and is the default initial view when the user has no active session and `showBrowseOnStartup` is true; auto-redirects to `session` once a session is created/joined. `map` (PoC) is opened from the `Map` icon in the header and renders `MapView` — analytics is currently skipped for this view.
+Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` is opened by clicking a card body; the detail view exposes all three tools directly. `settings` is opened from the ⚙ button in the header. `session` is opened from the `SessionBar` (clicking the session code, the Shield member count button, or the ExternalLink icon) and renders `SessionView` — a full panel for pairing, managed mode, member management, invites, and the **Follow scout's world** toggle. `session-join` is shown when joining a session that has existing state, or when the target session allows open join — it renders `SessionJoinView` (whose header surfaces the session name, description, and live metadata carried in the `info?: SessionInfo` field, sourced from the `sessionInfo` WS message during preview) with direct-commit action buttons: "Join as Scout [and contribute (N worlds)]" (when `allowOpenJoin`; expands an inline name form and self-issues a scout identity via `openJoin`, contributing local-only worlds), "Join as viewer" for managed sessions (always discards local data — the server rejects `contributeWorlds` from viewers), or the anonymous-session "Join and contribute" / "Join session" pair. While `session-join` is active, the world grid renders the session's live `previewWorlds` read-only (banner shown, card clicks/tools disabled) so desktop joiners see the session's intel beside the panel. `browse` opens `SessionBrowserView` and is the default initial view when the user has no active session and `showBrowseOnStartup` is true; auto-redirects to `session` once a session is created/joined. `map` (PoC) is opened from the `Map` icon in the header and renders `MapView` — analytics is currently skipped for this view.
 
 **World search bar**: a `Search` icon input in the header filters the grid by world number. When the search matches exactly one world and sidebar mode is enabled, it auto-opens the detail view for that world. Escape clears the search.
 

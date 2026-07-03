@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
-import type { ClientMessage, ServerMessage, MemberInfo, MemberRole } from '../../shared/protocol.ts';
+import type { ClientMessage, ServerMessage, MemberInfo, MemberRole, SessionInfo } from '../../shared/protocol.ts';
 import { validateSessionCode } from '../lib/sessionUrl';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '../../shared/reconnect.ts';
 
@@ -147,6 +147,13 @@ function persistIdentityToken(token: string | null) {
   } catch { /* ignore */ }
 }
 
+interface PreviewJoinResult {
+  worlds: WorldStates;
+  allowOpenJoin: boolean;
+  managed: boolean;
+  info?: SessionInfo;
+}
+
 export function useSession(onSessionLost?: () => void) {
   const initialCode = loadPersistedSessionCode();
   const [session, setSession] = useState<SessionState>(defaultSessionState({ code: initialCode }));
@@ -155,9 +162,10 @@ export function useSession(onSessionLost?: () => void) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const previewWsRef = useRef<WebSocket | null>(null);
-  const previewResolveRef = useRef<((result: { worlds: WorldStates; allowOpenJoin: boolean; managed: boolean } | null) => void) | null>(null);
+  const previewResolveRef = useRef<((result: PreviewJoinResult | null) => void) | null>(null);
   const previewAllowOpenJoinRef = useRef(false);
   const previewManagedRef = useRef(false);
+  const previewSessionInfoRef = useRef<SessionInfo | null>(null);
   const handlersRef = useRef<{
     onSnapshot: (states: WorldStates) => void;
     onWorldUpdate: (worldId: number, state: WorldState | null) => void;
@@ -685,7 +693,7 @@ export function useSession(onSessionLost?: () => void) {
     connectWs(code, identityTokenRef.current ?? undefined);
   }, []);
 
-  const previewJoin = useCallback((codeOrToken: string): Promise<{ worlds: WorldStates; allowOpenJoin: boolean; managed: boolean } | null> => {
+  const previewJoin = useCallback((codeOrToken: string): Promise<PreviewJoinResult | null> => {
     // Cancel any in-flight preview
     if (previewWsRef.current) {
       previewWsRef.current.close();
@@ -698,6 +706,7 @@ export function useSession(onSessionLost?: () => void) {
 
     previewAllowOpenJoinRef.current = false;
     previewManagedRef.current = false;
+    previewSessionInfoRef.current = null;
     setSession(prev => ({ ...prev, error: null, errorKind: null }));
 
     return new Promise((resolve) => {
@@ -720,7 +729,10 @@ export function useSession(onSessionLost?: () => void) {
         let msg: ServerMessage;
         try { msg = JSON.parse(event.data as string); } catch { return; }
 
-        if (msg.type === 'allowOpenJoin') {
+        if (msg.type === 'sessionInfo') {
+          // Arrives before snapshot (server ordering) — recorded for when snapshot resolves.
+          previewSessionInfoRef.current = msg.info;
+        } else if (msg.type === 'allowOpenJoin') {
           // Arrives before snapshot (server ordering) — recorded for when snapshot resolves.
           // Only managed sessions send this, so its presence also marks the session managed.
           previewAllowOpenJoinRef.current = msg.allow;
@@ -730,7 +742,7 @@ export function useSession(onSessionLost?: () => void) {
           previewResolveRef.current = null;
           setPreviewWorlds(msg.worlds);
           // Keep WS open — confirmPreviewJoin will close it
-          res?.({ worlds: msg.worlds, allowOpenJoin: previewAllowOpenJoinRef.current, managed: previewManagedRef.current });
+          res?.({ worlds: msg.worlds, allowOpenJoin: previewAllowOpenJoinRef.current, managed: previewManagedRef.current, info: previewSessionInfoRef.current ?? undefined });
         } else if (msg.type === 'worldUpdate') {
           setPreviewWorlds(prev => {
             if (!prev) return prev;
