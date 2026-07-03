@@ -215,6 +215,122 @@ test('#join= valid code: session code appears in bar when WS connects', async ({
   await expect(page.locator(`text=${JOIN_CODE}`).first()).toBeVisible();
 });
 
+test('#join= open-join session: metadata is shown on the before-you-join screen', async ({ page }) => {
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        if (msg.type === 'authSession') {
+          // Mirror server ordering: sessionInfo + allowOpenJoin precede the snapshot
+          ws.send(JSON.stringify({ type: 'sessionInfo', info: {
+            code: msg.code, name: 'Evil Tree HQ', description: 'Come scout with us',
+            managed: true, allowOpenJoin: true, clientCount: 3, scouts: 2, dashboards: 1,
+            memberCount: 4, activeWorldCount: 7,
+            createdAt: Date.now() - 60_000, lastActivityAt: Date.now() - 5_000,
+          } }));
+          ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: true }));
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code, managed: true }));
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {} }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 3 }));
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+  });
+
+  await page.goto(`/#join=${JOIN_CODE}`);
+
+  // allowOpenJoin forces the before-you-join screen even with no local data,
+  // and the sessionInfo message surfaces the session name/description there.
+  await expect(page.locator('h1').last()).toContainText('Join Session');
+  await expect(page.getByText('Evil Tree HQ')).toBeVisible();
+  await expect(page.getByText('Come scout with us')).toBeVisible();
+});
+
+test('#join= anonymous session with local data: contribute/conflict screen appears', async ({ page }) => {
+  // Seed two active local worlds directly (same shape as useWorldStates persists):
+  //  - W1 is a spawn timer → CONFLICTS with the server's alive-willow W1
+  //  - W2 is a local-only alive oak → nothing on the server, so it can be contributed
+  // addInitScript runs after the beforeEach clear, so this survives the reset.
+  await page.addInitScript(() => {
+    const now = Date.now();
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      1: { treeStatus: 'none', nextSpawnTarget: now + 30 * 60 * 1000, spawnSetAt: now },
+      2: { treeStatus: 'alive', matureAt: now - 60 * 1000, treeType: 'oak' },
+    }));
+  });
+
+  // Collect every message the client sends across both the preview and the real
+  // (post-confirm) WS connections — routeWebSocket runs this handler per socket.
+  const clientMessages: { type: string; msgId?: number; worlds?: Record<string, unknown> }[] = [];
+
+  await page.routeWebSocket(/\/ws/, ws => {
+    ws.onMessage(raw => {
+      try {
+        const msg = JSON.parse(raw as string);
+        clientMessages.push(msg);
+        if (msg.type === 'authSession') {
+          // Anonymous session: sessionInfo has NO name/description, managed:false,
+          // allowOpenJoin:false. Server ordering is sessionInfo → authSuccess → snapshot.
+          ws.send(JSON.stringify({ type: 'sessionInfo', info: {
+            code: msg.code, managed: false, allowOpenJoin: false,
+            clientCount: 2, scouts: 1, dashboards: 1, memberCount: 2, activeWorldCount: 1,
+            createdAt: Date.now() - 120_000, lastActivityAt: Date.now() - 10_000,
+          } }));
+          ws.send(JSON.stringify({ type: 'authSuccess', sessionCode: msg.code }));
+          // Snapshot CONFLICTS with local W1 (alive willow vs local spawn timer) and
+          // omits local W2, so both the conflict and contribute sections render.
+          ws.send(JSON.stringify({ type: 'snapshot', worlds: {
+            1: { treeStatus: 'alive', matureAt: Date.now() - 60 * 1000, treeType: 'willow' },
+          } }));
+          ws.send(JSON.stringify({ type: 'clientCount', count: 2 }));
+        } else if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (msg.msgId !== undefined) {
+          ws.send(JSON.stringify({ type: 'ack', msgId: msg.msgId }));
+        }
+      } catch { /* ignore malformed */ }
+    });
+  });
+
+  await page.goto(`/#join=${JOIN_CODE}`);
+
+  // Before-you-join screen is shown because there's both local-only intel to
+  // contribute and a conflicting world.
+  await expect(page.locator('h1').last()).toContainText('Join Session');
+
+  // Anonymous header: code-prominent (yellow mono span), no session name card.
+  await expect(page.locator('span.font-mono.text-yellow-300')).toHaveText(JOIN_CODE);
+
+  // Contribute section: local-only W2.
+  const contribute = page.locator('div', { has: page.getByText('Your worlds to contribute') }).first();
+  await expect(page.getByText('Your worlds to contribute')).toBeVisible();
+  await expect(contribute.getByText('W2', { exact: true })).toBeVisible();
+
+  // Conflict section: W1 (session overrides the local spawn timer).
+  const conflict = page.locator('div', { has: page.getByText('Your worlds the session overrides') }).first();
+  await expect(page.getByText('Your worlds the session overrides')).toBeVisible();
+  await expect(conflict.getByText('W1', { exact: true })).toBeVisible();
+
+  // Anonymous action-button pair (managed:false, one world to contribute).
+  const contributeBtn = page.getByRole('button', { name: 'Join and contribute (1 world)' });
+  await expect(contributeBtn).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Join, discard my local data' })).toBeVisible();
+
+  // Commit with contribute → server should receive contributeWorlds carrying W2.
+  await contributeBtn.click();
+
+  await expect.poll(() =>
+    clientMessages.some(m => m.type === 'contributeWorlds' && m.worlds !== undefined && '2' in m.worlds)
+  ).toBe(true);
+
+  // Session bar now shows the joined session code.
+  await expect(page.getByRole('button', { name: JOIN_CODE })).toBeVisible();
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Join input: paste validation
 // ─────────────────────────────────────────────────────────────────────────────
