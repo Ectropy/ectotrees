@@ -26,6 +26,7 @@ import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldStates } from './types';
 import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
+import { NONE_STATE } from './lib/worldState';
 import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
 import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_KEY, FILTER_STORAGE_KEY } from './hooks/useFilteredWorlds';
@@ -275,7 +276,7 @@ export default function App() {
 
   const sortedFilteredWorlds = useFilteredWorlds(worlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
-  function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
+  const handleOpenTool = useCallback((worldId: number, tool: 'spawn' | 'tree' | 'dead') => {
     if (isPreviewingJoin) return;
     const { surface, sidebarSide } = getAnalyticsContext();
     trackUiEvent('ui_tool_open', {
@@ -286,12 +287,12 @@ export default function App() {
       sidebar_side: sidebarSide,
     });
     setActiveView({ kind: tool, worldId });
-  }
+  }, [isPreviewingJoin, getAnalyticsContext]);
 
-  function handleOpenCard(worldId: number) {
+  const handleOpenCard = useCallback((worldId: number) => {
     if (isPreviewingJoin) return;
     setActiveView({ kind: 'detail', worldId });
-  }
+  }, [isPreviewingJoin]);
 
   function handleBack() {
     if (activeView.kind !== 'grid') {
@@ -482,7 +483,7 @@ export default function App() {
           onBack={handleBack}
         />;
       if (activeView.kind === 'tree') {
-        const currentState = worldStates[worldId] ?? { treeStatus: 'none' as const };
+        const currentState = worldStates[worldId] ?? NONE_STATE;
         const existingState = (currentState.treeStatus === 'sapling' || currentState.treeStatus === 'mature' || currentState.treeStatus === 'alive')
           ? currentState : undefined;
         return <TreeInfoView
@@ -542,7 +543,7 @@ export default function App() {
         return <WorldDetailView
           key={worldId}
           world={world}
-          state={worldStates[worldId] ?? { treeStatus: 'none' }}
+          state={worldStates[worldId] ?? NONE_STATE}
           isFavorite={favorites.has(worldId)}
           isHidden={hiddenWorlds.has(worldId)}
           onToggleFavorite={() => toggleFavorite(worldId)}
@@ -595,15 +596,15 @@ export default function App() {
             <WorldCard
               key={world.id}
               world={world}
-              state={displayWorldStates[world.id] ?? { treeStatus: 'none' }}
+              state={displayWorldStates[world.id] ?? NONE_STATE}
               isFavorite={favorites.has(world.id)}
               isHidden={hiddenWorlds.has(world.id)}
-              onToggleFavorite={() => toggleFavorite(world.id)}
-              onToggleHidden={() => toggleHidden(world.id)}
-              onCardClick={() => handleOpenCard(world.id)}
-              onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+              onToggleFavorite={toggleFavorite}
+              onToggleHidden={toggleHidden}
+              onCardClick={handleOpenCard}
+              onOpenTool={handleOpenTool}
               lightningEvent={isPreviewingJoin ? undefined : lightningEvents.get(world.id)}
-              onDismissLightning={() => dismissLightningEvent(world.id)}
+              onDismissLightning={dismissLightningEvent}
               effectsLightning={settings.effectsLightning}
               effectsSparks={settings.effectsSparks}
               isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
@@ -649,11 +650,11 @@ export default function App() {
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
               <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
-              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
             </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => {
-                const s = displayWorldStates[w.id] ?? { treeStatus: 'none' as const };
+                const s = displayWorldStates[w.id] ?? NONE_STATE;
                 return s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined;
               });
               const hasIntel = intelWorlds.length > 0;
