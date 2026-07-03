@@ -253,19 +253,7 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: !!session.allowOpenJoin } satisfies ServerMessage));
   }
 
-  // Send current state snapshot (only active worlds)
-  const activeWorlds: WorldStates = {};
-  for (const [key, state] of Object.entries(session.worldStates)) {
-    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
-      activeWorlds[Number(key)] = state;
-    }
-  }
-  const snapshot: ServerMessage = { type: 'snapshot', worlds: activeWorlds };
-  ws.send(JSON.stringify(snapshot));
-
-  if (session.name) {
-    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
-  }
+  sendSnapshotAndSettings(session, ws);
 
   // Re-send active fork invite to all connecting clients; selfRegisterToken only included for those present at fork time
   if (session.pendingFork) {
@@ -483,14 +471,17 @@ function broadcastMemberList(session: Session) {
   }
 }
 
-function broadcastClientCount(session: Session) {
-  // count        — unique people online (deduplicated by identity token)
-  // scouts       — unique people with ≥1 scout (Alt1) connection
-  // dashboards   — unique people with ≥1 dashboard connection
-  // identityViewers  — online members with role 'viewer' (managed only)
-  // anonymousViewers — connections with no identity token (no dedup possible)
+/**
+ * Who is online right now, deduplicated by identity token:
+ * count        — unique people online (deduplicated by identity token)
+ * scouts       — unique people with ≥1 scout (Alt1) connection
+ * dashboards   — unique people with ≥1 dashboard connection
+ * identityViewers  — online members with role 'viewer' (managed only)
+ * anonymousViewers — connections with no identity token (no dedup possible)
+ */
+function computePresence(session: Session) {
   let count = 0, scouts = 0, dashboards = 0, identityViewers = 0, anonymousViewers = 0;
-  for (const member of session.members.values()) {
+  for (const member of session.members?.values() ?? []) {
     if (member.banned || member.connections.size === 0) continue;
     count++;
     if (member.role === 'viewer') identityViewers++;
@@ -513,7 +504,27 @@ function broadcastClientCount(session: Session) {
       else if (t === 'dashboard') dashboards++;
     }
   }
-  broadcast(session, { type: 'clientCount', count, scouts, dashboards, identityViewers, anonymousViewers });
+  return { count, scouts, dashboards, identityViewers, anonymousViewers };
+}
+
+function broadcastClientCount(session: Session) {
+  broadcast(session, { type: 'clientCount', ...computePresence(session) });
+}
+
+/** Connect handshake shared by anonymous and member joins: the active-worlds
+ *  snapshot followed by current session settings (when named). */
+function sendSnapshotAndSettings(session: Session, ws: WebSocket) {
+  const activeWorlds: WorldStates = {};
+  for (const [key, state] of Object.entries(session.worldStates)) {
+    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+      activeWorlds[Number(key)] = state;
+    }
+  }
+  ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
+
+  if (session.name) {
+    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
+  }
 }
 
 /**
@@ -746,18 +757,7 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   scheduleSave();
   session.emptySince = null;
 
-  // Send snapshot
-  const activeWorlds: WorldStates = {};
-  for (const [key, state] of Object.entries(session.worldStates)) {
-    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
-      activeWorlds[Number(key)] = state;
-    }
-  }
-  ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
-
-  if (session.name) {
-    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
-  }
+  sendSnapshotAndSettings(session, ws);
 
   // Send identity (both managed and anonymous members)
   const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role, sessionCode: session.code };
@@ -971,13 +971,10 @@ export function banMember(session: Session, ws: WebSocket, identityToken: string
 
   member.banned = true;
 
-  // Disconnect all their connections
+  // Notify, then disconnect all their connections
+  notifyMember(member, { type: 'banned', reason: 'You have been banned from this session.' });
   for (const memberWs of member.connections) {
-    const bannedMsg: ServerMessage = { type: 'banned', reason: 'You have been banned from this session.' };
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify(bannedMsg));
-      memberWs.close(1008, 'Banned');
-    }
+    if (memberWs.readyState === 1) memberWs.close(1008, 'Banned');
     session.wsToIdentityToken!.delete(memberWs);
     removeClient(session, memberWs);
   }
@@ -1008,11 +1005,9 @@ export function kickMember(session: Session, ws: WebSocket, identityToken: strin
   // Perform cleanup inline (without calling removeClient) so that member.connections
   // is cleared before any broadcast fires — avoiding an intermediate broadcast that
   // incorrectly shows the member as still online.
+  notifyMember(member, { type: 'kicked' });
   for (const memberWs of member.connections) {
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'kicked' }));
-      memberWs.close(1008, 'Kicked');
-    }
+    if (memberWs.readyState === 1) memberWs.close(1008, 'Kicked');
     session.wsToIdentityToken!.delete(memberWs);
     session.clients.delete(memberWs);
     session.clientIds.delete(memberWs);
@@ -1129,25 +1124,7 @@ export function buildSessionInfo(session: Session): SessionInfo {
   } else {
     memberCount = session.clients.size;
   }
-  let scouts = 0, dashboards = 0;
-  for (const member of session.members?.values() ?? []) {
-    if (member.banned || member.connections.size === 0) continue;
-    let hasScout = false, hasDashboard = false;
-    for (const ws of member.connections) {
-      const t = session.clientTypes.get(ws) ?? 'unknown';
-      if (t === 'scout') hasScout = true;
-      if (t === 'dashboard') hasDashboard = true;
-    }
-    if (hasScout) scouts++;
-    if (hasDashboard) dashboards++;
-  }
-  for (const ws of session.clients) {
-    if (!session.wsToIdentityToken?.has(ws)) {
-      const t = session.clientTypes.get(ws) ?? 'unknown';
-      if (t === 'scout') scouts++;
-      else if (t === 'dashboard') dashboards++;
-    }
-  }
+  const { scouts, dashboards } = computePresence(session);
   return {
     code: session.code,
     name: session.name,

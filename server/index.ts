@@ -543,6 +543,9 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
 
 const MUTATION_TYPES = new Set(['setSpawnTimer', 'setTreeInfo', 'updateTreeFields', 'updateHealth', 'reportLightning', 'markDead', 'clearWorld', 'contributeWorlds', 'initializeState']);
 
+// Pairing/managed messages don't use the ACK system
+const NO_ACK_TYPES = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowOpenJoin', 'updateSessionSettings']);
+
 function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clientId: number) {
   const now = Date.now();
   const c = `Client ${clientId}`;
@@ -787,10 +790,9 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
     }
   }
 
-  // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowOpenJoin', 'updateSessionSettings']);
+  // Send ACK if the client included a msgId
   const msgId = (msg as { msgId?: number }).msgId;
-  if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
+  if (!NO_ACK_TYPES.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };
     ws.send(JSON.stringify(ack));
   }
