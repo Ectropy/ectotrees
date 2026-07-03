@@ -656,11 +656,8 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
   const consumed = session.selfRegisterTokens.get(selfRegisterToken);
   if (consumed === undefined) return { error: 'Invalid self-registration token.' };
   if (consumed) return { error: 'This self-registration token has already been used.' };
-  // Reject duplicate names
-  for (const m of session.members.values()) {
-    if (!m.banned && m.name.toLowerCase() === name.toLowerCase()) {
-      return { error: 'That name is already taken in this session.' };
-    }
+  if (isNameTaken(session, name)) {
+    return { error: 'That name is already taken in this session.' };
   }
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) {
     return { error: 'Session is full.' };
@@ -872,12 +869,7 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   if (!sanitized) return { error: 'Name is required.' };
   if (containsProfanity(sanitized)) return { error: 'Name contains inappropriate language.' };
 
-  // Enforce name uniqueness (case-insensitive)
-  for (const m of session.members.values()) {
-    if (!m.banned && m.name.toLowerCase() === sanitized.toLowerCase()) {
-      return { error: 'Name already taken.' };
-    }
-  }
+  if (isNameTaken(session, sanitized)) return { error: 'Name already taken.' };
 
   const identityToken = generateUniqueIdentityToken();
   const member: Member = {
@@ -901,10 +893,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { type: 'error', message: 'Maximum members reached.' };
 
-  // Enforce name uniqueness
-  for (const m of session.members.values()) {
-    if (m.name === name) return { type: 'error', message: 'Name already taken.' };
-  }
+  if (isNameTaken(session, name)) return { type: 'error', message: 'Name already taken.' };
 
   const identityToken = generateUniqueIdentityToken();
   const member: Member = {
@@ -923,6 +912,22 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   const link = `${APP_URL}/#identity=${identityToken}`;
   broadcastMemberList(session);
   return { type: 'inviteCreated', identityToken, name, link };
+}
+
+/**
+ * Case-insensitive name-uniqueness check across non-banned members.
+ * Case-insensitive everywhere so "Bob" and "bob" can never coexist, regardless
+ * of whether the name arrives via self-registration, open join, an admin
+ * invite, or a rename. Pass `excludeMember` when renaming so a member can
+ * keep (or re-case) their own name.
+ */
+export function isNameTaken(session: Session, name: string, excludeMember?: Member): boolean {
+  const lower = name.toLowerCase();
+  for (const m of session.members?.values() ?? []) {
+    if (m === excludeMember || m.banned) continue;
+    if (m.name.toLowerCase() === lower) return true;
+  }
+  return false;
 }
 
 /** Sends a message to all open WebSocket connections belonging to a member. */
@@ -1034,10 +1039,7 @@ export function renameMember(session: Session, ws: WebSocket, identityToken: str
     return { type: 'error', message: 'Permission denied.' };
   }
 
-  // Enforce uniqueness
-  for (const m of session.members.values()) {
-    if (m !== member && m.name === name) return { type: 'error', message: 'Name already taken.' };
-  }
+  if (isNameTaken(session, name, member)) return { type: 'error', message: 'Name already taken.' };
 
   member.name = name;
   scheduleSave();
