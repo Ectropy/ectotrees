@@ -99,6 +99,7 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 | `kicked` | (no payload) — sent to a member who was kicked (not banned); connection is closed but token remains valid |
 | `banned` | `reason: string` — sent to a client whose invite token has been revoked |
 | `allowOpenJoin` | `allow: boolean` — broadcast when the allow-open-join setting changes |
+| `sessionInfo` | `info: SessionInfo` — sent to every connecting client (managed and anonymous) before the snapshot so `previewJoin` can surface session name/description/counts on the join screen; `info.name` is absent for anonymous sessions |
 | `sessionSettingsUpdated` | `name: string \| null; description: string \| null; listed: boolean` — broadcast when session metadata is updated |
 | `selfRegistered` | `identityToken: string` — confirms WebSocket-based self-registration succeeded; client uses token for `authIdentity` on reconnect |
 | `peerScout` | `connected: boolean` — sent to a dashboard when its linked scout connects or disconnects |

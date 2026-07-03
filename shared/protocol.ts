@@ -14,9 +14,11 @@ export interface MemberInfo {
   link?: string;         // included only for admin recipients — full invite URL
 }
 
-export interface SessionSummary {
+/** Session metadata sent to every connecting client (and used for the browser list). Name is
+ *  absent for anonymous sessions, which have no name. */
+export interface SessionInfo {
   code: string;
-  name: string;
+  name?: string;
   description?: string;
   managed: boolean;
   allowOpenJoin: boolean;
@@ -27,6 +29,11 @@ export interface SessionSummary {
   activeWorldCount: number;
   createdAt: number;
   lastActivityAt: number;
+}
+
+/** A listed session in the browser — always managed and named. */
+export interface SessionSummary extends SessionInfo {
+  name: string;
 }
 
 export type ClientMessage =
@@ -76,6 +83,7 @@ export type ServerMessage =
   | { type: 'kicked' }
   | { type: 'banned';         reason: string }
   | { type: 'allowOpenJoin';  allow: boolean }
+  | { type: 'sessionInfo';    info: SessionInfo }
   | { type: 'identityToken';  token: string }
   | { type: 'selfRegistered'; identityToken: string }
   | { type: 'redirect';       code: string }

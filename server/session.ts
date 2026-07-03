@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
-import type { ServerMessage, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
+import type { ServerMessage, SessionInfo, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { containsProfanity } from './profanity.ts';
 import { scheduleSave, type PersistedStateV1 } from './persistence.ts';
@@ -232,10 +232,18 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     return false;
   }
   const clientId = session.nextClientId++;
+  // Build session metadata before adding this connection so the connecting previewer isn't
+  // counted in its own clientCount.
+  const info = buildSessionInfo(session);
   session.clients.add(ws);
   session.clientIds.set(ws, clientId);
   session.clientTypes.set(ws, 'unknown');
   session.emptySince = null;
+
+  // Send session metadata before the snapshot so previewJoin can surface session name/counts
+  // on the join screen (it relies on this arriving before the snapshot resolves). Sent for all
+  // sessions, managed and anonymous.
+  ws.send(JSON.stringify({ type: 'sessionInfo', info } satisfies ServerMessage));
 
   // Send allowOpenJoin before the snapshot so anonymous viewers of a managed session
   // learn whether a scout self-join option exists (previewJoin relies on this arriving
@@ -1101,58 +1109,64 @@ export function transferOwnership(session: Session, ws: WebSocket, identityToken
 
 // ── Session browser ────────────────────────────────────────────────────────
 
+/** Build the shared metadata block for a session. Safe for anonymous sessions (no members map,
+ *  no name) — used both for the browser list and the per-connection `sessionInfo` message. */
+export function buildSessionInfo(session: Session): SessionInfo {
+  let activeWorldCount = 0;
+  for (const state of Object.values(session.worldStates)) {
+    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+      activeWorldCount++;
+    }
+  }
+  let memberCount: number;
+  if (session.managed) {
+    memberCount = 0;
+    for (const m of session.members?.values() ?? []) {
+      if (!m.banned) memberCount++;
+    }
+  } else {
+    memberCount = session.clients.size;
+  }
+  let scouts = 0, dashboards = 0;
+  for (const member of session.members?.values() ?? []) {
+    if (member.banned || member.connections.size === 0) continue;
+    let hasScout = false, hasDashboard = false;
+    for (const ws of member.connections) {
+      const t = session.clientTypes.get(ws) ?? 'unknown';
+      if (t === 'scout') hasScout = true;
+      if (t === 'dashboard') hasDashboard = true;
+    }
+    if (hasScout) scouts++;
+    if (hasDashboard) dashboards++;
+  }
+  for (const ws of session.clients) {
+    if (!session.wsToIdentityToken?.has(ws)) {
+      const t = session.clientTypes.get(ws) ?? 'unknown';
+      if (t === 'scout') scouts++;
+      else if (t === 'dashboard') dashboards++;
+    }
+  }
+  return {
+    code: session.code,
+    name: session.name,
+    description: session.description,
+    managed: !!session.managed,
+    allowOpenJoin: !!session.allowOpenJoin,
+    clientCount: session.clients.size,
+    scouts,
+    dashboards,
+    memberCount,
+    activeWorldCount,
+    createdAt: session.createdAt,
+    lastActivityAt: session.lastActivityAt,
+  };
+}
+
 export function getListedSessions(): SessionSummary[] {
   const results: SessionSummary[] = [];
   for (const session of sessions.values()) {
     if (!session.managed || !session.listed || !session.name) continue;
-    let activeWorldCount = 0;
-    for (const state of Object.values(session.worldStates)) {
-      if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
-        activeWorldCount++;
-      }
-    }
-    let memberCount: number;
-    if (session.managed) {
-      memberCount = 0;
-      for (const m of session.members.values()) {
-        if (!m.banned) memberCount++;
-      }
-    } else {
-      memberCount = session.clients.size;
-    }
-    let scouts = 0, dashboards = 0;
-    for (const member of session.members.values()) {
-      if (member.banned || member.connections.size === 0) continue;
-      let hasScout = false, hasDashboard = false;
-      for (const ws of member.connections) {
-        const t = session.clientTypes.get(ws) ?? 'unknown';
-        if (t === 'scout') hasScout = true;
-        if (t === 'dashboard') hasDashboard = true;
-      }
-      if (hasScout) scouts++;
-      if (hasDashboard) dashboards++;
-    }
-    for (const ws of session.clients) {
-      if (!session.wsToIdentityToken?.has(ws)) {
-        const t = session.clientTypes.get(ws) ?? 'unknown';
-        if (t === 'scout') scouts++;
-        else if (t === 'dashboard') dashboards++;
-      }
-    }
-    results.push({
-      code: session.code,
-      name: session.name,
-      description: session.description,
-      managed: !!session.managed,
-      allowOpenJoin: !!session.allowOpenJoin,
-      clientCount: session.clients.size,
-      scouts,
-      dashboards,
-      memberCount,
-      activeWorldCount,
-      createdAt: session.createdAt,
-      lastActivityAt: session.lastActivityAt,
-    });
+    results.push({ ...buildSessionInfo(session), name: session.name });
   }
   results.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
   return results.slice(0, 50);
