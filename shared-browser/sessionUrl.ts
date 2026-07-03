@@ -11,7 +11,8 @@ export function buildIdentityUrl(token: string, basePath?: string): string {
   return `${window.location.origin}${path}#identity=${token}`;
 }
 
-const IDENTITY_TOKEN_RE = /^[A-HJ-NP-Z2-9]{12}$/;
+/** Canonical shape of a 12-char identity token (no 0/O/1/I to avoid ambiguity). */
+export const IDENTITY_TOKEN_RE = /^[A-HJ-NP-Z2-9]{12}$/;
 
 /**
  * Extracts and validates a 12-char identity token from either a raw string or a full URL.

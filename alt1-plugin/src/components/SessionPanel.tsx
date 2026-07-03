@@ -3,11 +3,9 @@ import { Copy, Check } from 'lucide-react';
 import type { SessionStatus } from '../hooks/useScoutSession';
 import { useCountdown } from '@shared-browser/useCountdown';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
-import { buildIdentityUrl } from '@shared-browser/sessionUrl';
+import { buildIdentityUrl, IDENTITY_TOKEN_RE } from '@shared-browser/sessionUrl';
 import { DismissableError } from '@shared-browser/DismissableError';
 import { formatReconnectMessage } from '@shared/reconnect';
-
-const VALID_TOKEN_RE = /^[A-HJ-NP-Z2-9]{12}$/;
 
 interface SessionPanelProps {
   status: SessionStatus;
@@ -76,7 +74,7 @@ export function SessionPanel({
       // Paste was too long — truncate and flag it.
       setInputCode(value.slice(0, 12));
       showBadPaste();
-    } else if (value.length === 12 && !VALID_TOKEN_RE.test(value)) {
+    } else if (value.length === 12 && !IDENTITY_TOKEN_RE.test(value)) {
       // Exactly 12 chars but contains illegal characters (0, 1, I, O, etc.).
       setInputCode(value);
       showBadPaste();
@@ -109,7 +107,7 @@ export function SessionPanel({
   useEffect(() => {
     if (active) return;
     const token = inputCode.trim();
-    if (VALID_TOKEN_RE.test(token) && autoTriggeredRef.current !== token) {
+    if (IDENTITY_TOKEN_RE.test(token) && autoTriggeredRef.current !== token) {
       autoTriggeredRef.current = token;
       const timer = setTimeout(() => { handleJoin(); }, 100);
       return () => clearTimeout(timer);
