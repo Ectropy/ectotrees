@@ -6,6 +6,7 @@ import { buildSessionUrl } from '../lib/sessionUrl';
 import { buildIdentityUrl } from '@shared-browser/sessionUrl';
 import { useCountdown } from '@shared-browser/useCountdown';
 import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
+import { NameEntryForm } from './NameEntryForm';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 import { formatReconnectMessage } from '../../shared/reconnect.ts';
 import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
@@ -145,10 +146,7 @@ export function SessionView({
   const [upgradeName, setUpgradeName] = useState('');
   const [upgrading, setUpgrading] = useState(false);
 
-  async function handleUpgradeSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const name = upgradeName.trim();
-    if (!name) return;
+  async function handleUpgradeSubmit(name: string) {
     setUpgrading(true);
     // On success the client reconnects with the new scout identity and this panel
     // re-renders as a scout; on failure openJoin sets session.error (shown below)
@@ -586,32 +584,15 @@ export function SessionView({
                 Upgrade role to Scout
               </button>
             ) : (
-              <form autoComplete="off" className="flex gap-2" onSubmit={handleUpgradeSubmit}>
-                <input
-                  {...RUNESCAPE_USERNAME_INPUT_PROPS}
-                  name="public-session-alias"
-                  autoFocus
-                  value={upgradeName}
-                  onChange={e => setUpgradeName(e.target.value)}
-                  placeholder="Your username"
-                  maxLength={MAX_MEMBER_NAME_LEN}
-                  className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-                />
-                <button
-                  type="submit"
-                  disabled={!upgradeName.trim() || upgrading}
-                  className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
-                >
-                  {upgrading ? '…' : 'Join →'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUpgradeOpen(false)}
-                  className="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
-                >
-                  Cancel
-                </button>
-              </form>
+              <NameEntryForm
+                value={upgradeName}
+                onChange={setUpgradeName}
+                onSubmit={handleUpgradeSubmit}
+                onCancel={() => setUpgradeOpen(false)}
+                busy={upgrading}
+                inputName="public-session-alias"
+                cancelClassName="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
+              />
             )}
           </div>
         )}
@@ -780,13 +761,10 @@ function ForkInviteBanner({
       </p>
       {session.forkInvite!.selfRegisterToken ? (
         joinForkStep === 'naming' ? (
-          <form
-            autoComplete="off"
-            className="flex gap-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const name = joinForkName.trim();
-              if (!name || joining) return;
+          <NameEntryForm
+            value={joinForkName}
+            onChange={setJoinForkName}
+            onSubmit={async (name) => {
               setJoining(true);
               try {
                 await onJoinManagedFork(session.forkInvite!.managedCode, name, session.forkInvite!.selfRegisterToken!, session.forkInvite!.identityToken);
@@ -796,34 +774,15 @@ function ForkInviteBanner({
                 setJoinForkName('');
               }
             }}
-          >
-            <input
-              {...RUNESCAPE_USERNAME_INPUT_PROPS}
-              name="managed-fork-alias"
-              autoFocus
-              value={joinForkName}
-              onChange={e => setJoinForkName(e.target.value)}
-              placeholder="Your username"
-              maxLength={MAX_MEMBER_NAME_LEN}
-              disabled={joining}
-              className="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!joinForkName.trim() || joining}
-              className={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} px-3 py-1 text-xs rounded transition-colors`}
-            >
-              {joining ? 'Joining…' : 'Join →'}
-            </button>
-            <button
-              type="button"
-              disabled={joining}
-              onClick={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
-              className={`px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors ${DISABLED_STYLE}`}
-            >
-              Cancel
-            </button>
-          </form>
+            onCancel={() => { setJoinForkStep('idle'); setJoinForkName(''); }}
+            busy={joining}
+            busyLabel="Joining…"
+            disableWhileBusy
+            inputName="managed-fork-alias"
+            inputClassName="flex-1 min-w-0 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 disabled:opacity-50"
+            submitClassName={`${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} px-3 py-1 text-xs rounded transition-colors`}
+            cancelClassName={`px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors ${DISABLED_STYLE}`}
+          />
         ) : (
           <div className="flex items-center gap-2">
             <button

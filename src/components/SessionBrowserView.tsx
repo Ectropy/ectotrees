@@ -4,10 +4,9 @@ import { SessionMetaRow } from './SessionMetaRow';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
-import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
 import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, SPAWN_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { DismissableError } from '@shared-browser/DismissableError';
-import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
+import { NameEntryForm } from './NameEntryForm';
 
 interface SessionBrowserViewProps {
   session: SessionState;
@@ -194,13 +193,10 @@ export function SessionBrowserView({
                     <p className="text-sm font-medium text-white mb-1">{s.name}</p>
                     {/* Open-join inline form */}
                     {s.allowOpenJoin && openJoinCode === s.code && (
-                      <form
-                        autoComplete="off"
-                        className="flex gap-2 mb-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const name = openJoinName.trim();
-                          if (!name) return;
+                      <NameEntryForm
+                        value={openJoinName}
+                        onChange={setOpenJoinName}
+                        onSubmit={async (name) => {
                           setOpenJoining(true);
                           const ok = await onOpenJoin(s.code, name);
                           setOpenJoining(false);
@@ -210,32 +206,12 @@ export function SessionBrowserView({
                             onSessionStarted();
                           }
                         }}
-                      >
-                        <input
-                          {...RUNESCAPE_USERNAME_INPUT_PROPS}
-                          name="public-session-alias"
-                          autoFocus
-                          value={openJoinName}
-                          onChange={e => setOpenJoinName(e.target.value)}
-                          placeholder="Your username"
-                          maxLength={MAX_MEMBER_NAME_LEN}
-                          className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-                        />
-                        <button
-                          type="submit"
-                          disabled={!openJoinName.trim() || openJoining}
-                          className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
-                        >
-                          {openJoining ? '…' : 'Join →'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setOpenJoinCode(null); setOpenJoinName(''); }}
-                          className={`px-2 py-1 ${BUTTON_SECONDARY} text-xs`}
-                        >
-                          Cancel
-                        </button>
-                      </form>
+                        onCancel={() => { setOpenJoinCode(null); setOpenJoinName(''); }}
+                        busy={openJoining}
+                        inputName="public-session-alias"
+                        formClassName="flex gap-2 mb-2"
+                        cancelClassName={`px-2 py-1 ${BUTTON_SECONDARY} text-xs`}
+                      />
                     )}
                     <SessionMetaRow
                       activeWorldCount={s.activeWorldCount}

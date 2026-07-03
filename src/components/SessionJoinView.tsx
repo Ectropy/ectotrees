@@ -3,13 +3,12 @@ import worldsConfig from '../data/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
-import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import type { SessionInfo } from '../../shared/protocol.ts';
 import { SessionMetaRow, SessionStats } from './SessionMetaRow';
 import { relativeTime } from '../lib/relativeTime';
 import { isActive, worldStatesEqual, NONE_STATE } from '../lib/worldState';
-import { RUNESCAPE_USERNAME_INPUT_PROPS } from '../lib/inputProps';
+import { NameEntryForm } from './NameEntryForm';
 
 interface Props {
   codeOrToken: string;
@@ -109,10 +108,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
     onJoin(contribute ? localWorldStates : undefined);
   }
 
-  async function handleOpenJoinSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const name = memberName.trim();
-    if (!name) return;
+  async function handleOpenJoinSubmit(name: string) {
     setJoiningAsMember(true);
     setMemberJoinError(false);
     const ok = await onOpenJoin(name);
@@ -266,32 +262,15 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
             </button>
           )}
           {allowOpenJoin && scoutFormOpen && (
-            <form autoComplete="off" className="flex gap-2" onSubmit={handleOpenJoinSubmit}>
-              <input
-                {...RUNESCAPE_USERNAME_INPUT_PROPS}
-                name="public-session-alias"
-                autoFocus
-                value={memberName}
-                onChange={e => { setMemberName(e.target.value); setMemberJoinError(false); }}
-                placeholder="Your username"
-                maxLength={MAX_MEMBER_NAME_LEN}
-                className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-              />
-              <button
-                type="submit"
-                disabled={!memberName.trim() || joiningAsMember}
-                className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
-              >
-                {joiningAsMember ? '…' : 'Join →'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScoutFormOpen(false); setMemberJoinError(false); }}
-                className="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
-              >
-                Cancel
-              </button>
-            </form>
+            <NameEntryForm
+              value={memberName}
+              onChange={v => { setMemberName(v); setMemberJoinError(false); }}
+              onSubmit={handleOpenJoinSubmit}
+              onCancel={() => { setScoutFormOpen(false); setMemberJoinError(false); }}
+              busy={joiningAsMember}
+              inputName="public-session-alias"
+              cancelClassName="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
+            />
           )}
           {memberJoinError && (
             <p className={`text-xs ${ERROR_COLOR.text}`}>Failed to join as a Scout. Please try again.</p>
