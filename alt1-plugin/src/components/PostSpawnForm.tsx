@@ -1,5 +1,5 @@
 import { LOCATION_COORDS, LOCATION_HINTS, locationsForHint } from '@shared/hints';
-import { TREE_COLOR } from '../../../src/constants/toolColors';
+import { TREE_COLOR } from '@shared-browser/toolColors';
 import { TREE_TYPE_LABELS } from '@shared-browser/treeLabels';
 import { SelectCombobox } from './ui/combobox';
 import { StatusLine } from './StatusLine';

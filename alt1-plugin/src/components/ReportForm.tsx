@@ -1,5 +1,5 @@
 import { LOCATION_HINTS } from '@shared/hints';
-import { SPAWN_COLOR } from '../../../src/constants/toolColors';
+import { SPAWN_COLOR } from '@shared-browser/toolColors';
 import { SelectCombobox } from './ui/combobox';
 import { StatusLine } from './StatusLine';
 import { ScanButtons } from './ScanButtons';

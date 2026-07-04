@@ -1,6 +1,6 @@
 import { Skull } from 'lucide-react';
 import { LOCATION_HINTS } from '@shared/hints';
-import { DEAD_COLOR } from '../../../src/constants/toolColors';
+import { DEAD_COLOR } from '@shared-browser/toolColors';
 import { SelectCombobox } from './ui/combobox';
 import { StatusLine } from './StatusLine';
 import { SubmitBar } from './SubmitBar';

@@ -1,5 +1,5 @@
 import { Timer, TreeDeciduous, Skull } from 'lucide-react';
-import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from '../../../src/constants/toolColors';
+import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from '@shared-browser/toolColors';
 
 interface ModeNavProps {
   mode: 'prespawn' | 'postspawn' | 'dead';
