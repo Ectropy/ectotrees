@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
-import type { ServerMessage, SessionInfo, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
+import { MAX_MEMBER_NAME_LEN, type ServerMessage, type SessionInfo, type SessionSummary, type MemberRole, type MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { containsProfanity } from './profanity.ts';
 import { scheduleSave, type PersistedStateV1 } from './persistence.ts';
@@ -865,8 +865,9 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { error: 'Session is full.' };
 
   // eslint-disable-next-line no-control-regex
-  const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 200);
+  const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim();
   if (!sanitized) return { error: 'Name is required.' };
+  if (sanitized.length > MAX_MEMBER_NAME_LEN) return { error: `Name must be ${MAX_MEMBER_NAME_LEN} characters or fewer.` };
   if (containsProfanity(sanitized)) return { error: 'Name contains inappropriate language.' };
 
   if (isNameTaken(session, sanitized)) return { error: 'Name already taken.' };
