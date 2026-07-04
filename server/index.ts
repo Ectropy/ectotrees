@@ -287,7 +287,9 @@ app.use((err: { status?: number; type?: string }, _req: express.Request, res: ex
 // --- HTTP + WS server ---
 
 const server = createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+// maxPayload caps frames at the transport layer (ws closes with 1009), so the
+// message handler never buffers or parses more than the largest legal message.
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_INIT_MESSAGE_SIZE });
 
 server.on('upgrade', (req, socket, head) => {
   if (!isOriginAllowed(req.headers.origin)) {
@@ -456,8 +458,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
   }
 
   ws.on('message', (data) => {
-    // Parse message
+    // Hard size cap before any parsing (defense in depth behind maxPayload)
     const raw = data.toString();
+    if (raw.length > MAX_INIT_MESSAGE_SIZE) {
+      ws.send(JSON.stringify(errorMsg('Message too large.')));
+      return;
+    }
+
+    // Parse message
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -466,8 +474,11 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
       return;
     }
 
-    // Size check (allow larger messages for initializeState)
-    const sizeLimit = (raw.includes('"initializeState"') || raw.includes('"contributeWorlds"')) ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
+    // Per-type size budget (only bulk world-state messages get the larger allowance)
+    const msgTypeForSize = typeof parsed === 'object' && parsed !== null
+      ? (parsed as { type?: unknown }).type : undefined;
+    const sizeLimit = (msgTypeForSize === 'initializeState' || msgTypeForSize === 'contributeWorlds')
+      ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
     if (raw.length > sizeLimit) {
       ws.send(JSON.stringify(errorMsg('Message too large.')));
       return;
