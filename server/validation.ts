@@ -2,7 +2,7 @@ import type { ClientMessage } from '../shared/protocol.ts';
 import { TREE_TYPES } from '../shared/types.ts';
 import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
 import { LOCATION_HINTS } from '../shared/hints.ts';
-import worldsData from '../src/data/worlds.json' with { type: 'json' };
+import worldsData from '../shared/worlds.json' with { type: 'json' };
 import { warn } from './log.ts';
 import { containsProfanity } from './profanity.ts';
 

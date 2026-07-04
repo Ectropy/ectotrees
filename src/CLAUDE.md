@@ -4,7 +4,6 @@
 
 ```
 src/
-  data/worlds.json      # User-editable world config — add/remove worlds here
   data/tips.json        # Gameplay tips displayed in the scrolling tip ticker
   constants/evilTree.ts  # Re-exports from shared/types.ts + location hints, LOCATION_COORDS, filterable types; re-exports TREE_TYPE_LABELS and TREE_TYPE_SHORT from shared-browser/treeLabels.ts; also exports formatMs(ms) duration formatter and hint/location helpers (locationsForHint, resolveExactLocation, hintForLocation, hintsForLocation, coordsForLocation)
   constants/toolColors.ts # Canonical UI color tokens (BUTTON_LABEL_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, P2P_COLOR, F2P_COLOR, TREE_STATE_COLOR, CHIP_COLOR, TEXT_COLOR, CONNECTION_COLOR, STATUS_DOT_COLORS, STATUS_TEXT_COLORS, ROLE_COLORS, ROLE_LABELS, BUTTON_SECONDARY, DISABLED_STYLE — standard disabled-button classes, FOCUS_RING — standard focus-visible ring for buttons)

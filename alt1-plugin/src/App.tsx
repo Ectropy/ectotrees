@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import worldsData from '../../src/data/worlds.json';
+import worldsData from '@shared/worlds.json';
 
 const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 import { hintForLocation, locationsForHint, resolveExactLocation } from '@shared/hints';

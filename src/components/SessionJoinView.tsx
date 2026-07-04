@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import worldsConfig from '../data/worlds.json';
+import worldsConfig from '../../shared/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';

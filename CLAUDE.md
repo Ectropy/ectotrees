@@ -114,4 +114,4 @@ In dev mode, `window.__triggerLightning(worldId, kind?)` manually fires a lightn
 Sapling variants allow recording the expected species during the sapling phase. On the `sapling → mature` auto-transition the variant suffix becomes the confirmed `treeType` (e.g. `sapling-oak` → `oak`). Plain `sapling` is used when the type is unknown.
 
 ## Adding/Removing Worlds
-Edit `src/data/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
+Edit `shared/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
