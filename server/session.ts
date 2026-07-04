@@ -59,6 +59,7 @@ export interface Session {
   // Set on managed sessions created by fork — allows self-registration during the fork invite window
   selfRegisterUntil?: number;
   selfRegisterTokens?: Map<string, boolean>;  // token → consumed; only valid tokens may self-register
+  forkedFromCode?: string;                    // parent anonymous session — the only session identity tokens may migrate from
   // Session browser fields
   name?: string;
   description?: string;
@@ -638,6 +639,7 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   session.lastForkAt = now;
   childSession.selfRegisterUntil = expiresAt;
   childSession.selfRegisterTokens = selfRegisterTokens;
+  childSession.forkedFromCode = session.code;
 
   // Send each client their personalized fork invite (with their unique self-register token + identity token if they have one)
   const inviteLink = `${APP_URL}/#join=${childResult.code}`;
@@ -674,13 +676,14 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
     return { error: 'Session is full.' };
   }
 
-  // If the client has an identity token from the anonymous session, migrate it
+  // If the client has an identity token from the parent anonymous session, migrate it.
+  // Migration is limited to the fork's parent — a token from any other session must
+  // not be accepted, or a fork invitee could delete members from unrelated sessions.
   let identityToken: string;
   if (existingToken && /^[A-HJ-NP-Z2-9]{12}$/.test(existingToken)) {
-    // Validate the identity token existed in the anonymous session
     const oldCode = identityTokenIndex.get(existingToken);
-    if (oldCode && oldCode !== session.code) {
-      // Valid identity token from another session — migrate it
+    if (oldCode && oldCode === session.forkedFromCode) {
+      // Valid identity token from the parent session — migrate it
       identityToken = existingToken;
       identityTokenIndex.delete(existingToken);
       // Remove from old session's member map (cleanup)
