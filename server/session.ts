@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { WorldStates, WorldState } from '../shared/types.ts';
-import type { ServerMessage, SessionInfo, SessionSummary, MemberRole, MemberInfo } from '../shared/protocol.ts';
+import { MAX_MEMBER_NAME_LEN, type ServerMessage, type SessionInfo, type SessionSummary, type MemberRole, type MemberInfo } from '../shared/protocol.ts';
 import { applyTransitions } from '../shared/mutations.ts';
 import { containsProfanity } from './profanity.ts';
 import { scheduleSave, type PersistedStateV1 } from './persistence.ts';
@@ -59,6 +59,7 @@ export interface Session {
   // Set on managed sessions created by fork — allows self-registration during the fork invite window
   selfRegisterUntil?: number;
   selfRegisterTokens?: Map<string, boolean>;  // token → consumed; only valid tokens may self-register
+  forkedFromCode?: string;                    // parent anonymous session — the only session identity tokens may migrate from
   // Session browser fields
   name?: string;
   description?: string;
@@ -253,19 +254,7 @@ export function addClient(session: Session, ws: WebSocket): number | false {
     ws.send(JSON.stringify({ type: 'allowOpenJoin', allow: !!session.allowOpenJoin } satisfies ServerMessage));
   }
 
-  // Send current state snapshot (only active worlds)
-  const activeWorlds: WorldStates = {};
-  for (const [key, state] of Object.entries(session.worldStates)) {
-    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
-      activeWorlds[Number(key)] = state;
-    }
-  }
-  const snapshot: ServerMessage = { type: 'snapshot', worlds: activeWorlds };
-  ws.send(JSON.stringify(snapshot));
-
-  if (session.name) {
-    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
-  }
+  sendSnapshotAndSettings(session, ws);
 
   // Re-send active fork invite to all connecting clients; selfRegisterToken only included for those present at fork time
   if (session.pendingFork) {
@@ -483,14 +472,17 @@ function broadcastMemberList(session: Session) {
   }
 }
 
-function broadcastClientCount(session: Session) {
-  // count        — unique people online (deduplicated by identity token)
-  // scouts       — unique people with ≥1 scout (Alt1) connection
-  // dashboards   — unique people with ≥1 dashboard connection
-  // identityViewers  — online members with role 'viewer' (managed only)
-  // anonymousViewers — connections with no identity token (no dedup possible)
+/**
+ * Who is online right now, deduplicated by identity token:
+ * count        — unique people online (deduplicated by identity token)
+ * scouts       — unique people with ≥1 scout (Alt1) connection
+ * dashboards   — unique people with ≥1 dashboard connection
+ * identityViewers  — online members with role 'viewer' (managed only)
+ * anonymousViewers — connections with no identity token (no dedup possible)
+ */
+function computePresence(session: Session) {
   let count = 0, scouts = 0, dashboards = 0, identityViewers = 0, anonymousViewers = 0;
-  for (const member of session.members.values()) {
+  for (const member of session.members?.values() ?? []) {
     if (member.banned || member.connections.size === 0) continue;
     count++;
     if (member.role === 'viewer') identityViewers++;
@@ -513,7 +505,27 @@ function broadcastClientCount(session: Session) {
       else if (t === 'dashboard') dashboards++;
     }
   }
-  broadcast(session, { type: 'clientCount', count, scouts, dashboards, identityViewers, anonymousViewers });
+  return { count, scouts, dashboards, identityViewers, anonymousViewers };
+}
+
+function broadcastClientCount(session: Session) {
+  broadcast(session, { type: 'clientCount', ...computePresence(session) });
+}
+
+/** Connect handshake shared by anonymous and member joins: the active-worlds
+ *  snapshot followed by current session settings (when named). */
+function sendSnapshotAndSettings(session: Session, ws: WebSocket) {
+  const activeWorlds: WorldStates = {};
+  for (const [key, state] of Object.entries(session.worldStates)) {
+    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
+      activeWorlds[Number(key)] = state;
+    }
+  }
+  ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
+
+  if (session.name) {
+    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
+  }
 }
 
 /**
@@ -627,6 +639,7 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   session.lastForkAt = now;
   childSession.selfRegisterUntil = expiresAt;
   childSession.selfRegisterTokens = selfRegisterTokens;
+  childSession.forkedFromCode = session.code;
 
   // Send each client their personalized fork invite (with their unique self-register token + identity token if they have one)
   const inviteLink = `${APP_URL}/#join=${childResult.code}`;
@@ -656,23 +669,21 @@ export function selfRegisterMember(session: Session, name: string, selfRegisterT
   const consumed = session.selfRegisterTokens.get(selfRegisterToken);
   if (consumed === undefined) return { error: 'Invalid self-registration token.' };
   if (consumed) return { error: 'This self-registration token has already been used.' };
-  // Reject duplicate names
-  for (const m of session.members.values()) {
-    if (!m.banned && m.name.toLowerCase() === name.toLowerCase()) {
-      return { error: 'That name is already taken in this session.' };
-    }
+  if (isNameTaken(session, name)) {
+    return { error: 'That name is already taken in this session.' };
   }
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) {
     return { error: 'Session is full.' };
   }
 
-  // If the client has an identity token from the anonymous session, migrate it
+  // If the client has an identity token from the parent anonymous session, migrate it.
+  // Migration is limited to the fork's parent — a token from any other session must
+  // not be accepted, or a fork invitee could delete members from unrelated sessions.
   let identityToken: string;
   if (existingToken && /^[A-HJ-NP-Z2-9]{12}$/.test(existingToken)) {
-    // Validate the identity token existed in the anonymous session
     const oldCode = identityTokenIndex.get(existingToken);
-    if (oldCode && oldCode !== session.code) {
-      // Valid identity token from another session — migrate it
+    if (oldCode && oldCode === session.forkedFromCode) {
+      // Valid identity token from the parent session — migrate it
       identityToken = existingToken;
       identityTokenIndex.delete(existingToken);
       // Remove from old session's member map (cleanup)
@@ -749,18 +760,7 @@ export function addMemberConnection(session: Session, ws: WebSocket, member: Mem
   scheduleSave();
   session.emptySince = null;
 
-  // Send snapshot
-  const activeWorlds: WorldStates = {};
-  for (const [key, state] of Object.entries(session.worldStates)) {
-    if (state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined) {
-      activeWorlds[Number(key)] = state;
-    }
-  }
-  ws.send(JSON.stringify({ type: 'snapshot', worlds: activeWorlds } satisfies ServerMessage));
-
-  if (session.name) {
-    ws.send(JSON.stringify({ type: 'sessionSettingsUpdated', name: session.name, description: session.description ?? null, listed: !!session.listed } satisfies ServerMessage));
-  }
+  sendSnapshotAndSettings(session, ws);
 
   // Send identity (both managed and anonymous members)
   const identityMsg: ServerMessage = { type: 'identity', name: member.name, role: member.role, sessionCode: session.code };
@@ -868,16 +868,12 @@ export function createOpenJoinInvite(session: Session, name: string): { identity
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { error: 'Session is full.' };
 
   // eslint-disable-next-line no-control-regex
-  const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 200);
+  const sanitized = name.replace(/[\x00-\x1f\x7f]/g, '').trim();
   if (!sanitized) return { error: 'Name is required.' };
+  if (sanitized.length > MAX_MEMBER_NAME_LEN) return { error: `Name must be ${MAX_MEMBER_NAME_LEN} characters or fewer.` };
   if (containsProfanity(sanitized)) return { error: 'Name contains inappropriate language.' };
 
-  // Enforce name uniqueness (case-insensitive)
-  for (const m of session.members.values()) {
-    if (!m.banned && m.name.toLowerCase() === sanitized.toLowerCase()) {
-      return { error: 'Name already taken.' };
-    }
-  }
+  if (isNameTaken(session, sanitized)) return { error: 'Name already taken.' };
 
   const identityToken = generateUniqueIdentityToken();
   const member: Member = {
@@ -901,10 +897,7 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   if (!isAdmin(session, ws)) return { type: 'error', message: 'Permission denied.' };
   if (session.members.size >= MAX_MEMBERS_PER_SESSION) return { type: 'error', message: 'Maximum members reached.' };
 
-  // Enforce name uniqueness
-  for (const m of session.members.values()) {
-    if (m.name === name) return { type: 'error', message: 'Name already taken.' };
-  }
+  if (isNameTaken(session, name)) return { type: 'error', message: 'Name already taken.' };
 
   const identityToken = generateUniqueIdentityToken();
   const member: Member = {
@@ -923,6 +916,22 @@ export function createInvite(session: Session, ws: WebSocket, name: string, role
   const link = `${APP_URL}/#identity=${identityToken}`;
   broadcastMemberList(session);
   return { type: 'inviteCreated', identityToken, name, link };
+}
+
+/**
+ * Case-insensitive name-uniqueness check across non-banned members.
+ * Case-insensitive everywhere so "Bob" and "bob" can never coexist, regardless
+ * of whether the name arrives via self-registration, open join, an admin
+ * invite, or a rename. Pass `excludeMember` when renaming so a member can
+ * keep (or re-case) their own name.
+ */
+export function isNameTaken(session: Session, name: string, excludeMember?: Member): boolean {
+  const lower = name.toLowerCase();
+  for (const m of session.members?.values() ?? []) {
+    if (m === excludeMember || m.banned) continue;
+    if (m.name.toLowerCase() === lower) return true;
+  }
+  return false;
 }
 
 /** Sends a message to all open WebSocket connections belonging to a member. */
@@ -966,13 +975,10 @@ export function banMember(session: Session, ws: WebSocket, identityToken: string
 
   member.banned = true;
 
-  // Disconnect all their connections
+  // Notify, then disconnect all their connections
+  notifyMember(member, { type: 'banned', reason: 'You have been banned from this session.' });
   for (const memberWs of member.connections) {
-    const bannedMsg: ServerMessage = { type: 'banned', reason: 'You have been banned from this session.' };
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify(bannedMsg));
-      memberWs.close(1008, 'Banned');
-    }
+    if (memberWs.readyState === 1) memberWs.close(1008, 'Banned');
     session.wsToIdentityToken!.delete(memberWs);
     removeClient(session, memberWs);
   }
@@ -1003,11 +1009,9 @@ export function kickMember(session: Session, ws: WebSocket, identityToken: strin
   // Perform cleanup inline (without calling removeClient) so that member.connections
   // is cleared before any broadcast fires — avoiding an intermediate broadcast that
   // incorrectly shows the member as still online.
+  notifyMember(member, { type: 'kicked' });
   for (const memberWs of member.connections) {
-    if (memberWs.readyState === 1) {
-      memberWs.send(JSON.stringify({ type: 'kicked' }));
-      memberWs.close(1008, 'Kicked');
-    }
+    if (memberWs.readyState === 1) memberWs.close(1008, 'Kicked');
     session.wsToIdentityToken!.delete(memberWs);
     session.clients.delete(memberWs);
     session.clientIds.delete(memberWs);
@@ -1034,10 +1038,7 @@ export function renameMember(session: Session, ws: WebSocket, identityToken: str
     return { type: 'error', message: 'Permission denied.' };
   }
 
-  // Enforce uniqueness
-  for (const m of session.members.values()) {
-    if (m !== member && m.name === name) return { type: 'error', message: 'Name already taken.' };
-  }
+  if (isNameTaken(session, name, member)) return { type: 'error', message: 'Name already taken.' };
 
   member.name = name;
   scheduleSave();
@@ -1127,25 +1128,7 @@ export function buildSessionInfo(session: Session): SessionInfo {
   } else {
     memberCount = session.clients.size;
   }
-  let scouts = 0, dashboards = 0;
-  for (const member of session.members?.values() ?? []) {
-    if (member.banned || member.connections.size === 0) continue;
-    let hasScout = false, hasDashboard = false;
-    for (const ws of member.connections) {
-      const t = session.clientTypes.get(ws) ?? 'unknown';
-      if (t === 'scout') hasScout = true;
-      if (t === 'dashboard') hasDashboard = true;
-    }
-    if (hasScout) scouts++;
-    if (hasDashboard) dashboards++;
-  }
-  for (const ws of session.clients) {
-    if (!session.wsToIdentityToken?.has(ws)) {
-      const t = session.clientTypes.get(ws) ?? 'unknown';
-      if (t === 'scout') scouts++;
-      else if (t === 'dashboard') dashboards++;
-    }
-  }
+  const { scouts, dashboards } = computePresence(session);
   return {
     code: session.code,
     name: session.name,

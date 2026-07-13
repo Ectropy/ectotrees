@@ -1,22 +1,14 @@
 import { useMemo, useState } from 'react';
-import worldsConfig from '../data/worlds.json';
+import worldsConfig from '../../shared/worlds.json';
 import type { WorldStates, WorldState } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
-import { MAX_MEMBER_NAME_LEN } from '../../shared/protocol.ts';
+import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import type { SessionInfo } from '../../shared/protocol.ts';
 import { SessionMetaRow, SessionStats } from './SessionMetaRow';
 import { relativeTime } from '../lib/relativeTime';
-
-const RUNESCAPE_USERNAME_INPUT_PROPS = {
-  type: 'text' as const,
-  autoComplete: 'off',
-  autoCorrect: 'off',
-  autoCapitalize: 'none',
-  spellCheck: false,
-  inputMode: 'text' as const,
-};
+import { isActive, worldStatesEqual, NONE_STATE } from '../lib/worldState';
+import { NameEntryForm } from './NameEntryForm';
 
 interface Props {
   codeOrToken: string;
@@ -39,10 +31,6 @@ const worlds = worldsConfig.worlds as WorldConfig[];
 const worldTypeMap = new Map<number, 'P2P' | 'F2P'>(worlds.map(w => [w.id, w.type]));
 
 
-function isLocalActive(state: WorldState): boolean {
-  return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
-}
-
 function statusLabel(state: WorldState): string {
   if (state.nextSpawnTarget !== undefined && state.treeStatus === 'none') return 'Spawn timer';
   // Show dead/alive status before tree type — a dead mature tree should say "Dead", not "Mature (unknown)"
@@ -54,15 +42,6 @@ function statusLabel(state: WorldState): string {
     case 'mature':  return 'Mature';
     default:        return state.treeStatus;
   }
-}
-
-function worldStatesEqual(a: WorldState, b: WorldState): boolean {
-  return a.treeStatus === b.treeStatus
-    && a.nextSpawnTarget === b.nextSpawnTarget
-    && a.treeType === b.treeType
-    && a.treeHint === b.treeHint
-    && a.treeExactLocation === b.treeExactLocation
-    && a.treeHealth === b.treeHealth;
 }
 
 function WorldTypeBadge({ worldId }: { worldId: number }) {
@@ -112,7 +91,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
   const [memberJoinError, setMemberJoinError] = useState(false);
   const { toContribute, conflicts, alreadySynced, serverGains } = useMemo(() => {
     const localActive = Object.entries(localWorldStates)
-      .filter(([, s]) => isLocalActive(s))
+      .filter(([, s]) => isActive(s))
       .map(([id, s]) => ({ id: Number(id), state: s }));
 
     const toContribute  = localActive.filter(({ id }) => !(id in serverWorlds));
@@ -120,7 +99,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
     const alreadySynced = localActive.filter(({ id, state }) => id in serverWorlds && worldStatesEqual(state, serverWorlds[id]));
     const serverGains   = Object.entries(serverWorlds)
       .map(([id, state]) => ({ id: Number(id), state }))
-      .filter(({ id }) => !isLocalActive(localWorldStates[id] ?? { treeStatus: 'none' }));
+      .filter(({ id }) => !isActive(localWorldStates[id] ?? NONE_STATE));
 
     return { toContribute, conflicts, alreadySynced, serverGains };
   }, [serverWorlds, localWorldStates]);
@@ -129,10 +108,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
     onJoin(contribute ? localWorldStates : undefined);
   }
 
-  async function handleOpenJoinSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const name = memberName.trim();
-    if (!name) return;
+  async function handleOpenJoinSubmit(name: string) {
     setJoiningAsMember(true);
     setMemberJoinError(false);
     const ok = await onOpenJoin(name);
@@ -286,32 +262,15 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
             </button>
           )}
           {allowOpenJoin && scoutFormOpen && (
-            <form autoComplete="off" className="flex gap-2" onSubmit={handleOpenJoinSubmit}>
-              <input
-                {...RUNESCAPE_USERNAME_INPUT_PROPS}
-                name="public-session-alias"
-                autoFocus
-                value={memberName}
-                onChange={e => { setMemberName(e.target.value); setMemberJoinError(false); }}
-                placeholder="Your username"
-                maxLength={MAX_MEMBER_NAME_LEN}
-                className="flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-              />
-              <button
-                type="submit"
-                disabled={!memberName.trim() || joiningAsMember}
-                className={`px-3 py-1 ${MANAGED_COLOR.border} ${MANAGED_COLOR.label} ${MANAGED_COLOR.borderHover} ${DISABLED_STYLE} text-xs font-medium rounded transition-colors`}
-              >
-                {joiningAsMember ? '…' : 'Join →'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScoutFormOpen(false); setMemberJoinError(false); }}
-                className="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
-              >
-                Cancel
-              </button>
-            </form>
+            <NameEntryForm
+              value={memberName}
+              onChange={v => { setMemberName(v); setMemberJoinError(false); }}
+              onSubmit={handleOpenJoinSubmit}
+              onCancel={() => { setScoutFormOpen(false); setMemberJoinError(false); }}
+              busy={joiningAsMember}
+              inputName="public-session-alias"
+              cancelClassName="px-3 py-1 border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200 text-xs font-medium rounded transition-colors"
+            />
           )}
           {memberJoinError && (
             <p className={`text-xs ${ERROR_COLOR.text}`}>Failed to join as a Scout. Please try again.</p>

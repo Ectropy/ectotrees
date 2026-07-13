@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Star, EyeOff, Timer, TreeDeciduous, Skull } from 'lucide-react';
 import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, ERROR_COLOR, SPAWN_COLOR, TREE_COLOR, DEAD_COLOR } from '../constants/toolColors';
 import type { WorldConfig, WorldState } from '../types';
@@ -12,12 +12,12 @@ interface Props {
   state: WorldState;
   isFavorite: boolean;
   isHidden: boolean;
-  onToggleFavorite: () => void;
-  onToggleHidden: () => void;
-  onCardClick: () => void;
-  onOpenTool: (tool: 'spawn' | 'tree' | 'dead') => void;
+  onToggleFavorite: (worldId: number) => void;
+  onToggleHidden: (worldId: number) => void;
+  onCardClick: (worldId: number) => void;
+  onOpenTool: (worldId: number, tool: 'spawn' | 'tree' | 'dead') => void;
   lightningEvent?: { kind: string; seq: number };
-  onDismissLightning?: () => void;
+  onDismissLightning?: (worldId: number) => void;
   effectsLightning?: boolean;
   effectsSparks?: boolean;
   isActiveWorld?: boolean;
@@ -25,7 +25,7 @@ interface Props {
   canEdit?: boolean;
 }
 
-export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite, onToggleHidden, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission, canEdit = true }: Props) {
+export const WorldCard = memo(function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite, onToggleHidden, onCardClick, onOpenTool, lightningEvent, onDismissLightning, effectsLightning, effectsSparks, isActiveWorld, isRecentOwnSubmission, canEdit = true }: Props) {
   const isP2P = world.type === 'P2P';
   const cardRef = useRef<HTMLDivElement>(null);
   const [sparkReady, setSparkReady] = useState(false);
@@ -81,13 +81,13 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
       data-testid={`world-card-${world.id}`}
       className={`flex flex-col border ${borderColor} rounded bg-gray-800 text-white cursor-pointer ${pairRing}`}
       style={{ height: '85px', position: 'relative', isolation: 'isolate', ...flashStyle }}
-      onClick={onCardClick}
+      onClick={() => onCardClick(world.id)}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 shrink-0">
         <div className="flex items-center gap-1">
           <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}</span>
           <button
-            onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+            onClick={e => { e.stopPropagation(); onToggleFavorite(world.id); }}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             className={`text-[11px] leading-none transition-colors ${
@@ -98,7 +98,7 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           </button>
           {isHidden && (
             <button
-              onClick={e => { e.stopPropagation(); onToggleHidden(); }}
+              onClick={e => { e.stopPropagation(); onToggleHidden(world.id); }}
               title="Unhide world"
               aria-label="Unhide world"
               className={`text-[11px] leading-none ${ERROR_COLOR.text} ${ERROR_COLOR.textHover} transition-colors`}
@@ -124,15 +124,15 @@ export function WorldCard({ world, state, isFavorite, isHidden, onToggleFavorite
           className="flex items-center justify-around px-1 pb-1 shrink-0"
           onClick={e => e.stopPropagation()}
         >
-          <ToolButton icon={Timer} title="Set spawn timer" toolHover={SPAWN_COLOR.borderHover} toolHoverBorder={SPAWN_COLOR.borderHoverBorder} onClick={() => onOpenTool('spawn')} />
-          <ToolButton icon={TreeDeciduous} title="Set tree info" toolHover={TREE_COLOR.borderHover} toolHoverBorder={TREE_COLOR.borderHoverBorder} onClick={() => onOpenTool('tree')} />
-          <ToolButton icon={Skull} title="Mark tree as dead" toolHover={DEAD_COLOR.borderHover} toolHoverBorder={DEAD_COLOR.borderHoverBorder} onClick={() => onOpenTool('dead')} />
+          <ToolButton icon={Timer} title="Set spawn timer" toolHover={SPAWN_COLOR.borderHover} toolHoverBorder={SPAWN_COLOR.borderHoverBorder} onClick={() => onOpenTool(world.id, 'spawn')} />
+          <ToolButton icon={TreeDeciduous} title="Set tree info" toolHover={TREE_COLOR.borderHover} toolHoverBorder={TREE_COLOR.borderHoverBorder} onClick={() => onOpenTool(world.id, 'tree')} />
+          <ToolButton icon={Skull} title="Mark tree as dead" toolHover={DEAD_COLOR.borderHover} toolHoverBorder={DEAD_COLOR.borderHoverBorder} onClick={() => onOpenTool(world.id, 'dead')} />
         </div>
       )}
       {lightningEvent && (effectsLightning ?? true) && (
-        <LightningEffect key={lightningEvent.seq} onComplete={onDismissLightning ?? (() => {})} />
+        <LightningEffect key={lightningEvent.seq} onComplete={() => onDismissLightning?.(world.id)} />
       )}
       {state.treeStatus === 'dead' && sparkReady && (effectsSparks ?? true) && <SparkEffect />}
     </div>
   );
-}
+});

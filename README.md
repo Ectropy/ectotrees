@@ -6,7 +6,7 @@ A RuneScape 3 dashboard for coordinating the **Evil Trees** Distraction & Divers
 
 Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of players) track the state of every world's tree on one screen:
 
-- **World cards** displayed in a compact grid — all visible at once on a 1080p monitor (world list is configurable in `src/data/worlds.json`)
+- **World cards** displayed in a compact grid — all visible at once on a 1080p monitor (world list is configurable in `shared/worlds.json`)
 - Per-world **status tracking**: no tree → sapling → mature → alive → dead → (cycle repeats)
 - **Automatic state transitions** based on known game timings (sapling matures at 5 min, tree dies at 30 min, fallen tree despawns at 10 min after death)
 - **Automatic health caps** reflecting lightning strikes mid-fight: health is capped to 50% at 10 minutes and 25% at 20 minutes, with animated lightning bolt effects on the affected card
@@ -93,7 +93,7 @@ The plugin is built separately from the main app (`alt1-plugin/`) and is served 
 
 ## Customising worlds
 
-Edit [src/data/worlds.json](src/data/worlds.json) to add or remove worlds:
+Edit [shared/worlds.json](shared/worlds.json) to add or remove worlds:
 
 ```json
 { "worlds": [{ "id": 1, "type": "P2P" }, { "id": 2, "type": "F2P" }] }

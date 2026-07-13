@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-@source "../../src/constants/toolColors.ts";
 @source "../../shared-browser";
 
 @theme inline {

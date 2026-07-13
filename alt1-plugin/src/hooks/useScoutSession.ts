@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ClientMessage, ServerMessage } from '@shared/protocol';
 import type { WorldStates } from '@shared/types';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@shared/reconnect';
-import { extractIdentityToken } from '@shared-browser/sessionUrl';
+import { extractIdentityToken, IDENTITY_TOKEN_RE } from '@shared-browser/sessionUrl';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -49,7 +49,7 @@ function loadIdentityToken(): string | null {
     const raw = localStorage.getItem(IDENTITY_TOKEN_KEY);
     if (!raw) return null;
     const upper = raw.trim().toUpperCase();
-    return /^[A-HJ-NP-Z2-9]{12}$/.test(upper) ? upper : null;
+    return IDENTITY_TOKEN_RE.test(upper) ? upper : null;
   } catch { return null; }
 }
 

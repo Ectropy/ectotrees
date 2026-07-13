@@ -1,8 +1,9 @@
-import { Skull, Cloud, CloudOff, CloudUpload, CloudCheck } from 'lucide-react';
+import { Skull } from 'lucide-react';
 import { LOCATION_HINTS } from '@shared/hints';
-import { DEAD_COLOR } from '../../../src/constants/toolColors';
-import { Tooltip } from './ui/tooltip';
+import { DEAD_COLOR } from '@shared-browser/toolColors';
 import { SelectCombobox } from './ui/combobox';
+import { StatusLine } from './StatusLine';
+import { SubmitBar } from './SubmitBar';
 
 const HINT_OPTIONS = LOCATION_HINTS.map(lh => lh.hint).sort();
 
@@ -21,13 +22,6 @@ interface DeadFormProps {
   onSubmit: () => void;
   onClear: () => void;
 }
-
-const statusColors = {
-  ok: 'text-success',
-  warn: 'text-warning',
-  error: 'text-destructive',
-  '': 'text-muted-foreground',
-};
 
 export function DeadForm({
   statusMsg, statusKind, canSubmit,
@@ -60,59 +54,30 @@ export function DeadForm({
         </div>
       )}
 
-      <div className={`mb-2 text-[11px] min-h-[16px] ${statusColors[statusKind]}`}>
-        {statusMsg}
-      </div>
+      <StatusLine statusMsg={statusMsg} statusKind={statusKind} marginClass="mb-2" />
 
       <hr className="border-t border-border my-2" />
 
-      <div className="flex gap-2">
-        <div className={`flex flex-1 rounded overflow-hidden ${DEAD_COLOR.border}`}>
-          <button
-            onClick={onSubmit}
-            disabled={!canSubmit}
-            className={`flex-1 flex items-center justify-center gap-1.5 bg-transparent ${DEAD_COLOR.label} py-2 text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-500-a20 transition-colors`}
-          >
-            <Skull size={13} />
-            {autoCountdown !== null ? `Mark Dead (${autoCountdown}s)` : 'Mark Dead'}
-          </button>
-          <div className="w-px bg-red-500-a50 self-stretch" />
-          <Tooltip
-            content={
-              cloudCheck
-                ? 'Marked dead!'
-                : autoCountdown !== null
-                ? `Submitting in ${autoCountdown}s — click to cancel`
-                : autoSubmit
-                ? 'Click to disable auto-submit.'
-                : 'Click to enable auto-submit. Submits 10s after dead is detected.'
-            }
-            side="top"
-          >
-            <button
-              onClick={onAutoSubmitToggle}
-              aria-label="Toggle auto-submit"
-              className={`flex items-center justify-center px-2.5 ${DEAD_COLOR.text} hover:opacity-90 transition-all ${autoSubmit || cloudCheck ? 'bg-red-500-a25' : 'opacity-40'}`}
-            >
-              {cloudCheck ? (
-                <CloudCheck size={14} />
-              ) : autoCountdown !== null ? (
-                blinkFrame ? <CloudUpload size={14} /> : <Cloud size={14} />
-              ) : autoSubmit ? (
-                <Cloud size={14} />
-              ) : (
-                <CloudOff size={14} />
-              )}
-            </button>
-          </Tooltip>
-        </div>
-        <button
-          onClick={onClear}
-          className="bg-transparent text-muted-foreground text-xs font-semibold px-2.5 py-1 rounded border border-border hover:bg-secondary hover:text-foreground"
-        >
-          Clear
-        </button>
-      </div>
+      <SubmitBar
+        canSubmit={canSubmit}
+        autoSubmit={autoSubmit}
+        autoCountdown={autoCountdown}
+        cloudCheck={cloudCheck}
+        blinkFrame={blinkFrame}
+        onSubmit={onSubmit}
+        onAutoSubmitToggle={onAutoSubmitToggle}
+        onClear={onClear}
+        submitLabel="Mark Dead"
+        submitIcon={<Skull size={13} />}
+        submittedTooltip="Marked dead!"
+        autoSubmitHint="Click to enable auto-submit. Submits 10s after dead is detected."
+        borderClass={DEAD_COLOR.border}
+        labelClass={DEAD_COLOR.label}
+        textClass={DEAD_COLOR.text}
+        hoverBgClass="hover:bg-red-500-a20"
+        dividerBgClass="bg-red-500-a50"
+        activeBgClass="bg-red-500-a25"
+      />
     </section>
   );
 }

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import type { WorldConfig, WorldState, WorldStates } from '../types';
+import type { WorldConfig, WorldStates } from '../types';
 import type { SortMode, Filters } from '../components/SortFilterBar';
 import { DEFAULT_FILTERS } from '../components/SortFilterBar';
 import { ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../constants/evilTree';
+import { NONE_STATE, isActive } from '../lib/worldState';
 
 // --- localStorage persistence helpers ---
 
@@ -67,9 +68,7 @@ export { SORT_STORAGE_KEY, FILTER_STORAGE_KEY };
 
 // --- Filtering & sorting hook ---
 
-export function isActive(state: WorldState): boolean {
-  return state.treeStatus !== 'none' || state.nextSpawnTarget !== undefined;
-}
+export { isActive };
 
 export function useFilteredWorlds(
   worlds: WorldConfig[],
@@ -88,7 +87,7 @@ export function useFilteredWorlds(
       const matchesSearch = searchTrimmed && String(w.id) === searchTrimmed;
       if (searchTrimmed && !matchesSearch) return false;
       if (matchesSearch) return true;
-      const state = worldStates[w.id] ?? { treeStatus: 'none' as const };
+      const state = worldStates[w.id] ?? NONE_STATE;
       const active = isActive(state);
 
       // Hidden filter: off = exclude hidden, 'show' = include all, 'only' = only hidden
@@ -144,8 +143,8 @@ export function useFilteredWorlds(
 
     // Sort
     result = [...result].sort((a, b) => {
-      const stateA = worldStates[a.id] ?? { treeStatus: 'none' as const };
-      const stateB = worldStates[b.id] ?? { treeStatus: 'none' as const };
+      const stateA = worldStates[a.id] ?? NONE_STATE;
+      const stateB = worldStates[b.id] ?? NONE_STATE;
       let cmp = 0;
 
       switch (sortMode) {

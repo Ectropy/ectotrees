@@ -1,6 +1,6 @@
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { createHash } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { URL } from 'node:url';
@@ -66,6 +66,14 @@ const RATE_LIMIT_MAX = 10;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_TIMEOUT_MS = 90_000;
 const AUTH_TIMEOUT_MS = 10_000; // 10 seconds
+// Generous enough for many players behind a shared IP (CGNAT, households — each
+// user runs up to 2 sockets: dashboard + Alt1 scout), tight enough that one host
+// cannot flood the server with idle unauthenticated sockets.
+const MAX_WS_CONNECTIONS_PER_IP = 32;
+// Failed-auth throttle: bounds session-code guessing across reconnects, where the
+// per-connection message rate limit resets. Successful auths are never counted.
+const AUTH_FAIL_WINDOW_MS = 60_000;
+const AUTH_FAIL_MAX = 10;
 
 // --- Per-connection state for message-based authentication ---
 interface WsExtensions {
@@ -75,6 +83,7 @@ interface WsExtensions {
   member?: Member;
   rateLimitMessages: number[];
   clientId?: number;
+  ip: string;
 }
 const wsExtensions = new WeakMap<WebSocket, WsExtensions>();
 
@@ -149,6 +158,58 @@ function checkRateLimit(ws: WebSocket): boolean {
   extensions.rateLimitMessages = extensions.rateLimitMessages.filter(t => t > cutoff);
   extensions.rateLimitMessages.push(now);
   return extensions.rateLimitMessages.length <= RATE_LIMIT_MAX;
+}
+
+// WS: per-IP connection cap and failed-auth throttle. The HTTP rate limiter does
+// not see the `upgrade` event, and the per-connection message rate limit resets
+// on every new socket, so both limits must be keyed by IP.
+
+const wsConnectionsPerIp = new Map<string, number>();
+const authFailuresPerIp = new Map<string, number[]>();
+
+/**
+ * Client IP for upgrade requests, mirroring Express's `trust proxy: 1` (exactly
+ * one hop — Caddy): the rightmost X-Forwarded-For entry in production, the raw
+ * socket address otherwise. Never trust XFF in dev, where there is no proxy to
+ * overwrite a spoofed header.
+ */
+function clientIpForUpgrade(req: IncomingMessage): string {
+  if (IS_PROD) {
+    const xff = req.headers['x-forwarded-for'];
+    const header = Array.isArray(xff) ? xff[xff.length - 1] : xff;
+    if (header) {
+      const parts = header.split(',');
+      const last = parts[parts.length - 1].trim();
+      if (last) return last;
+    }
+  }
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
+function releaseWsConnection(ip: string): void {
+  const count = wsConnectionsPerIp.get(ip);
+  if (count === undefined) return;
+  if (count <= 1) wsConnectionsPerIp.delete(ip);
+  else wsConnectionsPerIp.set(ip, count - 1);
+}
+
+function isAuthThrottled(ip: string): boolean {
+  const failures = authFailuresPerIp.get(ip);
+  if (!failures) return false;
+  const cutoff = Date.now() - AUTH_FAIL_WINDOW_MS;
+  const recent = failures.filter(t => t > cutoff);
+  if (recent.length === 0) {
+    authFailuresPerIp.delete(ip);
+    return false;
+  }
+  authFailuresPerIp.set(ip, recent);
+  return recent.length >= AUTH_FAIL_MAX;
+}
+
+function recordAuthFailure(ip: string): void {
+  const failures = authFailuresPerIp.get(ip) ?? [];
+  failures.push(Date.now());
+  authFailuresPerIp.set(ip, failures);
 }
 
 // HTTP: per-IP rate limit applied to REST endpoints and SPA catch-all
@@ -287,7 +348,9 @@ app.use((err: { status?: number; type?: string }, _req: express.Request, res: ex
 // --- HTTP + WS server ---
 
 const server = createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+// maxPayload caps frames at the transport layer (ws closes with 1009), so the
+// message handler never buffers or parses more than the largest legal message.
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_INIT_MESSAGE_SIZE });
 
 server.on('upgrade', (req, socket, head) => {
   if (!isOriginAllowed(req.headers.origin)) {
@@ -302,12 +365,21 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
-  // Accept all WebSocket connections; authentication happens via message-based auth
+  const ip = clientIpForUpgrade(req);
+  if ((wsConnectionsPerIp.get(ip) ?? 0) >= MAX_WS_CONNECTIONS_PER_IP) {
+    socket.write('HTTP/1.1 429 Too Many Requests\r\nContent-Length: 0\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  // Accept the connection; authentication happens via message-based auth
   wss.handleUpgrade(req, socket, head, (ws) => {
+    wsConnectionsPerIp.set(ip, (wsConnectionsPerIp.get(ip) ?? 0) + 1);
     // Initialize unauthenticated connection with auth timeout
     const extensions: WsExtensions = {
       authenticated: false,
       rateLimitMessages: [],
+      ip,
     };
 
     extensions.authTimeout = setTimeout(() => {
@@ -328,6 +400,12 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authIden
   if (!extensions) {
     ws.send(JSON.stringify({ type: 'authError', reason: 'Internal server error.' }));
     ws.close();
+    return;
+  }
+
+  if (isAuthThrottled(extensions.ip)) {
+    ws.send(JSON.stringify({ type: 'authError', reason: 'Too many failed attempts. Try again in a minute.', code: 'invalid' }));
+    ws.close(1008, 'Too many failed auth attempts');
     return;
   }
 
@@ -357,6 +435,11 @@ function handleAuthMessage(ws: WebSocket, msg: { type: 'authSession' | 'authIden
     else if (errorResult.error.includes('full')) code = 'full';
     else if (errorResult.error.includes('banned')) code = 'banned';
 
+    // Bad credentials feed the throttle; capacity errors ("full") don't — the
+    // caller proved they hold a valid code, they just can't fit right now.
+    if (code !== 'full') {
+      recordAuthFailure(extensions.ip);
+    }
     ws.send(JSON.stringify({ type: 'authError', reason: errorResult.error, code }));
     ws.close(code === 'full' ? 1003 : 1008, errorResult.error);
     return;
@@ -445,6 +528,7 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
     clearInterval(heartbeatCheck);
     const ext = wsExtensions.get(ws);
     if (ext) {
+      releaseWsConnection(ext.ip);
       if (ext.authTimeout) {
         clearTimeout(ext.authTimeout);
       }
@@ -456,8 +540,14 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
   }
 
   ws.on('message', (data) => {
-    // Parse message
+    // Hard size cap before any parsing (defense in depth behind maxPayload)
     const raw = data.toString();
+    if (raw.length > MAX_INIT_MESSAGE_SIZE) {
+      ws.send(JSON.stringify(errorMsg('Message too large.')));
+      return;
+    }
+
+    // Parse message
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -466,8 +556,11 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
       return;
     }
 
-    // Size check (allow larger messages for initializeState)
-    const sizeLimit = (raw.includes('"initializeState"') || raw.includes('"contributeWorlds"')) ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
+    // Per-type size budget (only bulk world-state messages get the larger allowance)
+    const msgTypeForSize = typeof parsed === 'object' && parsed !== null
+      ? (parsed as { type?: unknown }).type : undefined;
+    const sizeLimit = (msgTypeForSize === 'initializeState' || msgTypeForSize === 'contributeWorlds')
+      ? MAX_INIT_MESSAGE_SIZE : MAX_MESSAGE_SIZE;
     if (raw.length > sizeLimit) {
       ws.send(JSON.stringify(errorMsg('Message too large.')));
       return;
@@ -542,6 +635,9 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
 });
 
 const MUTATION_TYPES = new Set(['setSpawnTimer', 'setTreeInfo', 'updateTreeFields', 'updateHealth', 'reportLightning', 'markDead', 'clearWorld', 'contributeWorlds', 'initializeState']);
+
+// Pairing/managed messages don't use the ACK system
+const NO_ACK_TYPES = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowOpenJoin', 'updateSessionSettings']);
 
 function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clientId: number) {
   const now = Date.now();
@@ -787,10 +883,9 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
     }
   }
 
-  // Send ACK if the client included a msgId (pairing/managed messages don't use ACK)
-  const noAckTypes = new Set(['ping', 'initializeState', 'identify', 'reportWorld', 'createInvite', 'kickMember', 'banMember', 'renameMember', 'setMemberRole', 'transferOwnership', 'selfRegister', 'forkToManaged', 'requestIdentityToken', 'setAllowOpenJoin', 'updateSessionSettings']);
+  // Send ACK if the client included a msgId
   const msgId = (msg as { msgId?: number }).msgId;
-  if (!noAckTypes.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
+  if (!NO_ACK_TYPES.has(msg.type) && msgId !== undefined && ws.readyState === 1) {
     const ack: ServerMessage = { type: 'ack', msgId };
     ws.send(JSON.stringify(ack));
   }
@@ -800,6 +895,13 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
 
 setInterval(() => {
   cleanupExpiredSessions();
+  // Drop per-IP failure buckets whose entries have all aged out of the window
+  const cutoff = Date.now() - AUTH_FAIL_WINDOW_MS;
+  for (const [ip, failures] of authFailuresPerIp) {
+    if (!failures.some(t => t > cutoff)) {
+      authFailuresPerIp.delete(ip);
+    }
+  }
 }, CLEANUP_INTERVAL_MS);
 
 // --- Start ---

@@ -123,10 +123,17 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - `worldId` must exist in `worlds.json`
 - `msFromNow` must be a positive integer, max 2 hours
 - Strings are sanitized (control chars stripped, max 200 chars) and checked for profanity via `containsProfanity()`
+- Member names have a tighter cap of `MAX_MEMBER_NAME_LEN` (32, from `shared/protocol.ts`), enforced on both WS (`requireCleanText`) and HTTP open-join paths
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 
 ## Per-Connection Protections
 - Auth timeout: 10 seconds to send an auth message after WebSocket open
-- Max message size: 4 KB (64 KB for `initializeState` and `contributeWorlds`)
+- Max message size: 4 KB (64 KB for `initializeState`/`contributeWorlds`). The `ws` server also enforces `maxPayload` (64 KB) at the transport layer, and the handler checks length **before** `JSON.parse`. The per-type budget keys off the parsed message `type`, not a substring match.
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s
+
+## Per-IP Protections (WS upgrade)
+The Express rate limiter does not see the `upgrade` event and the per-connection message limit resets per socket, so WS-layer abuse is bounded by IP instead:
+- Connection cap: max 32 concurrent WS sockets per IP (upgrade refused with `429`)
+- Failed-auth throttle: 10 failed auths per IP per minute, then auth is refused for the rest of the window. Capacity errors (`session full`) don't count. Bounds session-code guessing across reconnects.
+- IP resolution mirrors `trust proxy: 1`: the last `X-Forwarded-For` hop in production, the raw socket address in dev (XFF is never trusted without a proxy in front).

@@ -1,8 +1,8 @@
-import type { ClientMessage } from '../shared/protocol.ts';
+import { MAX_MEMBER_NAME_LEN, type ClientMessage } from '../shared/protocol.ts';
 import { TREE_TYPES } from '../shared/types.ts';
 import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
 import { LOCATION_HINTS } from '../shared/hints.ts';
-import worldsData from '../src/data/worlds.json' with { type: 'json' };
+import worldsData from '../shared/worlds.json' with { type: 'json' };
 import { warn } from './log.ts';
 import { containsProfanity } from './profanity.ts';
 
@@ -29,10 +29,11 @@ function sanitizeString(s: unknown): string | null {
   return clean;
 }
 
-/** Validates a required text field: must be non-empty after sanitization and contain no profanity. */
+/** Validates a required member-name field: non-empty after sanitization, within the shared length cap, no profanity. */
 function requireCleanText(raw: unknown, fieldLabel = 'Name'): string | { error: string } {
   const clean = sanitizeString(raw);
   if (!clean) return { error: `${fieldLabel} is required.` };
+  if (clean.length > MAX_MEMBER_NAME_LEN) return { error: `${fieldLabel} must be ${MAX_MEMBER_NAME_LEN} characters or fewer.` };
   if (containsProfanity(clean)) return { error: `${fieldLabel} contains inappropriate language.` };
   return clean;
 }

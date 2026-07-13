@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search, Map } from 'lucide-react';
 import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR, FOCUS_RING } from './constants/toolColors';
-import worldsConfig from './data/worlds.json';
+import worldsConfig from '../shared/worlds.json';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
 import { useStoredSet } from './hooks/useStoredSet';
@@ -26,6 +26,7 @@ import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldStates } from './types';
 import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
+import { NONE_STATE, worldStatesEqual } from './lib/worldState';
 import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
 import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_KEY, FILTER_STORAGE_KEY } from './hooks/useFilteredWorlds';
@@ -56,7 +57,7 @@ export default function App() {
   const handleSessionLost = useCallback(() => {
     saveToLocalStorageRef.current?.();
   }, []);
-  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, renameMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
+  const { session, previewWorlds, syncChannel, createSession, createSessionAndRequestToken, joinSession, rejoinSession, leaveSession, previewJoin, confirmPreviewJoin, cancelPreview, dismissError, forkToManaged, joinManagedFork, createInvite, kickMember, banMember, setMemberRole, transferOwnership, setAllowOpenJoin, openJoin, updateSessionSettings, requestIdentityToken, forkDismissed, dismissForkInvite } = useSession(handleSessionLost);
   const { worldStates, setSpawnTimer, setTreeInfo, updateTreeFields, updateHealth, reportLightning, markDead, clearWorld, saveToLocalStorage, lightningEvents, dismissLightningEvent, triggerLightningEvent } = useWorldStates(syncChannel);
   useEffect(() => { saveToLocalStorageRef.current = saveToLocalStorage; });
 
@@ -112,19 +113,11 @@ export default function App() {
 
     // Skip the join screen when it offers no decision: nothing to contribute, nothing being
     // lost, and no full-member option to offer instead of the default read-only viewer join
-    const localActive = Object.entries(worldStatesRef.current).filter(
-      ([, s]) => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
-    );
+    const localActive = Object.entries(worldStatesRef.current).filter(([, s]) => isActive(s));
     const hasContribute = localActive.some(([id]) => !(Number(id) in serverWorlds));
     const hasConflicts  = localActive.some(([id, s]) => {
       const sv = serverWorlds[Number(id)];
-      return sv !== undefined
-        && (s.treeStatus         !== sv.treeStatus
-         || s.nextSpawnTarget    !== sv.nextSpawnTarget
-         || s.treeType           !== sv.treeType
-         || s.treeHint           !== sv.treeHint
-         || s.treeExactLocation  !== sv.treeExactLocation
-         || s.treeHealth         !== sv.treeHealth);
+      return sv !== undefined && !worldStatesEqual(s, sv);
     });
 
     if (!hasContribute && !hasConflicts && !allowOpenJoin) {
@@ -151,9 +144,7 @@ export default function App() {
   }, [cancelPreview, openJoin]);
 
   const activeLocalCount = useMemo(() => {
-    return Object.values(worldStates).filter(
-      s => s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined
-    ).length;
+    return Object.values(worldStates).filter(isActive).length;
   }, [worldStates]);
 
   const handleLeaveSession = useCallback(() => {
@@ -275,7 +266,7 @@ export default function App() {
 
   const sortedFilteredWorlds = useFilteredWorlds(worlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
-  function handleOpenTool(worldId: number, tool: 'spawn' | 'tree' | 'dead') {
+  const handleOpenTool = useCallback((worldId: number, tool: 'spawn' | 'tree' | 'dead') => {
     if (isPreviewingJoin) return;
     const { surface, sidebarSide } = getAnalyticsContext();
     trackUiEvent('ui_tool_open', {
@@ -286,12 +277,12 @@ export default function App() {
       sidebar_side: sidebarSide,
     });
     setActiveView({ kind: tool, worldId });
-  }
+  }, [isPreviewingJoin, getAnalyticsContext]);
 
-  function handleOpenCard(worldId: number) {
+  const handleOpenCard = useCallback((worldId: number) => {
     if (isPreviewingJoin) return;
     setActiveView({ kind: 'detail', worldId });
-  }
+  }, [isPreviewingJoin]);
 
   function handleBack() {
     if (activeView.kind !== 'grid') {
@@ -430,7 +421,6 @@ export default function App() {
         onCreateInvite={createInvite}
         onKickMember={kickMember}
         onBanMember={banMember}
-        onRenameMember={renameMember}
         onSetMemberRole={setMemberRole}
         onTransferOwnership={transferOwnership}
         onSetAllowOpenJoin={setAllowOpenJoin}
@@ -482,7 +472,7 @@ export default function App() {
           onBack={handleBack}
         />;
       if (activeView.kind === 'tree') {
-        const currentState = worldStates[worldId] ?? { treeStatus: 'none' as const };
+        const currentState = worldStates[worldId] ?? NONE_STATE;
         const existingState = (currentState.treeStatus === 'sapling' || currentState.treeStatus === 'mature' || currentState.treeStatus === 'alive')
           ? currentState : undefined;
         return <TreeInfoView
@@ -542,7 +532,7 @@ export default function App() {
         return <WorldDetailView
           key={worldId}
           world={world}
-          state={worldStates[worldId] ?? { treeStatus: 'none' }}
+          state={worldStates[worldId] ?? NONE_STATE}
           isFavorite={favorites.has(worldId)}
           isHidden={hiddenWorlds.has(worldId)}
           onToggleFavorite={() => toggleFavorite(worldId)}
@@ -595,15 +585,15 @@ export default function App() {
             <WorldCard
               key={world.id}
               world={world}
-              state={displayWorldStates[world.id] ?? { treeStatus: 'none' }}
+              state={displayWorldStates[world.id] ?? NONE_STATE}
               isFavorite={favorites.has(world.id)}
               isHidden={hiddenWorlds.has(world.id)}
-              onToggleFavorite={() => toggleFavorite(world.id)}
-              onToggleHidden={() => toggleHidden(world.id)}
-              onCardClick={() => handleOpenCard(world.id)}
-              onOpenTool={(tool) => handleOpenTool(world.id, tool)}
+              onToggleFavorite={toggleFavorite}
+              onToggleHidden={toggleHidden}
+              onCardClick={handleOpenCard}
+              onOpenTool={handleOpenTool}
               lightningEvent={isPreviewingJoin ? undefined : lightningEvents.get(world.id)}
-              onDismissLightning={() => dismissLightningEvent(world.id)}
+              onDismissLightning={dismissLightningEvent}
               effectsLightning={settings.effectsLightning}
               effectsSparks={settings.effectsSparks}
               isActiveWorld={'worldId' in activeView && activeView.worldId === world.id}
@@ -649,13 +639,10 @@ export default function App() {
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
               <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
-              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? { treeStatus: 'none' })).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
             </span>
             {(() => {
-              const intelWorlds = sortedFilteredWorlds.filter(w => {
-                const s = displayWorldStates[w.id] ?? { treeStatus: 'none' as const };
-                return s.treeStatus !== 'none' || s.nextSpawnTarget !== undefined;
-              });
+              const intelWorlds = sortedFilteredWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE));
               const hasIntel = intelWorlds.length > 0;
               return (
                 <button

@@ -289,6 +289,25 @@ describe('validateMessage — updateHealth', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// validateMessage — member names (forkToManaged / createInvite / renameMember / selfRegister)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateMessage — member name length', () => {
+  it('accepts a name at exactly 32 characters', () => {
+    const result = validateMessage({ type: 'forkToManaged', name: 'x'.repeat(32) });
+    expect(result).not.toHaveProperty('error');
+  });
+
+  it('rejects a name longer than 32 characters', () => {
+    expect(validateMessage({ type: 'forkToManaged', name: 'x'.repeat(33) })).toMatchObject({ error: expect.stringContaining('32') });
+  });
+
+  it('rejects an over-long name on renameMember', () => {
+    expect(validateMessage({ type: 'renameMember', identityToken: 'ABCDEFGHJKLM', name: 'x'.repeat(33) })).toMatchObject({ error: expect.stringContaining('32') });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // validateInitializeState
 // ─────────────────────────────────────────────────────────────────────────────
 
