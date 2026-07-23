@@ -649,6 +649,9 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
     return;
   }
 
+  // Accepted mutations extend the session's usage-earned lifespan (see sessionLifespanMs)
+  if (MUTATION_TYPES.has(msg.type)) session.mutationCount++;
+
   switch (msg.type) {
     case 'ping': {
       const pong: ServerMessage = { type: 'pong' };

@@ -28,6 +28,7 @@ function fakeSession(over: Partial<Session> = {}): Session {
     createdAt: 1_000,
     lastActivityAt: 2_000,
     emptySince: null,
+    mutationCount: 0,
     worldStates: {},
     clients: new Set(),
     clientIds: new Map(),

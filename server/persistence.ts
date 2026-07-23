@@ -24,6 +24,7 @@ export interface PersistedSessionV1 {
   code: string;
   createdAt: number;
   lastActivityAt: number;
+  mutationCount?: number;  // absent in legacy snapshots — restore defaults to 0
   worldStates: WorldStates;
   members: PersistedMemberV1[];
   managed?: boolean;
@@ -83,6 +84,7 @@ export function serializeSessions(sessions: Iterable<Session>): PersistedStateV1
       code: s.code,
       createdAt: s.createdAt,
       lastActivityAt: s.lastActivityAt,
+      mutationCount: s.mutationCount,
       worldStates: s.worldStates,
       members,
       managed: s.managed,

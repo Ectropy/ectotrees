@@ -12,11 +12,44 @@ export const APP_URL = (process.env.APP_URL ?? 'http://localhost:5173').replace(
 const MAX_SESSIONS = 1000;
 export const MAX_CLIENTS_PER_SESSION = 1000;
 const MAX_MEMBERS_PER_SESSION = 500;
-const SESSION_INACTIVITY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
-const EMPTY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;       // 24 hours
+const SESSION_INACTIVITY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days — floor for inactivity expiry
+const EMPTY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;       // 24 hours — base lifespan at 0 mutations
+const MAX_SESSION_LIFESPAN_MS = 180 * 24 * 60 * 60 * 1000; // 180 days — lifespan cap
+const MANAGED_LIFESPAN_FLOOR_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — managed sessions never expire faster
+const FAST_GROWTH_UPDATES = 10;                    // first N updates earn FAST_GROWTH_MS each
+const FAST_GROWTH_MS = 24 * 60 * 60 * 1000;        // +24h per update while a session proves itself
+const MID_GROWTH_UPDATES = 158;                    // next N updates earn MID_GROWTH_MS each (90 days at 168 total)
+const MID_GROWTH_MS = 12 * 60 * 60 * 1000;         // +12h per update
+const SLOW_GROWTH_MS = 2 * 60 * 60 * 1000;         // +2h per update beyond that, until the cap
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
 const FORK_INVITE_TTL_MS = 15 * 60 * 1000;        // 15 minutes
 const FORK_COOLDOWN_MS = FORK_INVITE_TTL_MS;       // same as invite TTL — new fork allowed once invite window closes
+
+/**
+ * Usage-earned lifespan: 24h base, +24h/update for the first 10 updates,
+ * +12h/update for the next 158 (hits 90 days at 168 updates), +2h/update after.
+ * Managed sessions never drop below 30 days. Capped at 180 days.
+ */
+export function sessionLifespanMs(mutationCount: number, managed: boolean): number {
+  const fast = Math.min(mutationCount, FAST_GROWTH_UPDATES) * FAST_GROWTH_MS;
+  const mid = Math.min(Math.max(mutationCount - FAST_GROWTH_UPDATES, 0), MID_GROWTH_UPDATES) * MID_GROWTH_MS;
+  const slow = Math.max(mutationCount - FAST_GROWTH_UPDATES - MID_GROWTH_UPDATES, 0) * SLOW_GROWTH_MS;
+  const earned = EMPTY_SESSION_TTL_MS + fast + mid + slow;
+  const floor = managed ? MANAGED_LIFESPAN_FLOOR_MS : EMPTY_SESSION_TTL_MS;
+  return Math.min(Math.max(earned, floor), MAX_SESSION_LIFESPAN_MS);
+}
+
+/** Inactivity TTL: never stricter than the historical 10-day window. */
+export function inactivityTtlMs(mutationCount: number, managed: boolean): number {
+  return Math.max(SESSION_INACTIVITY_MS, sessionLifespanMs(mutationCount, managed));
+}
+
+/** Human-readable duration for expiry reason strings: "24 hours" / "3 days". */
+function formatLifespan(ms: number): string {
+  const hours = Math.round(ms / 3_600_000);
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  return `${Math.round(hours / 24)} days`;
+}
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 
@@ -35,6 +68,7 @@ export interface Session {
   createdAt: number;
   lastActivityAt: number;
   emptySince: number | null;
+  mutationCount: number;  // cumulative accepted client mutations — drives the usage-earned lifespan
   worldStates: WorldStates;
   clients: Set<WebSocket>;
   clientIds: Map<WebSocket, number>;
@@ -118,6 +152,7 @@ export function createSession(): { code: string } | { error: string } {
     createdAt: now,
     lastActivityAt: now,
     emptySince: now,
+    mutationCount: 0,
     worldStates: {},
     clients: new Set(),
     clientIds: new Map(),
@@ -170,8 +205,9 @@ function startTransitionTimer(code: string): ReturnType<typeof setInterval> {
 /**
  * Rebuild in-memory sessions from a persisted snapshot at boot. Ephemeral
  * state (connections, client maps, fork windows) starts fresh; every restored
- * session gets a new transition timer and the standard 24h empty-session
- * grace window. Sessions already past the 10-day inactivity limit are skipped.
+ * session gets a new transition timer and its empty-session grace window
+ * restarts (usage-earned — see sessionLifespanMs). Sessions already past
+ * their usage-scaled inactivity limit are skipped.
  */
 export function restoreSessions(persisted: PersistedStateV1 | null): { sessions: number; members: number } {
   if (!persisted) return { sessions: 0, members: 0 };
@@ -179,13 +215,14 @@ export function restoreSessions(persisted: PersistedStateV1 | null): { sessions:
   let sessionCount = 0;
   let memberCount = 0;
   for (const p of persisted.sessions) {
-    if (now - p.lastActivityAt > SESSION_INACTIVITY_MS) continue;
+    if (now - p.lastActivityAt > inactivityTtlMs(p.mutationCount ?? 0, p.managed ?? false)) continue;
     if (sessions.has(p.code)) continue;
     const session: Session = {
       code: p.code,
       createdAt: p.createdAt,
       lastActivityAt: p.lastActivityAt,
       emptySince: now,
+      mutationCount: p.mutationCount ?? 0,
       worldStates: p.worldStates,
       clients: new Set(),
       clientIds: new Map(),
@@ -578,6 +615,9 @@ export function forkToManaged(session: Session, _initiatorWs: WebSocket, name: s
   const childResult = createSession();
   if ('error' in childResult) return childResult;
   const childSession = sessions.get(childResult.code)!;
+
+  // Fork inherits the parent's world state, so it inherits its earned lifespan too
+  childSession.mutationCount = session.mutationCount;
 
   // Auto-name the session from the owner's display name
   childSession.name = name.endsWith('s') ? `${name}' Session` : `${name}'s Session`;
@@ -1220,12 +1260,14 @@ function destroySession(session: Session, closeReason: string) {
 export function cleanupExpiredSessions() {
   const now = Date.now();
   for (const session of sessions.values()) {
-    const inactiveExpired = now - session.lastActivityAt > SESSION_INACTIVITY_MS;
-    const emptyExpired = session.emptySince !== null && now - session.emptySince > EMPTY_SESSION_TTL_MS;
+    const inactivityTtl = inactivityTtlMs(session.mutationCount, !!session.managed);
+    const emptyTtl = sessionLifespanMs(session.mutationCount, !!session.managed);
+    const inactiveExpired = now - session.lastActivityAt > inactivityTtl;
+    const emptyExpired = session.emptySince !== null && now - session.emptySince > emptyTtl;
     if (inactiveExpired || emptyExpired) {
-      const closeReason = inactiveExpired ? 'inactive 10 days' : 'empty 24 hours';
+      const closeReason = inactiveExpired ? `inactive ${formatLifespan(inactivityTtl)}` : `empty ${formatLifespan(emptyTtl)}`;
       const clientCount = session.clients.size;
-      destroySession(session, inactiveExpired ? 'Session expired due to inactivity.' : `Session closed after being empty for ${EMPTY_SESSION_TTL_MS / 3_600_000} hours.`);
+      destroySession(session, inactiveExpired ? 'Session expired due to inactivity.' : `Session closed after being empty for ${formatLifespan(emptyTtl)}.`);
       log(`[session] Destroyed ${session.code} — ${closeReason} (${clientCount} clients disconnected, ${getSessionCount()} sessions active)`);
     }
   }

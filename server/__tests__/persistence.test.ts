@@ -38,6 +38,7 @@ function fakeSession(over: Partial<Session> = {}): Session {
     createdAt: 1_000,
     lastActivityAt: 2_000,
     emptySince: null,
+    mutationCount: 0,
     worldStates: WORLDS,
     clients: new Set(),
     clientIds: new Map(),
@@ -66,6 +67,7 @@ describe('serializeSessions', () => {
       description: 'desc',
       listed: true,
       lastForkAt: 4_000,
+      mutationCount: 42,
       members: new Map([
         [owner.identityToken, owner],
         [banned.identityToken, banned],
@@ -81,6 +83,7 @@ describe('serializeSessions', () => {
       code: 'ABCDEF',
       createdAt: 1_000,
       lastActivityAt: 2_000,
+      mutationCount: 42,
       worldStates: WORLDS,
       managed: true,
       ownerToken: 'BBBBBBBBBBBB',
@@ -109,6 +112,8 @@ describe('serializeSessions', () => {
     expect(s).not.toHaveProperty('ownerToken');
     expect(s).not.toHaveProperty('name');
     expect(s).not.toHaveProperty('listed');
+    // mutationCount is required on Session, so even 0 is written explicitly
+    expect(s.mutationCount).toBe(0);
   });
 });
 
@@ -237,6 +242,7 @@ describe('restoreSessions', () => {
         ownerToken: 'DDDDDDDDDDDD',
         name: 'Restored',
         listed: true,
+        mutationCount: 7,
         members: [
           { name: 'Owner', identityToken: 'DDDDDDDDDDDD', role: 'owner', banned: false, lastSeen: 5_000 },
           { name: 'Troll', identityToken: 'EEEEEEEEEEEE', role: 'scout', banned: true, lastSeen: 5_000 },
@@ -251,7 +257,8 @@ describe('restoreSessions', () => {
     expect(session.name).toBe('Restored');
     expect(session.clients.size).toBe(0);
     expect(session.nextClientId).toBe(1);
-    expect(session.emptySince).toBe(Date.now()); // 24h grace window restarts now
+    expect(session.emptySince).toBe(Date.now()); // empty-session grace window restarts now
+    expect(session.mutationCount).toBe(7);
     expect(session.members.get('DDDDDDDDDDDD')!.connections.size).toBe(0);
     expect(session.members.get('DDDDDDDDDDDD')!.currentWorld).toBeNull();
 
@@ -260,6 +267,17 @@ describe('restoreSessions', () => {
     expect('member' in auth && auth.member.name).toBe('Owner');
     const bannedAuth = authenticateByIdentityToken('EEEEEEEEEEEE');
     expect('error' in bannedAuth).toBe(true);
+  });
+
+  it('defaults mutationCount to 0 for legacy snapshots without the field', () => {
+    // persistedSession() deliberately omits mutationCount (optional in PersistedSessionV1)
+    const result = restoreSessions({
+      version: 1,
+      savedAt: Date.now(),
+      sessions: [persistedSession({ code: 'RSTRLG' })],
+    });
+    expect(result.sessions).toBe(1);
+    expect(getSession('RSTRLG')!.mutationCount).toBe(0);
   });
 
   it('skips sessions already past the 10-day inactivity limit', () => {
@@ -273,6 +291,50 @@ describe('restoreSessions', () => {
     });
     expect(result.sessions).toBe(0);
     expect(getSession('RSTROL')).toBeUndefined();
+  });
+
+  it('restores an 12-day-inactive session whose usage-earned lifespan exceeds it', () => {
+    // 20 updates → lifespan 16 days > 12 days inactive
+    const result = restoreSessions({
+      version: 1,
+      savedAt: Date.now(),
+      sessions: [persistedSession({
+        code: 'RSTRUS',
+        lastActivityAt: Date.now() - 12 * 24 * 60 * 60 * 1000,
+        mutationCount: 20,
+      })],
+    });
+    expect(result.sessions).toBe(1);
+    expect(getSession('RSTRUS')).toBeDefined();
+  });
+
+  it('skips sessions past the 180-day cap regardless of usage', () => {
+    const result = restoreSessions({
+      version: 1,
+      savedAt: Date.now(),
+      sessions: [persistedSession({
+        code: 'RSTRCP',
+        lastActivityAt: Date.now() - 185 * 24 * 60 * 60 * 1000,
+        mutationCount: 1_000_000,
+      })],
+    });
+    expect(result.sessions).toBe(0);
+    expect(getSession('RSTRCP')).toBeUndefined();
+  });
+
+  it('restores an unused managed session within its 30-day floor', () => {
+    const result = restoreSessions({
+      version: 1,
+      savedAt: Date.now(),
+      sessions: [persistedSession({
+        code: 'RSTRMG',
+        managed: true,
+        ownerToken: 'FFFFFFFFFFFF',
+        lastActivityAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
+      })],
+    });
+    expect(result.sessions).toBe(1);
+    expect(getSession('RSTRMG')).toBeDefined();
   });
 
   it('does not clobber an existing session with the same code', () => {
