@@ -21,6 +21,16 @@ import { MapView } from './components/MapView';
 import { TipTicker } from './components/TipTicker';
 import { UpdateBanner } from './components/UpdateBanner';
 import { SortFilterBar, DEFAULT_FILTERS } from './components/SortFilterBar';
+import { WorldModeSwitcher } from './components/WorldModeSwitcher';
+import {
+  partitionWorlds,
+  worldModeFor,
+  loadWorldMode,
+  loadLeaguesSeen,
+  WORLD_MODE_STORAGE_KEY,
+  LEAGUES_SEEN_STORAGE_KEY,
+  type WorldMode,
+} from './lib/worldMode';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldConfig, WorldStates } from './types';
@@ -33,7 +43,8 @@ import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_K
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
 
-const worlds = worldsConfig.worlds as WorldConfig[];
+const allWorlds = worldsConfig.worlds as WorldConfig[];
+const { main: MAIN_WORLDS, leagues: LEAGUES_WORLDS } = partitionWorlds(allWorlds);
 
 type ActiveView =
   | { kind: 'grid' }
@@ -188,7 +199,21 @@ export default function App() {
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
+  const [worldMode, setWorldMode] = useState<WorldMode>(() => loadWorldMode(LEAGUES_WORLDS.length > 0));
+  const [leaguesSeen, setLeaguesSeen] = useState(loadLeaguesSeen);
   const [worldSearch, setWorldSearch] = useState('');
+
+  const modeWorlds = worldMode === 'leagues' ? LEAGUES_WORLDS : MAIN_WORLDS;
+
+  const handleSetWorldMode = useCallback((mode: WorldMode) => {
+    setWorldMode(mode);
+    if (mode === 'leagues') {
+      setLeaguesSeen(true);
+      try {
+        localStorage.setItem(LEAGUES_SEEN_STORAGE_KEY, '1');
+      } catch { /* ignore */ }
+    }
+  }, []);
   const lastTrackedPanelKeyRef = useRef<string | null>(null);
 
   const getAnalyticsContext = useCallback((): { surface: UiSurface; sidebarSide: UiSidebarSide } => {
@@ -208,6 +233,10 @@ export default function App() {
   }, [filters]);
 
   useEffect(() => {
+    localStorage.setItem(WORLD_MODE_STORAGE_KEY, worldMode);
+  }, [worldMode]);
+
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && worldSearch) {
         e.stopImmediatePropagation();
@@ -218,13 +247,25 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [worldSearch]);
 
-  // Auto-open sidebar detail when search matches exactly one world
-  const searchMatchWorldId = useMemo(() => {
+  // Auto-open sidebar detail when search matches exactly one world.
+  // Searches every world, not just the active mode's — see the mode-switch effect below.
+  const searchMatchWorld = useMemo(() => {
     const s = worldSearch.trim();
     if (!s) return null;
-    const match = worlds.find(w => String(w.id) === s);
-    return match ? match.id : null;
+    return allWorlds.find(w => String(w.id) === s) ?? null;
   }, [worldSearch]);
+  const searchMatchWorldId = searchMatchWorld?.id ?? null;
+
+  // Searching a world that lives in the other mode switches to it. The search
+  // short-circuit in useFilteredWorlds only bypasses *filters*, not the world list
+  // it was handed, so without this the grid would just say "no worlds match".
+  // Done here rather than in an effect because typing is the event that causes it.
+  const handleWorldSearchChange = useCallback((raw: string) => {
+    const next = raw.replace(/\D/g, '').slice(0, 3);
+    setWorldSearch(next);
+    const match = allWorlds.find(w => String(w.id) === next);
+    if (match) handleSetWorldMode(worldModeFor(match));
+  }, [handleSetWorldMode]);
 
   useEffect(() => {
     if (!settings.sidebarEnabled || isMobile) return;
@@ -246,8 +287,13 @@ export default function App() {
     if (currentScoutWorld === prevScoutWorldRef.current) return;
     prevScoutWorldRef.current = currentScoutWorld;
     setWorldSearch('');
+    // Follow the scout across modes too, so the grid behind the panel matches the
+    // world being shown rather than silently staying on the other world set.
+    const scoutWorld = allWorlds.find(w => w.id === currentScoutWorld);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (scoutWorld) handleSetWorldMode(worldModeFor(scoutWorld));
     setActiveView({ kind: 'detail', worldId: currentScoutWorld });
-  }, [currentScoutWorld, settings.followScout]);
+  }, [currentScoutWorld, settings.followScout, handleSetWorldMode]);
 
   // New identity token = new Alt1 link; opt the user back in to following the scout.
   const prevIdentityTokenRef = useRef(session.identityToken);
@@ -264,7 +310,7 @@ export default function App() {
   const isPreviewingJoin = activeView.kind === 'session-join' && previewWorlds !== null;
   const displayWorldStates = isPreviewingJoin ? previewWorlds : worldStates;
 
-  const sortedFilteredWorlds = useFilteredWorlds(worlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
+  const sortedFilteredWorlds = useFilteredWorlds(modeWorlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
   const handleOpenTool = useCallback((worldId: number, tool: 'spawn' | 'tree' | 'dead') => {
     if (isPreviewingJoin) return;
@@ -450,7 +496,9 @@ export default function App() {
 
     if (activeView.kind !== 'grid') {
       const { worldId } = activeView;
-      const world = worlds.find(w => w.id === worldId)!;
+      // Across all worlds, not just the active mode's — a tool or detail view can be
+      // open for a Leagues world (via search or follow-scout) while Main is selected.
+      const world = allWorlds.find(w => w.id === worldId)!;
 
       if (activeView.kind === 'spawn')
         return <SpawnTimerView
@@ -611,10 +659,18 @@ export default function App() {
     <div className="flex flex-col h-screen">
       <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
         <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded shrink-0">
-          <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
-            Ectotrees
-            <small className="hidden sm:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
-          </h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
+              Ectotrees
+              <small className="hidden lg:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
+            </h1>
+            <WorldModeSwitcher
+              mode={worldMode}
+              setMode={handleSetWorldMode}
+              leaguesCount={LEAGUES_WORLDS.length}
+              seen={leaguesSeen}
+            />
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative flex items-center">
               <Search className={`absolute left-1.5 h-3 w-3 ${TEXT_COLOR.muted} pointer-events-none`} />
@@ -622,7 +678,7 @@ export default function App() {
                 type="text"
                 inputMode="numeric"
                 value={worldSearch}
-                onChange={e => setWorldSearch(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                onChange={e => handleWorldSearchChange(e.target.value)}
                 placeholder="World"
                 className={`w-20 pl-5 pr-5 py-0.5 text-xs bg-gray-700 ${TEXT_COLOR.prominent} rounded border border-gray-600 focus:border-gray-400 focus:outline-none placeholder:text-gray-400`}
                 aria-label="Search worlds by number"
@@ -639,7 +695,7 @@ export default function App() {
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
               <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
-              <span>{worlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{worlds.length} worlds scouted</span></span>
+              <span>{modeWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{modeWorlds.length} {worldMode === 'leagues' ? 'Leagues ' : ''}worlds scouted</span></span>
             </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE));

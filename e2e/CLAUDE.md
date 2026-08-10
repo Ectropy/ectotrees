@@ -1,6 +1,8 @@
 # E2E Tests
 
-Playwright E2E tests in `app.spec.ts`. Covers: grid render, spawn timer, tree info, mark dead, detail view, sort/filter, session join, and WebSocket race conditions.
+Playwright E2E tests in `app.spec.ts`. Covers: grid render, spawn timer, tree info, mark dead, detail view, sort/filter, Main/Leagues world modes, session join, and WebSocket race conditions.
+
+Note: the `beforeEach` `addInitScript` re-runs `localStorage.clear()` on **every** navigation, including `page.reload()` — so persistence must be tested by asserting the stored value and by seeding it from a later `addInitScript`, not with a reload.
 
 Run with:
 ```bash
@@ -14,3 +16,4 @@ Unit tests (Vitest) live alongside the code they test:
 - `src/constants/__tests__/evilTree.test.ts` — evilTree helpers
 - `src/lib/__tests__/analytics.test.ts` — analytics helpers
 - `src/lib/__tests__/sessionUrl.test.ts` — session URL parsing
+- `src/lib/__tests__/worldMode.test.ts` — Main/Leagues world partitioning and mode persistence

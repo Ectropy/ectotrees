@@ -15,6 +15,7 @@ src/
     utils.ts            # cn() helper (clsx + tailwind-merge). Clipboard helper lives in shared-browser/clipboard.ts
     analytics.ts        # Lightweight event tracking (UiPanel type, logView/logAction)
     relativeTime.ts     # relativeTime(ts): short "just now"/"5m ago"/"3h ago"/"2d ago" formatter (used by SessionMetaRow)
+    worldMode.ts        # WorldMode ('main' | 'leagues') + partitionWorlds/worldModeFor/normalizeWorldMode/loadWorldMode/loadLeaguesSeen. Mode is a world-list *input swap* into useFilteredWorlds, not a filter — deliberately outside Filters so "Clear filters" can't change world set
     sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — #join=CODE fragment URL parsing/generation. For identity-token URL handling, see shared-browser/sessionUrl.ts (buildIdentityUrl, extractIdentityToken — shared with alt1-plugin)
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
@@ -50,6 +51,8 @@ src/
     UpdateBanner.stories.tsx # Storybook story
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
+    WorldModeSwitcher.tsx # Header Main/Leagues segmented control (gold/green Leagues styling + one-time attention dot); renders null when no Leagues worlds are configured
+    WorldModeSwitcher.stories.tsx # Storybook story
     SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar + browse-on-startup toggles)
     LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
     SparkEffect.tsx      # GSAP-based ember particle animation (dead trees)
@@ -71,7 +74,7 @@ src/
 ```
 
 ## Layout
-CSS Grid with `minmax(128px, 1fr)` — all 137 world cards visible on a 1920×1080 screen without scrolling. Cards are fixed at 85px tall.
+CSS Grid with `minmax(128px, 1fr)` — all 137 main world cards visible on a 1920×1080 screen without scrolling. Cards are fixed at 85px tall. The grid only ever renders one world mode at a time (137 main or 59 Leagues), so this holds in both.
 
 The outer shell is `h-screen flex flex-col` so the viewport is always pinned — the world grid (and sidebar, when open) scroll independently within their panels; the page itself never scrolls.
 
@@ -111,13 +114,28 @@ Tool views (`spawn`, `tree`, `dead`) return to grid on submit/cancel. `detail` i
 The grid has a collapsible sort/filter bar. A toggle button collapses it to a summary line of active filter pills (collapsed state persisted to `localStorage`). When expanded, there are four sections:
 - **Sort buttons**: W#, Soonest/Latest, Favorite, Health (with asc/desc toggle; clicking an active button toggles direction)
   - `Soonest/Latest` sorts by the next relevant timestamp across urgency buckets: dead trees → alive/mature → saplings → spawn timers → inactive
-- **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive), Hidden (tri-state: off = exclude hidden worlds, Show = include hidden, Only = show only hidden)
+- **Filter chips**: Favorite, P2P, F2P (boolean toggles; P2P/F2P are mutually exclusive — note "Leagues" is *not* one of these, it is a mode switcher in the header), Hidden (tri-state: off = exclude hidden worlds, Show = include hidden, Only = show only hidden)
 - **Tree type filter chips**: Unknown, Sapling, Tree, Oak, Willow, Maple, Yew, Magic, Elder (multi-select; defined in `FILTERABLE_TREE_TYPES` in `constants/evilTree.ts`)
 - **Info tri-state filter chips**: Intel, Hint, Location, Health — each cycles through three states: off → **Needs** (show only worlds missing that info) → **Has** (show only worlds that have it)
 
 Tree type filters show only worlds with a matching confirmed tree type. The "Unknown" chip matches sapling, mature, and worlds with no confirmed type. When any tree type filter is active, inactive worlds (no data, no spawn) are hidden.
 
 All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `evilTree_filters`).
+
+All filters apply **within the active world mode** — see World Modes below.
+
+## World Modes (Main / Leagues)
+A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds) and **Leagues** (59 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
+
+Leagues is **orthogonal to P2P/F2P** — Leagues contains both — so the membership chips keep narrowing *within* whichever mode is active rather than competing with it.
+
+Implementation: `App.tsx` partitions the world list once at module scope via `partitionWorlds` (`lib/worldMode.ts`) and passes the selected set into `useFilteredWorlds`. Because that hook already takes the world list as a parameter, mode required no changes to the filter logic itself.
+
+- Mode lives in its own `useState` + `localStorage` key (`evilTree_worldMode`), **not** in `Filters` — otherwise "Clear filters" would yank the user out of Leagues.
+- `loadWorldMode(hasLeagues)` forces `'main'` when no Leagues worlds are configured, so deleting them post-event can't strand a user on an empty grid.
+- The Leagues button shows a one-time pulsing attention dot until first use (`evilTree_leaguesSeen`).
+- Searching a world number in the other mode auto-switches to it (handled in the search `onChange`, since the search short-circuit in `useFilteredWorlds` bypasses filters but not the world list). Follow-scout does the same when the scout hops across modes.
+- Tool/detail views and `SessionJoinView` look worlds up across **all** worlds, not just the active mode — a panel can be open for a Leagues world while Main is selected. `ViewHeader` and `SessionJoinView` render a gold Leagues badge alongside the P2P/F2P badge.
 
 ## Tool Availability
 | Tool | Enabled when |

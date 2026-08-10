@@ -141,6 +141,105 @@ test('perf: all 137 worlds dead — grid renders and stays responsive', async ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Leagues mode switcher
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MAIN_WORLD_COUNT = 137;
+const LEAGUES_WORLD_COUNT = 59;
+const LEAGUES_F2P_COUNT = 13;
+const LEAGUES_W = 233;   // F2P Leagues world
+const LEAGUES_P2P_W = 143;
+
+const cards = (page: Page) => page.locator('[data-testid^="world-card-"]');
+const leaguesButton = (page: Page) => page.getByRole('button', { name: 'Leagues' });
+const mainButton = (page: Page) => page.getByRole('button', { name: 'Main' });
+
+test('leagues: defaults to Main mode showing only main worlds', async ({ page }) => {
+  await page.goto('/');
+  await expect(mainButton(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+  await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
+  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toHaveCount(0);
+});
+
+test('leagues: switching modes swaps the world set', async ({ page }) => {
+  await page.goto('/');
+  await leaguesButton(page).click();
+
+  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+  // Main worlds must not leak into the Leagues grid
+  await expect(page.getByTestId(`world-card-${W}`)).toHaveCount(0);
+
+  await mainButton(page).click();
+  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+});
+
+test('leagues: scouted counter is scoped to the active mode', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('header')).toContainText(`/${MAIN_WORLD_COUNT} worlds scouted`);
+
+  await leaguesButton(page).click();
+  await expect(page.locator('header')).toContainText(`/${LEAGUES_WORLD_COUNT} Leagues worlds scouted`);
+});
+
+// This is the check that specifically validates the orthogonal-dimension model:
+// Leagues contains both P2P and F2P worlds, so the membership filters must still
+// narrow *within* Leagues rather than being mutually exclusive with it.
+test('leagues: P2P/F2P filters still apply within Leagues mode', async ({ page }) => {
+  await page.goto('/');
+  await leaguesButton(page).click();
+  await page.getByRole('button', { name: 'F2P', exact: true }).click();
+
+  await expect(cards(page)).toHaveCount(LEAGUES_F2P_COUNT);
+  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+  await expect(page.getByTestId(`world-card-${LEAGUES_P2P_W}`)).toHaveCount(0);
+});
+
+test('leagues: searching a Leagues world from Main auto-switches mode', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Search worlds by number').fill(String(LEAGUES_W));
+
+  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+});
+
+// Persistence is covered in two halves rather than with a reload: the beforeEach
+// addInitScript re-runs localStorage.clear() on every navigation, so a reload here
+// would wipe the very value under test.
+test('leagues: selecting a mode persists it', async ({ page }) => {
+  await page.goto('/');
+  await leaguesButton(page).click();
+  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+
+  const stored = await page.evaluate(() => localStorage.getItem('evilTree_worldMode'));
+  expect(stored).toBe('leagues');
+});
+
+test('leagues: a stored Leagues preference is restored on load', async ({ page }) => {
+  // Registered after the beforeEach script, so it survives the clear()
+  await page.addInitScript(() => {
+    localStorage.setItem('evilTree_worldMode', 'leagues');
+  });
+  await page.goto('/');
+
+  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+});
+
+test('leagues: world detail view labels a Leagues world', async ({ page }) => {
+  await page.goto('/');
+  await leaguesButton(page).click();
+  await page.getByTestId(`world-card-${LEAGUES_W}`).click();
+
+  const header = page.locator('h1').last().locator('..');
+  await expect(header).toContainText(`World ${LEAGUES_W}`);
+  await expect(header).toContainText('Leagues');
+  await expect(header).toContainText('F2P');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Session join via #join= hash fragment
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { validateMessage, validateInitializeState, validateSessionCode } from '../validation.ts';
+import worldsData from '../../shared/worlds.json' with { type: 'json' };
 
 // World IDs 1 and 2 are guaranteed to exist in worlds.json
 const W = 1;
 const MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+// A Leagues world — orthogonal to P2P/F2P, and validated like any other world ID
+const LEAGUES_W = worldsData.worlds.find(w => 'leagues' in w && w.leagues)!.id;
+
+// Mirrors the derivation in validation.ts so this test can't rot when worlds are added
+const MAX_WORLDS_INITIALIZE = worldsData.worlds.length + 50;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // validateSessionCode
@@ -58,6 +65,10 @@ describe('validateMessage — structural checks', () => {
 
   it('returns error for invalid worldId (non-existent world)', () => {
     expect(validateMessage({ type: 'markDead', worldId: 99999 })).toMatchObject({ error: expect.any(String) });
+  });
+
+  it('accepts a Leagues worldId', () => {
+    expect(validateMessage({ type: 'markDead', worldId: LEAGUES_W })).not.toMatchObject({ error: expect.any(String) });
   });
 
   it('returns error for invalid msgId (float)', () => {
@@ -372,13 +383,22 @@ describe('validateInitializeState', () => {
     }
   });
 
-  it('returns error when more than 200 worlds are provided', () => {
+  it('returns error when more worlds than the cap are provided', () => {
     const worlds: Record<string, unknown> = {};
-    for (let i = 1; i <= 201; i++) {
+    for (let i = 1; i <= MAX_WORLDS_INITIALIZE + 1; i++) {
       worlds[i] = { treeStatus: 'alive' };
     }
     const result = validateInitializeState({ worlds });
     expect(result).toMatchObject({ error: expect.any(String) });
+  });
+
+  it('accepts a payload covering every configured world', () => {
+    const worlds: Record<string, unknown> = {};
+    for (const w of worldsData.worlds) {
+      worlds[w.id] = { treeStatus: 'alive' };
+    }
+    const result = validateInitializeState({ worlds });
+    expect(result).not.toMatchObject({ error: expect.any(String) });
   });
 
   it('silently skips entries with invalid treeType', () => {

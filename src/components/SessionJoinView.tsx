@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import worldsConfig from '../../shared/worlds.json';
-import type { WorldStates, WorldState } from '../types';
+import type { WorldStates, WorldState, WorldConfig } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
-import { P2P_COLOR, F2P_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
+import { P2P_COLOR, F2P_COLOR, LEAGUES_COLOR, TEXT_COLOR, TREE_COLOR, SPAWN_COLOR, MANAGED_COLOR, ERROR_COLOR } from '../constants/toolColors';
 import type { SessionInfo } from '../../shared/protocol.ts';
 import { SessionMetaRow, SessionStats } from './SessionMetaRow';
 import { relativeTime } from '../lib/relativeTime';
@@ -22,13 +22,8 @@ interface Props {
   sessionInfo?: SessionInfo;
 }
 
-interface WorldConfig {
-  id: number;
-  type: 'P2P' | 'F2P';
-}
-
 const worlds = worldsConfig.worlds as WorldConfig[];
-const worldTypeMap = new Map<number, 'P2P' | 'F2P'>(worlds.map(w => [w.id, w.type]));
+const worldConfigMap = new Map<number, WorldConfig>(worlds.map(w => [w.id, w]));
 
 
 function statusLabel(state: WorldState): string {
@@ -45,11 +40,18 @@ function statusLabel(state: WorldState): string {
 }
 
 function WorldTypeBadge({ worldId }: { worldId: number }) {
-  const type = worldTypeMap.get(worldId);
-  if (!type) return null;
-  const cls = type === 'P2P' ? P2P_COLOR.badge : F2P_COLOR.badge;
+  const world = worldConfigMap.get(worldId);
+  if (!world) return null;
+  const cls = world.type === 'P2P' ? P2P_COLOR.badge : F2P_COLOR.badge;
+  // The join list mixes Main and Leagues worlds — it has no mode context of its
+  // own, so Leagues worlds need to identify themselves here.
   return (
-    <span className={`text-[9px] px-1 rounded leading-none py-0.5 ${cls}`}>{type}</span>
+    <>
+      {world.leagues && (
+        <span className={`text-[9px] px-1 rounded leading-none py-0.5 ${LEAGUES_COLOR.badge}`}>LGS</span>
+      )}
+      <span className={`text-[9px] px-1 rounded leading-none py-0.5 ${cls}`}>{world.type}</span>
+    </>
   );
 }
 

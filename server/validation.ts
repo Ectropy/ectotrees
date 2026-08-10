@@ -58,7 +58,11 @@ function validateExactLocation(s: unknown): string | null {
 }
 
 const VALID_TREE_STATUSES = new Set(['none', 'sapling', 'mature', 'alive', 'dead']);
-const MAX_WORLDS_INITIALIZE = 200;
+// Derived rather than a fixed number so it can't silently collide as worlds are added
+// (e.g. a seasonal Leagues world set). The headroom covers stale world IDs still held
+// by older clients for worlds since removed from worlds.json. This is a whole-message
+// reject, so an undersized cap costs the user their entire payload, not a few entries.
+const MAX_WORLDS_INITIALIZE = VALID_WORLD_IDS.size + 50;
 
 function validateWorldState(worldId: number, raw: unknown): WorldState | null {
   if (!isObject(raw)) return null;

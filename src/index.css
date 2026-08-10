@@ -35,6 +35,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
+  /* RS3 Leagues ("Equilibrium") brand colors, sampled from the in-game
+     PLAY LEAGUE button: a yellow-green fill inside an antique-gold frame.
+     Consumed via LEAGUES_COLOR in shared-browser/toolColors.ts.
+     Dashboard-only — see the alt1 pre-oklch note in that file before reusing. */
+  --color-leagues-gold: #d9b44a;
+  --color-leagues-green: #8cb82b;
+
   --animate-ticker: ticker 1s linear infinite;
 
   @keyframes ticker {

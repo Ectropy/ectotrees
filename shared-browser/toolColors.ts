@@ -53,6 +53,23 @@ export const F2P_COLOR = {
   border: 'border-blue-500',                          // card border accent in WorldCard
 } as const;
 
+/** Leagues mode switcher + Leagues world badge.
+ *  Mirrors the in-game PLAY LEAGUE button: green fill, gold frame, gold label.
+ *  Gold and green are otherwise the app's most contested hues (P2P/managed yellow,
+ *  tree/active-chip green) — the gradient, which is unique in this codebase, is what
+ *  keeps this from reading as either one.
+ *  Color tokens are defined in src/index.css @theme. Dashboard-only: both the
+ *  var(--color-*) refs and the slash-opacity modifiers compile to oklch()/color-mix(),
+ *  which fail silently in Alt1's pre-oklch CEF. Before using this in alt1-plugin, add
+ *  hex + -aNN rgba pairs to alt1-plugin/src/index.css as that file's header explains. */
+export const LEAGUES_COLOR = {
+  text:     'text-leagues-gold',
+  badge:    'text-leagues-gold border border-leagues-gold',
+  active:   'bg-linear-to-b from-leagues-green/35 to-leagues-green/15 border border-leagues-gold text-leagues-gold font-semibold',
+  inactive: 'bg-transparent border border-leagues-gold/60 text-leagues-gold/80 hover:bg-leagues-green/10 hover:border-leagues-gold hover:text-leagues-gold',
+  dot:      'bg-leagues-green animate-pulse',
+} as const;
+
 /** Tree / game-state display colors (StatusSection + WorldDetailView) */
 
 export const TREE_STATE_COLOR = {

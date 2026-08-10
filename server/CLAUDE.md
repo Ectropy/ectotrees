@@ -120,7 +120,8 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - **Session browser**: managed sessions can opt in to public discovery by setting `listed: true` via `updateSessionSettings` (also sets `name` and optional `description`). Listed sessions appear in `GET /api/sessions` as `SessionSummary` objects and are displayed in `SessionBrowserView`.
 
 ## Validation (`validation.ts`)
-- `worldId` must exist in `worlds.json`
+- `worldId` must exist in `worlds.json` (Leagues worlds included — the server has no mode concept, only the ID allowlist)
+- `initializeState`/`contributeWorlds` cap out at `worlds.json` length + 50 entries (derived, not a fixed number, so it can't silently collide as worlds are added). This is a whole-message reject, not a per-entry skip
 - `msFromNow` must be a positive integer, max 2 hours
 - Strings are sanitized (control chars stripped, max 200 chars) and checked for profanity via `containsProfanity()`
 - Member names have a tighter cap of `MAX_MEMBER_NAME_LEN` (32, from `shared/protocol.ts`), enforced on both WS (`requireCleanText`) and HTTP open-join paths

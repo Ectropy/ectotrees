@@ -5,8 +5,8 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 ## Tech Stack
 
 - **React 19** + **TypeScript** + **Vite 8**
-- **Tailwind CSS v4** (CSS-first config — no `tailwind.config.*`; theme tokens live in `src/index.css` under `@theme inline`, loaded via `@tailwindcss/vite`)
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search`, `Map` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw` used in `SessionBrowserView`; `Circle`, `CircleX`, `LoaderCircle` used in `SessionBar`; `Link`, `Unlink` used in `Alt1TokenButton` and `SessionView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **Tailwind CSS v4** (CSS-first config — no `tailwind.config.*`; theme tokens live in `src/index.css` under `@theme inline`, loaded via `@tailwindcss/vite`). Alongside the shadcn/ui semantic tokens, `@theme inline` carries the two Leagues brand colors (`--color-leagues-gold`, `--color-leagues-green`); the rest of the app palette is stock Tailwind referenced by class name from `shared-browser/toolColors.ts`.
+- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search`, `Map` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Sparkles` used in `WorldModeSwitcher`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw` used in `SessionBrowserView`; `Circle`, `CircleX`, `LoaderCircle` used in `SessionBar`; `Link`, `Unlink` used in `Alt1TokenButton` and `SessionView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
 - **obscenity** — profanity filter used server-side to sanitize member names and session descriptions (`server/profanity.ts`)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
@@ -115,3 +115,16 @@ Sapling variants allow recording the expected species during the sapling phase. 
 
 ## Adding/Removing Worlds
 Edit `shared/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
+
+Optional `"leagues": true` marks a world as part of the RS3 Leagues world set (196 worlds total: 137 main + 59 Leagues). **`leagues` is orthogonal to `type`** — Leagues has both P2P and F2P worlds — so it is a separate flag, not a third `type` value:
+
+```json
+{ "id": 233, "type": "F2P", "leagues": true }
+```
+
+All three consumers import this file **statically at build/startup**, so adding or removing worlds requires all of:
+1. **Restart the server** — `VALID_WORLD_IDS` in `server/validation.ts` is a static JSON import. Do this *first*: if the client ships new IDs before the server knows them, mutations are rejected and the client does not roll back its optimistic update (`useSession.ts`), so users see phantom intel that vanishes on reconnect.
+2. **Rebuild the client.**
+3. **Rebuild `alt1-plugin`** — its `VALID_WORLD_IDS` is bundled at build time, so the scout plugin won't OCR-detect new worlds until then.
+
+Removing worlds leaves orphan `worldStates` keys in persisted session snapshots (`restoreSessions` copies the map in without ID validation, and there is no reaper). They're invisible to the UI and harmless, just permanent.
