@@ -8,9 +8,14 @@ interface Props {
   leaguesCount: number;
   /** False until the user has opened Leagues once; drives the attention dot. */
   seen: boolean;
+  /** Layout hook for the host — the header uses it to reflow the control onto its own row. */
+  className?: string;
 }
 
-const BUTTON_BASE = `px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounded transition-colors text-center inline-flex items-center gap-1 ${FOCUS_RING}`;
+// Below `md` the buttons split the row evenly, so the control reads as a full-width
+// segmented toggle on its own header line rather than a pair of cramped chips. The
+// breakpoint matches the header's reflow point in App.tsx — keep the two in step.
+const BUTTON_BASE = `flex-1 md:flex-none px-2 py-1 md:px-1.5 md:py-0.5 text-xs md:text-[11px] rounded transition-colors text-center inline-flex items-center justify-center gap-1 ${FOCUS_RING}`;
 
 /**
  * Main / Leagues mode switcher.
@@ -19,11 +24,11 @@ const BUTTON_BASE = `px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[11px] rounde
  * ship dark before the event and disappear cleanly afterwards by deleting the
  * entries from worlds.json — no code change either way.
  */
-export function WorldModeSwitcher({ mode, setMode, leaguesCount, seen }: Props) {
+export function WorldModeSwitcher({ mode, setMode, leaguesCount, seen, className = '' }: Props) {
   if (leaguesCount === 0) return null;
 
   return (
-    <div className="flex items-center gap-0.5 shrink-0" role="group" aria-label="World set">
+    <div className={`flex items-center gap-0.5 shrink-0 ${className}`} role="group" aria-label="World set">
       <button
         onClick={() => setMode('main')}
         aria-pressed={mode === 'main'}

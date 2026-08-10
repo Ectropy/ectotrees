@@ -658,20 +658,22 @@ export default function App() {
     // Outer shell is pinned to the viewport — nothing scrolls at the page level
     <div className="flex flex-col h-screen">
       <div className="flex flex-col flex-1 min-h-0 p-1.5 gap-1.5">
-        <header className="flex items-center justify-between px-2 py-1 bg-gray-800 rounded shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <h1 className={`text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
-              Ectotrees
-              <small className="hidden lg:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
-            </h1>
-            <WorldModeSwitcher
-              mode={worldMode}
-              setMode={handleSetWorldMode}
-              leaguesCount={LEAGUES_WORLDS.length}
-              seen={leaguesSeen}
-            />
-          </div>
-          <div className="flex items-center gap-4">
+        {/* Wraps below `md`: the mode switcher is a sibling of the title/action groups (not
+            nested in the title group) so `basis-full` can push it onto its own row above them.
+            Order classes restore title → switcher → actions once everything fits on one line. */}
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 py-1 bg-gray-800 rounded shrink-0">
+          <h1 className={`order-1 min-w-0 text-base font-bold ${TEXT_COLOR.prominent} tracking-wide`}>
+            Ectotrees
+            <small className="hidden lg:inline ms-2 text-xs font-light">Turning Evil Trees into dead trees.</small>
+          </h1>
+          <WorldModeSwitcher
+            mode={worldMode}
+            setMode={handleSetWorldMode}
+            leaguesCount={LEAGUES_WORLDS.length}
+            seen={leaguesSeen}
+            className="order-first basis-full md:order-2 md:basis-auto"
+          />
+          <div className="order-3 flex items-center gap-4">
             <div className="relative flex items-center">
               <Search className={`absolute left-1.5 h-3 w-3 ${TEXT_COLOR.muted} pointer-events-none`} />
               <input

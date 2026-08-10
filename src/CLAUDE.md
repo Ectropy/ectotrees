@@ -51,7 +51,7 @@ src/
     UpdateBanner.stories.tsx # Storybook story
     HealthButtonGrid.tsx # 4-column grid of 20 health buttons (5–100%), color-coded
     SortFilterBar.tsx    # Sort/filter controls for the world grid (collapsible)
-    WorldModeSwitcher.tsx # Header Main/Leagues segmented control (gold/green Leagues styling + one-time attention dot); renders null when no Leagues worlds are configured
+    WorldModeSwitcher.tsx # Header Main/Leagues segmented control (gold/green Leagues styling + one-time attention dot); renders null when no Leagues worlds are configured. Below `md` the buttons stretch (`flex-1`) to fill the full-width header row it wraps onto — accepts a `className` for that layout hook
     WorldModeSwitcher.stories.tsx # Storybook story
     SettingsView.tsx     # Full-screen/sidebar settings panel (visual effects + sidebar + browse-on-startup toggles)
     LightningEffect.tsx  # Canvas-based procedural lightning bolt animation
@@ -134,6 +134,7 @@ Implementation: `App.tsx` partitions the world list once at module scope via `pa
 - Mode lives in its own `useState` + `localStorage` key (`evilTree_worldMode`), **not** in `Filters` — otherwise "Clear filters" would yank the user out of Leagues.
 - `loadWorldMode(hasLeagues)` forces `'main'` when no Leagues worlds are configured, so deleting them post-event can't strand a user on an empty grid.
 - The Leagues button shows a one-time pulsing attention dot until first use (`evilTree_leaguesSeen`).
+- **Header layout**: the switcher is a direct child of `<header>` (a sibling of the title and the action group, not nested in either) so `basis-full` can wrap it onto its own full-width row below `md`, where it reads as a prominent segmented toggle. At `md` and up, `order` classes put it back inline between the title and the actions. The `md` breakpoint is duplicated in `WorldModeSwitcher`'s button sizing — change both together.
 - Searching a world number in the other mode auto-switches to it (handled in the search `onChange`, since the search short-circuit in `useFilteredWorlds` bypasses filters but not the world list). Follow-scout does the same when the scout hops across modes.
 - Tool/detail views and `SessionJoinView` look worlds up across **all** worlds, not just the active mode — a panel can be open for a Leagues world while Main is selected. `ViewHeader` and `SessionJoinView` render a gold Leagues badge alongside the P2P/F2P badge.
 
