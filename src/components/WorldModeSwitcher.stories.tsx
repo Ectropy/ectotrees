@@ -5,7 +5,7 @@ const meta: Meta<typeof WorldModeSwitcher> = {
   title: 'Components/WorldModeSwitcher',
   component: WorldModeSwitcher,
   parameters: { layout: 'centered' },
-  args: { leaguesCount: 59, seen: true, setMode: () => {} },
+  args: { leaguesCount: 68, seen: true, setMode: () => {} },
 };
 
 export default meta;

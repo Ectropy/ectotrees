@@ -116,7 +116,7 @@ Sapling variants allow recording the expected species during the sapling phase. 
 ## Adding/Removing Worlds
 Edit `shared/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
 
-Optional `"leagues": true` marks a world as part of the RS3 Leagues world set (196 worlds total: 137 main + 59 Leagues). **`leagues` is orthogonal to `type`** — Leagues has both P2P and F2P worlds — so it is a separate flag, not a third `type` value:
+Optional `"leagues": true` marks a world as part of the RS3 Leagues world set (205 worlds total: 137 main + 68 Leagues). **`leagues` is orthogonal to `type`** — Leagues has both P2P and F2P worlds — so it is a separate flag, not a third `type` value:
 
 ```json
 { "id": 233, "type": "F2P", "leagues": true }

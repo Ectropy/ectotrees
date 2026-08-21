@@ -74,7 +74,7 @@ src/
 ```
 
 ## Layout
-CSS Grid with `minmax(128px, 1fr)` — all 137 main world cards visible on a 1920×1080 screen without scrolling. Cards are fixed at 85px tall. The grid only ever renders one world mode at a time (137 main or 59 Leagues), so this holds in both.
+CSS Grid with `minmax(128px, 1fr)` — all 137 main world cards visible on a 1920×1080 screen without scrolling. Cards are fixed at 85px tall. The grid only ever renders one world mode at a time (137 main or 68 Leagues), so this holds in both.
 
 The outer shell is `h-screen flex flex-col` so the viewport is always pinned — the world grid (and sidebar, when open) scroll independently within their panels; the page itself never scrolls.
 
@@ -125,7 +125,7 @@ All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `e
 All filters apply **within the active world mode** — see World Modes below.
 
 ## World Modes (Main / Leagues)
-A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds) and **Leagues** (59 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
+A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds) and **Leagues** (68 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
 
 Leagues is **orthogonal to P2P/F2P** — Leagues contains both — so the membership chips keep narrowing *within* whichever mode is active rather than competing with it.
 

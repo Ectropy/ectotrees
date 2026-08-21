@@ -145,7 +145,7 @@ test('perf: all 137 worlds dead — grid renders and stays responsive', async ({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MAIN_WORLD_COUNT = 137;
-const LEAGUES_WORLD_COUNT = 59;
+const LEAGUES_WORLD_COUNT = 68;
 const LEAGUES_F2P_COUNT = 13;
 const LEAGUES_W = 233;   // F2P Leagues world
 const LEAGUES_P2P_W = 143;
