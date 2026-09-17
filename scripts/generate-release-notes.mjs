@@ -4,7 +4,7 @@
 // Called by .github/workflows/release.yml to produce AI-generated release notes.
 // Writes .release-notes.md which is passed to softprops/action-gh-release as body_path.
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -15,7 +15,7 @@ if (!TAG_NAME) {
 }
 
 // Find the previous tag to determine the commit range
-const allTags = execSync('git tag --sort=-version:refname', { encoding: 'utf8' })
+const allTags = execFileSync('git', ['tag', '--sort=-version:refname'], { encoding: 'utf8' })
   .trim()
   .split('\n')
   .filter(Boolean);
@@ -23,17 +23,17 @@ const allTags = execSync('git tag --sort=-version:refname', { encoding: 'utf8' }
 const currentIndex = allTags.indexOf(TAG_NAME);
 const previousTag = currentIndex !== -1 ? allTags[currentIndex + 1] : null;
 
+// Tag names are passed as argv entries, never interpolated into a shell string.
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
+
 const base = previousTag
-  ? execSync(`git rev-list -n 1 ${previousTag}`, { encoding: 'utf8' }).trim()
-  : execSync('git rev-list --max-parents=0 HEAD', { encoding: 'utf8' }).trim();
+  ? git('rev-list', '-n', '1', previousTag).trim()
+  : git('rev-list', '--max-parents=0', 'HEAD').trim();
 
 const baseLabel = previousTag ?? 'initial commit';
 const range = `${base}..${TAG_NAME}`;
 
-const commitLog = execSync(
-  `git log ${range} --pretty=format:"%H %s%n%b%n---"`,
-  { encoding: 'utf8' }
-).trim();
+const commitLog = git('log', range, '--pretty=format:%H %s%n%b%n---').trim();
 
 if (!commitLog) {
   console.log('No commits found — writing minimal release notes.');
@@ -41,7 +41,7 @@ if (!commitLog) {
   process.exit(0);
 }
 
-let diff = execSync(`git diff ${range}`, { encoding: 'utf8' });
+let diff = git('diff', range);
 
 console.log(`Generating release notes for ${TAG_NAME} (commits since ${baseLabel})...`);
 
