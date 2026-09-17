@@ -213,32 +213,35 @@ Use this when running as an installable PWA on mobile devices (iOS requires HTTP
 # 1. Copy the example compose file
 cp docker-compose.example.yml docker-compose.yml
 
-# 2. Create the required Caddy directories
-mkdir -p caddy/{caddy_data,caddy_config}
+# 2. Create the required directories
+mkdir -p caddy/{caddy_data,caddy_config} data
 
-# 3. Copy and configure the Caddyfile — replace 'ectotrees.example.com' with your domain
+# 3. The app runs as uid 1000 inside the container, so it must own the data directory
+chown 1000:1000 data
+
+# 4. Copy and configure the Caddyfile — replace 'ectotrees.example.com' with your domain
 cp Caddyfile caddy/Caddyfile
 nano caddy/Caddyfile
 
-# 4. Start
+# 5. Start
 docker compose up -d
 ```
 
 Caddy routes `/api/*` and `/ws` to the Node backend and falls through to the app for all other requests.
 
-The compose file mounts `./data` into the container as `DATA_DIR`, so session state survives redeploys. Keep that directory out of backups and logs — the snapshot contains member identity tokens.
+The compose file mounts `./data` into the container as `DATA_DIR`, so session state survives redeploys. Keep that directory out of backups and logs — the snapshot contains member identity tokens. The container runs as the unprivileged `node` user (uid 1000) with all capabilities dropped; if you see `DATA_DIR ... is not writable` on startup, the `chown` in step 3 was skipped.
 
 ### Host-agnostic endpoint configuration
 
 The main app is host-agnostic by design: API calls use the relative path `/api` and WebSocket connects to `ws(s)://<current-host>/ws`. Caddy routes both to the Node backend, so no build-time configuration is needed.
 
-The **Alt1 plugin** bakes the API/WS URL into its bundle at build time. If you self-host the backend at a non-standard URL, override it with a Docker build arg:
+The **Alt1 plugin** bakes its WebSocket URL into the bundle at build time from `alt1-plugin/.env.production`, which points at the upstream server. If you self-host, override it with a Docker build arg so scout traffic reaches *your* backend:
 
 ```bash
-docker build --build-arg ECTOTREES_API=https://your-domain.com -t ectotrees:local .
+docker build --build-arg ECTOTREES_WS_BASE=wss://your-domain.com -t ectotrees:local .
 ```
 
-When `ECTOTREES_API` is set, the WebSocket URL is derived from it automatically (`https://` → `wss://`). You can also set `ECTOTREES_WS` separately if needed.
+Use `ws://` for a plain-http local build. When the arg is unset, the value in `.env.production` is used unchanged.
 
 ## Tech stack
 

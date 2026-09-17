@@ -12,6 +12,11 @@ dist
 dist-ssr
 storybook-static
 *.local
+# Real env files never belong in git; the committed .env.development /
+# .env.production hold only public VITE_* URLs.
+.env
+.env.local
+.env.*.local
 
 # Editor directories and files
 .vscode/*
