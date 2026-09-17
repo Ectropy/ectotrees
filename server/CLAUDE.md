@@ -45,9 +45,9 @@ Security response headers applied to all HTTP responses:
 ## REST Endpoints
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/session` | Create a new session. Returns `{ code }` |
+| `POST` | `/api/session` | Create a new session. Returns `{ code }`. Production only: additionally capped at 10 creations/hour/IP. |
 | `GET` | `/api/sessions` | Returns `{ sessions: SessionSummary[] }` — only sessions with `listed: true` |
-| `POST` | `/api/session/:code/open-join` | Self-issue an identity token for an open-join session. Body: `{ name: string }`. Returns `{ identityToken }` or an error. |
+| `POST` | `/api/session/:code/open-join` | Self-issue an identity token for an open-join session. Body: `{ name: string }`. Returns `{ identityToken }` or an error. Unknown codes and sessions with open join off both return the same `404` (no existence oracle), and misses feed the per-IP failed-auth throttle shared with WS auth (`429` once tripped). |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
 
 REST endpoints are rate-limited to 20 requests/minute per IP (`/api/health` has its own lenient 60/minute limiter so the Docker HEALTHCHECK and the dashboard update poll never trip it).

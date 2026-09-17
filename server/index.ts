@@ -303,7 +303,20 @@ function csrfMiddleware(req: express.Request, res: express.Response, next: expre
   next();
 }
 
-app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) => {
+// Session creation is the one request that consumes a slot from the global
+// MAX_SESSIONS pool for at least 24h, so it gets its own per-IP budget on top
+// of the general limiter. Skipped outside production: the E2E suite creates a
+// session per test against the dev server.
+const sessionCreateRateLimitMiddleware = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !IS_PROD,
+  message: { error: 'Too many sessions created from this address. Try again later.' },
+});
+
+app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, sessionCreateRateLimitMiddleware, (_req, res) => {
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });
@@ -319,13 +332,19 @@ app.get('/api/sessions', httpRateLimitMiddleware, (_req, res) => {
 });
 
 app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
-  const session = getSession(req.params.code as string);
-  if (!session) {
-    res.status(404).json({ error: 'Session not found.' });
+  // Misses share the WS failed-auth throttle so this route cannot be used to
+  // enumerate session codes faster than the WebSocket auth path allows.
+  const ip = req.ip ?? 'unknown';
+  if (isAuthThrottled(ip)) {
+    res.status(429).json({ error: 'Too many failed attempts. Try again in a minute.' });
     return;
   }
-  if (!session.allowOpenJoin) {
-    res.status(403).json({ error: 'This session does not allow open join.' });
+  const session = getSession(req.params.code as string);
+  // "Not found" and "not open" are deliberately indistinguishable: a distinct
+  // status for real-but-closed sessions would confirm which codes exist.
+  if (!session || !session.allowOpenJoin) {
+    recordAuthFailure(ip);
+    res.status(404).json({ error: 'Session not found or not accepting open join.' });
     return;
   }
   const name = typeof req.body?.name === 'string' ? req.body.name : '';
