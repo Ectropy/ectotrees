@@ -11,10 +11,12 @@ const PING_INTERVAL_MS = 30_000;
 const PING_ACK_TIMEOUT_MS = 8_000;
 const ACK_TIMEOUT_MS = 5_000;
 const IDENTITY_TOKEN_KEY = 'evilTree_identityToken';
+// Keep in sync with FATAL_ERRORS in src/hooks/useSession.ts
 const FATAL_ERRORS = new Set([
   'Session is full.',
   'Session not found.',
   'This is a private session. You need an invite link to join.',
+  'Invalid identity token.',
 ]);
 
 interface PendingMutation {

@@ -190,7 +190,7 @@ Infinite horizontal-scroll footer showing tips from `src/data/tips.json`. Tips a
 Exposes `createSession`, `createSessionAndRequestToken` (creates an anonymous session and immediately asks for an identity token — used by the Alt1 "link with Alt1" button), `joinSession`, `joinByIdentityToken`, `rejoinSession`, `leaveSession`, a preview-join flow (`previewJoin` / `confirmPreviewJoin` / `cancelPreview`), managed session ops (`forkToManaged`, `joinManagedFork`, `createInvite`, `kickMember`, `banMember`, `renameMember`, `setMemberRole`, `transferOwnership`, `setAllowOpenJoin`, `openJoin`, `updateSessionSettings`), `requestIdentityToken`, and fork-invite dismissal (`forkDismissed`, `dismissForkInvite`).
 
 Key behaviors:
-- **localStorage**: session code → `evilTree_sessionCode`; invite/personal token → `evilTree_inviteToken`. Both are auto-resumed on page reload.
+- **localStorage**: session code → `evilTree_sessionCode`; identity token → `evilTree_identityToken` (shared with the Alt1 plugin). Both are auto-resumed on page reload; the token is validated against `IDENTITY_TOKEN_RE` on load and before every persist, so a malformed value is never written back.
 - **URL fragments**: `#join=CODE` auto-joins on load; `#identity=TOKEN` triggers an identity-based join. Fragments are removed from history after use.
 - **Reconnection**: exponential backoff via `shared/reconnect.ts` (`[1s, 2s, 4s, 8s, 16s, 30s]`, max 10 attempts). Fatal errors (`Session is full.`, `Session not found.`) skip reconnection. On reconnect, invite token takes priority over session code for auth.
 - **Ping/pong**: ping every 30s; socket force-closed if no pong within 8s.

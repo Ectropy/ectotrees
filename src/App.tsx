@@ -830,7 +830,7 @@ export default function App() {
       <footer className="px-2 py-1 bg-gray-800 shrink-0">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {settings.showTipTicker && <TipTicker />}
-          <span className="text-[10px] text-gray-200 leading-none shrink-0 text-center sm:text-left">Ectotrees v{APP_VERSION_DISPLAY} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank'>View on GitHub</a></span>
+          <span className="text-[10px] text-gray-200 leading-none shrink-0 text-center sm:text-left">Ectotrees v{APP_VERSION_DISPLAY} • <a className="underline hover:text-blue-300" href='https://github.com/Ectropy/ectotrees' target='_blank' rel='noopener noreferrer'>View on GitHub</a></span>
         </div>
       </footer>
     </div>

@@ -4,6 +4,7 @@ import { SessionMetaRow } from './SessionMetaRow';
 import type { SessionState } from '../hooks/useSession';
 import { useSessionBrowser } from '../hooks/useSessionBrowser';
 import { extractSessionCode, validateSessionCode } from '../lib/sessionUrl';
+import { IDENTITY_TOKEN_RE } from '@shared-browser/sessionUrl';
 import { TEXT_COLOR, TREE_COLOR, MANAGED_COLOR, SPAWN_COLOR, BUTTON_SECONDARY, ERROR_COLOR, DISABLED_STYLE } from '../constants/toolColors';
 import { DismissableError } from '@shared-browser/DismissableError';
 import { NameEntryForm } from './NameEntryForm';
@@ -59,7 +60,7 @@ export function SessionBrowserView({
 
   async function handleJoin() {
     const codeOrToken = joinCode.trim().toUpperCase();
-    const isToken = codeOrToken.length === 12;
+    const isToken = IDENTITY_TOKEN_RE.test(codeOrToken);
     const isCode = validateSessionCode(codeOrToken);
     if (!isCode && !isToken) return;
 
@@ -81,7 +82,7 @@ export function SessionBrowserView({
   useEffect(() => {
     const codeOrToken = joinCode.trim().toUpperCase();
     const isCode = validateSessionCode(codeOrToken);
-    const isToken = codeOrToken.length === 12;
+    const isToken = IDENTITY_TOKEN_RE.test(codeOrToken);
     if ((isCode || isToken) && autoTriggeredRef.current !== codeOrToken) {
       autoTriggeredRef.current = codeOrToken;
       // Debounce slightly to ensure state is settled
