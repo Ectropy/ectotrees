@@ -635,7 +635,21 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
     // Handle auth messages (even when unauthenticated)
     const authValidated = validateAuthMessage(parsed);
     if (!('error' in authValidated)) {
-      handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authIdentity' });
+      // A socket belongs to exactly one session for its lifetime. Re-pointing
+      // an authenticated socket at another session would leave it registered
+      // in the old one (never removed on close), pinning that session alive
+      // and inflating its client count indefinitely.
+      if (extensions.authenticated) {
+        ws.send(JSON.stringify(errorMsg('Already authenticated.')));
+        return;
+      }
+      try {
+        handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authIdentity' });
+      } catch (err) {
+        log(`[error] Unhandled error in auth handler: ${err instanceof Error ? err.message : String(err)}`);
+        ws.send(JSON.stringify({ type: 'authError', reason: 'Internal server error.', code: 'invalid' }));
+        ws.close(1011, 'Internal server error');
+      }
       return;
     }
 
