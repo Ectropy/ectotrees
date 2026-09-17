@@ -39,6 +39,9 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(`${version}+${_protocolHash}`),
   },
+  // Placeholder nonce on every emitted <script>/<link>; server/html.ts swaps it
+  // for a per-request value so the CSP can drop 'unsafe-inline' for scripts.
+  html: { cspNonce: '__CSP_NONCE__' },
   plugins: [react(), tailwindcss(), requireEnv()],
   server: {
     proxy: {

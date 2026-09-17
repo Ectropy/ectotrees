@@ -51,6 +51,7 @@ import {
   APP_URL,
 } from './session.ts';
 import { initPersistence, loadState, saveState } from './persistence.ts';
+import { loadIndexTemplate, renderIndex, generateNonce } from './html.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
 import type { Session, Member } from './session.ts';
 import { log } from './log.ts';
@@ -224,6 +225,7 @@ const httpRateLimitMiddleware = rateLimit({
 // --- Express app ---
 
 const app = express();
+app.disable('x-powered-by');
 // Trust the first hop (Caddy reverse proxy) so req.ip reflects the real client IP.
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1kb' }));
@@ -243,22 +245,51 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Content Security Policy ---
+//
+// Two policies share everything except script-src:
+//  - BASE_CSP goes on every response. `script-src 'self'` is enough for the
+//    Alt1 plugin page (no inline scripts) and is harmless on assets/JSON.
+//  - The dashboard's index.html needs the inline GTM bootstrap, so it gets a
+//    per-request nonce plus 'strict-dynamic' (scripts loaded by a nonced
+//    script — gtm.js and the tags it pulls in — are trusted transitively).
+//    CSP3 browsers ignore 'unsafe-inline' and the host list once a nonce is
+//    present; they remain only as the fallback for pre-CSP3 browsers.
+//
+// The WebSocket origin is derived from APP_URL rather than the bare `ws:`/`wss:`
+// schemes so an injected script cannot open a socket to an arbitrary host.
+const WS_ORIGIN = (() => {
+  const u = new URL(APP_URL);
+  return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`;
+})();
+
+const CSP_COMMON =
+  "default-src 'self'; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  `connect-src 'self' ${WS_ORIGIN} https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; ` +
+  // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
+  // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
+  "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
+  "font-src 'self'; " +
+  "frame-src https://www.googletagmanager.com; " +
+  "frame-ancestors 'self'; " +
+  "object-src 'none'; base-uri 'self'; form-action 'self'";
+
+const BASE_CSP = `${CSP_COMMON}; script-src 'self'`;
+
+function strictCsp(nonce: string): string {
+  return `${CSP_COMMON}; script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https: 'self' https://*.googletagmanager.com`;
+}
+
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '0');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://*.googletagmanager.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "connect-src 'self' ws: wss: https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
-    // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
-    // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
-    "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
-    "font-src 'self'; " +
-    "frame-src https://www.googletagmanager.com; " +
-    "object-src 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', BASE_CSP);
+  // Caddy does not add HSTS on its own. Browsers ignore the header over plain
+  // http, so a self-hoster without TLS is unaffected.
+  if (IS_PROD) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 
@@ -272,7 +303,20 @@ function csrfMiddleware(req: express.Request, res: express.Response, next: expre
   next();
 }
 
-app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, (_req, res) => {
+// Session creation is the one request that consumes a slot from the global
+// MAX_SESSIONS pool for at least 24h, so it gets its own per-IP budget on top
+// of the general limiter. Skipped outside production: the E2E suite creates a
+// session per test against the dev server.
+const sessionCreateRateLimitMiddleware = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !IS_PROD,
+  message: { error: 'Too many sessions created from this address. Try again later.' },
+});
+
+app.post('/api/session', csrfMiddleware, httpRateLimitMiddleware, sessionCreateRateLimitMiddleware, (_req, res) => {
   const result = createSession();
   if ('error' in result) {
     res.status(503).json({ error: result.error });
@@ -288,13 +332,19 @@ app.get('/api/sessions', httpRateLimitMiddleware, (_req, res) => {
 });
 
 app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware, (req, res) => {
-  const session = getSession(req.params.code as string);
-  if (!session) {
-    res.status(404).json({ error: 'Session not found.' });
+  // Misses share the WS failed-auth throttle so this route cannot be used to
+  // enumerate session codes faster than the WebSocket auth path allows.
+  const ip = req.ip ?? 'unknown';
+  if (isAuthThrottled(ip)) {
+    res.status(429).json({ error: 'Too many failed attempts. Try again in a minute.' });
     return;
   }
-  if (!session.allowOpenJoin) {
-    res.status(403).json({ error: 'This session does not allow open join.' });
+  const session = getSession(req.params.code as string);
+  // "Not found" and "not open" are deliberately indistinguishable: a distinct
+  // status for real-but-closed sessions would confirm which codes exist.
+  if (!session || !session.allowOpenJoin) {
+    recordAuthFailure(ip);
+    res.status(404).json({ error: 'Session not found or not accepting open join.' });
     return;
   }
   const name = typeof req.body?.name === 'string' ? req.body.name : '';
@@ -307,7 +357,17 @@ app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware
   res.json({ identityToken: result.identityToken });
 });
 
-app.get('/api/health', (_req, res) => {
+// Health is polled by the Docker HEALTHCHECK (2/min from loopback) and by the
+// dashboard's UpdateBanner (every 15 min), so a lenient limiter is plenty.
+const healthRateLimitMiddleware = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests.' },
+});
+
+app.get('/api/health', healthRateLimitMiddleware, (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
   const h = Math.floor(uptimeSeconds / 3600);
   const m = Math.floor((uptimeSeconds % 3600) / 60);
@@ -326,22 +386,41 @@ app.get('/api/health', (_req, res) => {
 });
 
 if (fs.existsSync(DIST_DIR)) {
+  const indexTemplate = loadIndexTemplate(DIST_DIR);
+
+  // Every HTML response gets a fresh nonce and the matching strict CSP. The
+  // service worker caches the response headers together with the body, so a
+  // cached copy still agrees with itself.
+  const renderIndexHandler = (_req: express.Request, res: express.Response) => {
+    const nonce = generateNonce();
+    res.setHeader('Content-Security-Policy', strictCsp(nonce));
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(renderIndex(indexTemplate, nonce));
+  };
+
+  // Explicit index routes must come before express.static so the raw file
+  // (with its unreplaced placeholder) is never served.
+  app.get(['/', '/index.html'], httpRateLimitMiddleware, renderIndexHandler);
   app.use(express.static(DIST_DIR));
-  app.get(/^\/(?!api|ws).*/, httpRateLimitMiddleware, (_req, res) => {
-    res.sendFile(path.join(DIST_DIR, 'index.html'));
-  });
+  app.get(/^\/(?!api|ws).*/, httpRateLimitMiddleware, renderIndexHandler);
 }
 
 // --- Error handler ---
 
 // Catches errors thrown by middleware (e.g. body-parser's 413) and returns
 // a consistent JSON response instead of Express's default HTML error page.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: { status?: number; type?: string; message?: string }, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err.status === 413 || err.type === 'entity.too.large') {
     res.status(413).json({ error: 'Request body too large.' });
     return;
   }
+  // Express's default handler must take over once headers are out; otherwise
+  // we'd try to write a second response onto the same socket.
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  log(`[http] ${req.method} ${req.path} failed: ${err.message ?? String(err)}`);
   res.status(500).json({ error: 'Internal server error.' });
 });
 
@@ -575,7 +654,21 @@ wss.on('connection', (ws: WebSocket, _req: unknown) => {
     // Handle auth messages (even when unauthenticated)
     const authValidated = validateAuthMessage(parsed);
     if (!('error' in authValidated)) {
-      handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authIdentity' });
+      // A socket belongs to exactly one session for its lifetime. Re-pointing
+      // an authenticated socket at another session would leave it registered
+      // in the old one (never removed on close), pinning that session alive
+      // and inflating its client count indefinitely.
+      if (extensions.authenticated) {
+        ws.send(JSON.stringify(errorMsg('Already authenticated.')));
+        return;
+      }
+      try {
+        handleAuthMessage(ws, authValidated as { type: 'authSession' | 'authIdentity' });
+      } catch (err) {
+        log(`[error] Unhandled error in auth handler: ${err instanceof Error ? err.message : String(err)}`);
+        ws.send(JSON.stringify({ type: 'authError', reason: 'Internal server error.', code: 'invalid' }));
+        ws.close(1011, 'Internal server error');
+      }
       return;
     }
 
@@ -649,8 +742,11 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
     return;
   }
 
-  // Accepted mutations extend the session's usage-earned lifespan (see sessionLifespanMs)
-  if (MUTATION_TYPES.has(msg.type)) session.mutationCount++;
+  // Applied mutations extend the session's usage-earned lifespan (see
+  // sessionLifespanMs). Only state changes count — a rejected initializeState,
+  // a no-op clear, or an update the mutation layer ignored would otherwise let
+  // a single writer earn the 180-day cap in under a minute at 10 msg/s.
+  let applied = false;
 
   switch (msg.type) {
     case 'ping': {
@@ -805,6 +901,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
@@ -812,6 +909,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
       const next = applySetTreeInfo(session.worldStates, msg.worldId, msg.info, now);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
@@ -821,6 +919,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -830,6 +929,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -839,6 +939,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyReportLightning(session.worldStates, msg.worldId, msg.health, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -850,11 +951,13 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
         : undefined;
       const next = applyMarkDead(session.worldStates, msg.worldId, now, deadFields);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
     case 'clearWorld': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
+      if (msg.worldId in session.worldStates) applied = true;
       updateWorldState(session, msg.worldId, null, ws);
       break;
     }
@@ -870,6 +973,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       for (const [id, state] of Object.entries(msg.worlds)) {
         updateWorldState(session, Number(id), state, ws);
       }
+      if (count > 0) applied = true;
       break;
     }
 
@@ -882,9 +986,12 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       for (const [id, state] of toAdd) {
         updateWorldState(session, Number(id), state);
       }
+      if (toAdd.length > 0) applied = true;
       break;
     }
   }
+
+  if (applied) session.mutationCount++;
 
   // Send ACK if the client included a msgId
   const msgId = (msg as { msgId?: number }).msgId;
@@ -930,3 +1037,15 @@ function shutdown(signal: string) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
+
+// An escaped throw would otherwise kill the process without the shutdown
+// flush, losing up to a second of mutations. Flush, then exit non-zero so the
+// container's restart policy brings a clean process back up.
+function crash(kind: string, err: unknown) {
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  log(`[fatal] ${kind}: ${detail}`);
+  try { saveState(); } catch { /* already logged by saveState */ }
+  process.exit(1);
+}
+process.on('uncaughtException', (err) => crash('uncaughtException', err));
+process.on('unhandledRejection', (reason) => crash('unhandledRejection', reason));

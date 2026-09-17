@@ -57,7 +57,9 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
  * that is fatal.
  */
 export function initPersistence(dataDir: string, provider: () => Iterable<Session>): void {
-  fs.mkdirSync(dataDir, { recursive: true });
+  // The snapshot holds every identity token in plaintext, so keep the
+  // directory and file owner-only (modes are a no-op on Windows).
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const probe = path.join(dataDir, '.write-probe');
   fs.writeFileSync(probe, '');
   fs.unlinkSync(probe);
@@ -114,7 +116,7 @@ export function saveState(): void {
   try {
     const json = JSON.stringify(serializeSessions(getSessions()));
     const tmpFile = `${stateFile}.tmp`;
-    fs.writeFileSync(tmpFile, json);
+    fs.writeFileSync(tmpFile, json, { mode: 0o600 });
     if (fs.existsSync(stateFile)) {
       fs.renameSync(stateFile, `${stateFile}.bak`);
     }

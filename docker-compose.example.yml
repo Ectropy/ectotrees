@@ -3,16 +3,20 @@
 # Usage:
 #   1. Copy this file: cp docker-compose.example.yml docker-compose.yml
 #
-#   2. Create required directories 
-#      mkdir -p caddy/{caddy_data,caddy_config}
+#   2. Create required directories
+#      mkdir -p caddy/{caddy_data,caddy_config} data
 #
-#   3. Copy the Caddyfile to your caddy directory using
+#   3. The app container runs as uid 1000 (the image's `node` user), so the
+#      bind-mounted data directory must be writable by it:
+#      chown 1000:1000 data
+#
+#   4. Copy the Caddyfile to your caddy directory using
 #      curl -o caddy/Caddyfile https://raw.githubusercontent.com/Ectropy/ectotrees/main/Caddyfile
 #
-#   4. Update your Caddyfile to use the domain you wish to host at
+#   5. Update your Caddyfile to use the domain you wish to host at
 #      nano ./Caddyfile
 #
-#   5. Start: docker compose up -d
+#   6. Start: docker compose up -d
 
 
 services:
@@ -33,13 +37,22 @@ services:
       # the server hard-fails on startup if unset or not writable.
       DATA_DIR: /app/data
     volumes:
+      # Must be writable by uid 1000 — see step 3 above. Contains identity
+      # tokens; keep it out of backups and logs.
       - ./data:/app/data
     expose:
       - "3001"
+    # The server needs no capabilities and must never gain privileges.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
 
   caddy:
-    image: caddy:latest
+    # Major-version tag rather than :latest so a Caddy 3 release can't land
+    # unreviewed on the next pull.
+    image: caddy:2
     container_name: caddy
     restart: unless-stopped
     ports:

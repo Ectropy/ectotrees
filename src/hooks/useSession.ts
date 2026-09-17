@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { WorldStates, WorldState } from '../types';
 import type { ClientMessage, ServerMessage, MemberInfo, MemberRole, SessionInfo } from '../../shared/protocol.ts';
 import { validateSessionCode } from '../lib/sessionUrl';
+import { IDENTITY_TOKEN_RE } from '../../shared-browser/sessionUrl';
 import { isActive } from '../lib/worldState';
 import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '../../shared/reconnect.ts';
 
@@ -135,15 +136,21 @@ function persistSessionCode(code: string | null) {
 
 function loadPersistedIdentityToken(): string | null {
   try {
-    return localStorage.getItem(IDENTITY_TOKEN_STORAGE_KEY) ?? null;
+    const raw = localStorage.getItem(IDENTITY_TOKEN_STORAGE_KEY);
+    return raw && IDENTITY_TOKEN_RE.test(raw) ? raw : null;
   } catch {
     return null;
   }
 }
 
+/**
+ * Persist only well-formed tokens. Everything that reaches here comes from the
+ * server or a user paste, but localStorage outlives both, so a malformed value
+ * must never be written back and auto-resumed on the next load.
+ */
 function persistIdentityToken(token: string | null) {
   try {
-    if (token) localStorage.setItem(IDENTITY_TOKEN_STORAGE_KEY, token);
+    if (token && IDENTITY_TOKEN_RE.test(token)) localStorage.setItem(IDENTITY_TOKEN_STORAGE_KEY, token);
     else localStorage.removeItem(IDENTITY_TOKEN_STORAGE_KEY);
   } catch { /* ignore */ }
 }
@@ -658,6 +665,10 @@ export function useSession(onSessionLost?: () => void) {
   }, []);
 
   const joinByIdentityToken = useCallback((token: string): void => {
+    if (!IDENTITY_TOKEN_RE.test(token)) {
+      setSession(prev => ({ ...prev, error: 'Invalid identity token.', errorKind: 'application' }));
+      return;
+    }
     identityTokenRef.current = token;
     persistIdentityToken(token);
     setSession(prev => ({ ...prev, error: null, errorKind: null, reconnectAttempt: 0 }));

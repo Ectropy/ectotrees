@@ -8,3 +8,17 @@ e2e/
 .husky/
 .vscode/
 .claude/
+# Session snapshots hold identity tokens — never bake a local data dir into a
+# build layer (and via the GHA layer cache, into a public cache).
+data/
+# Local-only env overrides. The committed .env.development/.env.production
+# stay: the production build requires VITE_SITE_URL from .env.production.
+.env.local
+.env.*.local
+# Local build/test output
+storybook-static/
+test-results/
+playwright-report/
+plans/
+research/
+*.log

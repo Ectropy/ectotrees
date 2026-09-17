@@ -8,22 +8,29 @@ server/
   session.ts            # In-memory session management, auto-transitions, expiry, restore-from-snapshot
   persistence.ts        # JSON snapshot persistence to DATA_DIR (throttled save, atomic write, .bak fallback)
   validation.ts         # Input validation for all WebSocket messages
+  html.ts               # Nonce-based CSP: loads dist/index.html once, renders a per-request nonce into it
   profanity.ts          # containsProfanity(text): boolean — wraps the obscenity library; used in validation
   log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
   tsconfig.json         # Server-specific TypeScript config (target: ESNext)
   __tests__/
     validation.test.ts  # Vitest unit tests for validateMessage, validateInitializeState
+    html.test.ts        # Vitest unit tests for the CSP nonce template loader/renderer
     persistence.test.ts # Vitest unit tests for serialize/save/load round-trip and restoreSessions
 ```
 
 ## Overview
-Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory**, with **JSON snapshot persistence** to `DATA_DIR` (`persistence.ts`): durable state (world states, members/identity tokens, session settings) is saved with a 1s trailing throttle on every mutation plus a synchronous flush on SIGTERM/SIGINT, and restored at boot (`restoreSessions`). Ephemeral state (connections, client maps, in-flight fork windows) is rebuilt as clients reconnect. Crash-loss window is ~1s of mutations; graceful shutdowns lose nothing. On shutdown, clients are closed with WS code 1012 (Service Restart) so they reconnect immediately.
+Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory**, with **JSON snapshot persistence** to `DATA_DIR` (`persistence.ts`): durable state (world states, members/identity tokens, session settings) is saved with a 1s trailing throttle on every mutation plus a synchronous flush on SIGTERM/SIGINT, and restored at boot (`restoreSessions`). Ephemeral state (connections, client maps, in-flight fork windows) is rebuilt as clients reconnect. Crash-loss window is ~1s of mutations; graceful shutdowns lose nothing. On shutdown, clients are closed with WS code 1012 (Service Restart) so they reconnect immediately. `uncaughtException` / `unhandledRejection` log, flush the snapshot, and exit 1 so the container restart policy brings back a clean process.
 
 Security response headers applied to all HTTP responses:
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: SAMEORIGIN`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `X-XSS-Protection: 0`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (production only)
+- `X-Powered-By` is disabled
+- `Content-Security-Policy` — base policy with `script-src 'self'` (enough for the Alt1 plugin page and all assets). `connect-src` names the WebSocket origin derived from `APP_URL` rather than bare `ws:`/`wss:`.
+
+**Nonce-based CSP for the dashboard** (`html.ts`): `dist/index.html` is built with `html.cspNonce: '__CSP_NONCE__'` (vite.config.ts), which stamps that placeholder on every Vite-emitted `<script>`/`<link>`; the hand-written GTM snippet in `index.html` carries it too. `loadIndexTemplate` reads the file once at startup (and throws if the placeholder is missing), and every HTML response (`/`, `/index.html`, SPA catch-all) is rendered by `renderIndex` with a fresh 128-bit nonce plus a `script-src 'nonce-…' 'strict-dynamic'` header — so inline scripts run only with the matching nonce and `'unsafe-inline'` is gone. These routes are registered *before* `express.static` so the raw file is never served. Vite's dev server never sends a CSP, so this only applies to the built app.
 
 ## Environment Variables
 | Variable | Default | Description |
@@ -33,17 +40,17 @@ Security response headers applied to all HTTP responses:
 | `NODE_ENV` | — | Set to `production` to enable origin allowlisting (`ALLOWED_ORIGINS`) |
 | `EXTRA_ORIGINS` | — | Comma-separated extra allowed origins appended to the production allowlist |
 | `APP_URL` | `http://localhost:5173` (dev only) | Public base URL of the app, used for the WS origin allowlist and invite-link generation. **Required in production** — server hard-fails on startup if unset or invalid when `NODE_ENV=production`. |
-| `DATA_DIR` | `./data` (dev only) | Directory where session state is snapshotted (`sessions.json` + `.bak`) so sessions survive restarts/redeploys. Must point at a mounted volume in Docker. **Required in production** — server hard-fails on startup if unset or not writable when `NODE_ENV=production`. Snapshot contains identity tokens (credentials at rest) — keep it out of backups/logs. |
+| `DATA_DIR` | `./data` (dev only) | Directory where session state is snapshotted (`sessions.json` + `.bak`) so sessions survive restarts/redeploys. Must point at a mounted volume in Docker. **Required in production** — server hard-fails on startup if unset or not writable when `NODE_ENV=production`. Snapshot contains identity tokens (credentials at rest) — keep it out of backups/logs. The directory is created `0700` and the file written `0600` (no-op on Windows). |
 
 ## REST Endpoints
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/session` | Create a new session. Returns `{ code }` |
+| `POST` | `/api/session` | Create a new session. Returns `{ code }`. Production only: additionally capped at 10 creations/hour/IP. |
 | `GET` | `/api/sessions` | Returns `{ sessions: SessionSummary[] }` — only sessions with `listed: true` |
-| `POST` | `/api/session/:code/open-join` | Self-issue an identity token for an open-join session. Body: `{ name: string }`. Returns `{ identityToken }` or an error. |
+| `POST` | `/api/session/:code/open-join` | Self-issue an identity token for an open-join session. Body: `{ name: string }`. Returns `{ identityToken }` or an error. Unknown codes and sessions with open join off both return the same `404` (no existence oracle), and misses feed the per-IP failed-auth throttle shared with WS auth (`429` once tripped). |
 | `GET` | `/api/health` | Health check. Returns `{ ok, uptimeSeconds, uptime, sessions, clients, version }` |
 
-REST endpoints (except `/api/health`) are rate-limited to 20 requests/minute per IP.
+REST endpoints are rate-limited to 20 requests/minute per IP (`/api/health` has its own lenient 60/minute limiter so the Docker HEALTHCHECK and the dashboard update poll never trip it).
 
 ## WebSocket Protocol
 All clients connect to `ws://host/ws` (no query parameters). Authentication is message-based: immediately after the WebSocket opens, the client sends one of two auth messages (`authSession` or `authIdentity`). The server enforces a 10-second auth timeout — connections that don't authenticate are closed. In production, the `Origin` header must match the allowlist or the upgrade is rejected.
@@ -114,8 +121,8 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - Max 1000 concurrent sessions, max 1000 clients per session (500 in managed mode)
 - Server runs auto-transitions every 10 seconds per session, broadcasting only changed worlds
 - On connect: sends a `snapshot` of all active worlds, then broadcasts `clientCount`
-- Session expiry (checked every 5 min) scales with usage via a persisted `mutationCount` (+1 per accepted client mutation message; server auto-transitions don't count). Earned lifespan: 24h base, +24h/update for the first 10 updates, +12h/update for the next 158 (90 days at 168 updates), +2h/update after; floored at 30 days for managed sessions, capped at 180 days (`sessionLifespanMs`). A session expires when empty longer than its lifespan, or inactive longer than max(10 days, lifespan) (`inactivityTtlMs`). Forked sessions inherit the parent's count; the boot-restore skip uses the same scaled inactivity limit.
-- **Scout linking (identity tokens)**: a dashboard can request an identity token via `requestIdentityToken`; the server responds with a 12-char `identityToken` message. The scout connects using `authIdentity` with the same token, linking the two. The dashboard receives `peerWorld` messages when the scout reports world changes via `reportWorld`. Identity tokens persist across reconnects (stored in `localStorage` as `evilTree_inviteToken`).
+- Session expiry (checked every 5 min) scales with usage via a persisted `mutationCount` (+1 per client mutation that actually changed state — rejected `initializeState`, no-op clears, and updates the mutation layer ignored do not count; server auto-transitions don't count either). Earned lifespan: 24h base, +24h/update for the first 10 updates, +12h/update for the next 158 (90 days at 168 updates), +2h/update after; floored at 30 days for managed sessions, capped at 180 days (`sessionLifespanMs`). A session expires when empty longer than its lifespan, or inactive longer than max(10 days, lifespan) (`inactivityTtlMs`). Forked sessions inherit the parent's count; the boot-restore skip uses the same scaled inactivity limit.
+- **Scout linking (identity tokens)**: a dashboard can request an identity token via `requestIdentityToken` (subject to the same 500-member cap as invites; in anonymous sessions, tokens with no connection for 30 days are reaped by `reapStaleAnonymousMembers` during the 5-minute cleanup — managed sessions are never reaped); the server responds with a 12-char `identityToken` message. The scout connects using `authIdentity` with the same token, linking the two. The dashboard receives `peerWorld` messages when the scout reports world changes via `reportWorld`. Identity tokens persist across reconnects (stored in `localStorage` as `evilTree_identityToken`).
 - **Managed sessions**: created via the fork-to-managed flow (`forkToManaged` message). The initiator sends their display name; the server creates a new managed session and broadcasts `forkInvite` to all clients in the anonymous session, each receiving a `selfRegisterToken` and their `identityToken` (if any). Clients self-register via the WebSocket `selfRegister` message (returns a `selfRegistered` confirmation with an `identityToken`) then reconnect to the managed session using `authIdentity`. The initiator receives `forkCreated` with their `identityToken`. Fork invite window is 15 minutes (`FORK_INVITE_TTL_MS`); cooldown between forks equals the invite TTL (`FORK_COOLDOWN_MS = FORK_INVITE_TTL_MS`, also 15 minutes) — a new fork is allowed once the current invite window closes. Identity tokens are 12-char, persisted to client localStorage for reconnect. Roles: `owner | moderator | scout | viewer`. Viewers cannot submit mutations (enforced by `canWrite()` check). Anonymous `authSession` connections are admitted to a managed session as read-only viewers **only if the session is `listed: true`** (set via `updateSessionSettings`); private (unlisted) managed sessions reject all anonymous joins with `'This is a private session.'`. `allowOpenJoin` flag (toggled via `setAllowOpenJoin`) allows anyone to self-issue a scout-role identity token via `POST /api/session/:code/open-join` (name required; returned token used for `authIdentity`). Admins (owner/moderator) receive `identityToken` and `link` on each `MemberInfo` in `memberList`. Kick = disconnect without revoking token; Ban = disconnect + permanent token revocation. `worldUpdate.ownUpdate` is true on the originator's own dashboard connections; managed sessions also include `worldUpdate.source` with `{ name, role }` for non-originator clients.
 - **Session browser**: managed sessions can opt in to public discovery by setting `listed: true` via `updateSessionSettings` (also sets `name` and optional `description`). Listed sessions appear in `GET /api/sessions` as `SessionSummary` objects and are displayed in `SessionBrowserView`.
 
@@ -123,12 +130,14 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - `worldId` must exist in `worlds.json` (Leagues worlds included — the server has no mode concept, only the ID allowlist)
 - `initializeState`/`contributeWorlds` cap out at `worlds.json` length + 50 entries (derived, not a fixed number, so it can't silently collide as worlds are added). This is a whole-message reject, not a per-entry skip
 - `msFromNow` must be a positive integer, max 2 hours
-- Strings are sanitized (control chars stripped, max 200 chars) and checked for profanity via `containsProfanity()`
+- Strings are sanitized by `sanitizeString` (Unicode control *and* format characters stripped — bidi overrides, zero-width joiners, BOM — then trimmed, max 200 chars) and checked for profanity via `containsProfanity()`. The HTTP open-join path uses the same function.
+- `selfRegisterToken` must be the exact 32-hex value the server issued at fork time
 - Member names have a tighter cap of `MAX_MEMBER_NAME_LEN` (32, from `shared/protocol.ts`), enforced on both WS (`requireCleanText`) and HTTP open-join paths
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 
 ## Per-Connection Protections
 - Auth timeout: 10 seconds to send an auth message after WebSocket open
+- One session per socket: an auth message on an already-authenticated socket is answered with `Already authenticated.` and ignored (re-pointing a socket would leave it registered in the old session forever)
 - Max message size: 4 KB (64 KB for `initializeState`/`contributeWorlds`). The `ws` server also enforces `maxPayload` (64 KB) at the transport layer, and the handler checks length **before** `JSON.parse`. The per-type budget keys off the parsed message `type`, not a substring match.
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateMessage, validateInitializeState, validateSessionCode } from '../validation.ts';
+import { validateMessage, validateInitializeState, validateSessionCode, validateIdentityToken, validateAuthMessage, sanitizeString } from '../validation.ts';
 import worldsData from '../../shared/worlds.json' with { type: 'json' };
 
 // World IDs 1 and 2 are guaranteed to exist in worlds.json
@@ -413,5 +413,108 @@ describe('validateInitializeState', () => {
       expect(result[W]).toBeUndefined();
       expect(result[2]).toBeDefined();
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// sanitizeString — invisible / format characters are stripped, not just C0
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('sanitizeString', () => {
+  it('strips C0 controls and DEL', () => {
+    expect(sanitizeString('a\x00b\x1fc\x7fd')).toBe('abcd');
+  });
+
+  it('strips bidi overrides, zero-width characters and the BOM', () => {
+    // U+202E RLO, U+200B ZWSP, U+200D ZWJ, U+FEFF BOM, U+2066 LRI
+    expect(sanitizeString('‮Owner​‍﻿⁦')).toBe('Owner');
+  });
+
+  it('keeps ordinary non-ASCII letters', () => {
+    expect(sanitizeString('Zoë Ångström 日本')).toBe('Zoë Ångström 日本');
+  });
+
+  it('returns null for non-strings and over-long input', () => {
+    expect(sanitizeString(42)).toBeNull();
+    expect(sanitizeString('x'.repeat(201))).toBeNull();
+  });
+
+  it('a name that is only invisible characters is rejected as empty on member paths', () => {
+    expect(validateMessage({ type: 'forkToManaged', name: '​‮' })).toMatchObject({ error: 'Name is required.' });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateIdentityToken / validateAuthMessage
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateIdentityToken', () => {
+  it('accepts a 12-char token from the code alphabet', () => {
+    expect(validateIdentityToken('ABCDEFGHJKLM')).toBe('ABCDEFGHJKLM');
+  });
+
+  it('rejects ambiguous characters, wrong length, lowercase and non-strings', () => {
+    expect(validateIdentityToken('ABCDEFGHJKL0')).toBeNull();
+    expect(validateIdentityToken('ABCDEFGHJKLMN')).toBeNull();
+    expect(validateIdentityToken('abcdefghjklm')).toBeNull();
+    expect(validateIdentityToken(123)).toBeNull();
+  });
+});
+
+describe('validateAuthMessage', () => {
+  it('accepts authSession with a valid code', () => {
+    expect(validateAuthMessage({ type: 'authSession', code: 'AB3DEF' })).toEqual({ type: 'authSession', code: 'AB3DEF' });
+  });
+
+  it('accepts authIdentity with a valid token', () => {
+    expect(validateAuthMessage({ type: 'authIdentity', token: 'ABCDEFGHJKLM' })).toEqual({ type: 'authIdentity', token: 'ABCDEFGHJKLM' });
+  });
+
+  it('rejects missing or malformed credentials and non-auth types', () => {
+    expect(validateAuthMessage({ type: 'authSession' })).toHaveProperty('error');
+    expect(validateAuthMessage({ type: 'authSession', code: 'ab3def' })).toHaveProperty('error');
+    expect(validateAuthMessage({ type: 'authIdentity', token: 'short' })).toHaveProperty('error');
+    expect(validateAuthMessage({ type: 'ping' })).toHaveProperty('error');
+    expect(validateAuthMessage('nope')).toHaveProperty('error');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// selfRegister — token must be the 32-hex value the server issued
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateMessage — selfRegister token format', () => {
+  const HEX32 = 'a'.repeat(32);
+
+  it('accepts a 32-char lowercase hex token', () => {
+    expect(validateMessage({ type: 'selfRegister', name: 'Bob', selfRegisterToken: HEX32 }))
+      .toEqual({ type: 'selfRegister', name: 'Bob', selfRegisterToken: HEX32, identityToken: undefined });
+  });
+
+  it('rejects tokens of the wrong shape', () => {
+    for (const bad of ['', 'A'.repeat(32), 'a'.repeat(31), 'g'.repeat(32), 42, undefined]) {
+      expect(validateMessage({ type: 'selfRegister', name: 'Bob', selfRegisterToken: bad }))
+        .toMatchObject({ error: 'Invalid self-registration token.' });
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateSessionSettings — name/description caps
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateMessage — updateSessionSettings', () => {
+  it('accepts a 50-char name and a 200-char description', () => {
+    const settings = { name: 'n'.repeat(50), description: 'd'.repeat(200), listed: true };
+    expect(validateMessage({ type: 'updateSessionSettings', settings })).toEqual({ type: 'updateSessionSettings', settings });
+  });
+
+  it('rejects a 51-char name and a 201-char description', () => {
+    expect(validateMessage({ type: 'updateSessionSettings', settings: { name: 'n'.repeat(51) } })).toMatchObject({ error: expect.stringContaining('50') });
+    expect(validateMessage({ type: 'updateSessionSettings', settings: { description: 'd'.repeat(201) } })).toMatchObject({ error: 'Invalid session description.' });
+  });
+
+  it('rejects a non-boolean listed flag', () => {
+    expect(validateMessage({ type: 'updateSessionSettings', settings: { listed: 'yes' } })).toMatchObject({ error: 'listed must be a boolean.' });
   });
 });
