@@ -723,8 +723,11 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
     return;
   }
 
-  // Accepted mutations extend the session's usage-earned lifespan (see sessionLifespanMs)
-  if (MUTATION_TYPES.has(msg.type)) session.mutationCount++;
+  // Applied mutations extend the session's usage-earned lifespan (see
+  // sessionLifespanMs). Only state changes count — a rejected initializeState,
+  // a no-op clear, or an update the mutation layer ignored would otherwise let
+  // a single writer earn the 180-day cap in under a minute at 10 msg/s.
+  let applied = false;
 
   switch (msg.type) {
     case 'ping': {
@@ -879,6 +882,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setSpawnTimer ${Math.round(msg.msFromNow / 1000)}s${msg.treeInfo?.treeHint ? ` hint="${msg.treeInfo.treeHint}"` : ''}`);
       const next = applySetSpawnTimer(session.worldStates, msg.worldId, msg.msFromNow, now, msg.treeInfo);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
@@ -886,6 +890,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       log(`[mutation] ${session.code} ${c} W${msg.worldId} setTreeInfo ${msg.info.treeType}${msg.info.treeHealth ? ` ${msg.info.treeHealth}%` : ''}`);
       const next = applySetTreeInfo(session.worldStates, msg.worldId, msg.info, now);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
@@ -895,6 +900,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyUpdateTreeFields(session.worldStates, msg.worldId, msg.fields, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -904,6 +910,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyUpdateHealth(session.worldStates, msg.worldId, msg.health);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -913,6 +920,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       const next = applyReportLightning(session.worldStates, msg.worldId, msg.health, now);
       if (next !== session.worldStates) {
         updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+        applied = true;
       }
       break;
     }
@@ -924,11 +932,13 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
         : undefined;
       const next = applyMarkDead(session.worldStates, msg.worldId, now, deadFields);
       updateWorldState(session, msg.worldId, next[msg.worldId], ws);
+      applied = true;
       break;
     }
 
     case 'clearWorld': {
       log(`[mutation] ${session.code} ${c} W${msg.worldId} clearWorld`);
+      if (msg.worldId in session.worldStates) applied = true;
       updateWorldState(session, msg.worldId, null, ws);
       break;
     }
@@ -944,6 +954,7 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       for (const [id, state] of Object.entries(msg.worlds)) {
         updateWorldState(session, Number(id), state, ws);
       }
+      if (count > 0) applied = true;
       break;
     }
 
@@ -956,9 +967,12 @@ function handleMessage(session: Session, msg: ClientMessage, ws: WebSocket, clie
       for (const [id, state] of toAdd) {
         updateWorldState(session, Number(id), state);
       }
+      if (toAdd.length > 0) applied = true;
       break;
     }
   }
+
+  if (applied) session.mutationCount++;
 
   // Send ACK if the client included a msgId
   const msgId = (msg as { msgId?: number }).msgId;
