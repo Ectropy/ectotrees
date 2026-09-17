@@ -1037,3 +1037,15 @@ function shutdown(signal: string) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
+
+// An escaped throw would otherwise kill the process without the shutdown
+// flush, losing up to a second of mutations. Flush, then exit non-zero so the
+// container's restart policy brings a clean process back up.
+function crash(kind: string, err: unknown) {
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  log(`[fatal] ${kind}: ${detail}`);
+  try { saveState(); } catch { /* already logged by saveState */ }
+  process.exit(1);
+}
+process.on('uncaughtException', (err) => crash('uncaughtException', err));
+process.on('unhandledRejection', (reason) => crash('unhandledRejection', reason));
