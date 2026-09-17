@@ -40,7 +40,7 @@ Security response headers applied to all HTTP responses:
 | `NODE_ENV` | — | Set to `production` to enable origin allowlisting (`ALLOWED_ORIGINS`) |
 | `EXTRA_ORIGINS` | — | Comma-separated extra allowed origins appended to the production allowlist |
 | `APP_URL` | `http://localhost:5173` (dev only) | Public base URL of the app, used for the WS origin allowlist and invite-link generation. **Required in production** — server hard-fails on startup if unset or invalid when `NODE_ENV=production`. |
-| `DATA_DIR` | `./data` (dev only) | Directory where session state is snapshotted (`sessions.json` + `.bak`) so sessions survive restarts/redeploys. Must point at a mounted volume in Docker. **Required in production** — server hard-fails on startup if unset or not writable when `NODE_ENV=production`. Snapshot contains identity tokens (credentials at rest) — keep it out of backups/logs. |
+| `DATA_DIR` | `./data` (dev only) | Directory where session state is snapshotted (`sessions.json` + `.bak`) so sessions survive restarts/redeploys. Must point at a mounted volume in Docker. **Required in production** — server hard-fails on startup if unset or not writable when `NODE_ENV=production`. Snapshot contains identity tokens (credentials at rest) — keep it out of backups/logs. The directory is created `0700` and the file written `0600` (no-op on Windows). |
 
 ## REST Endpoints
 | Method | Path | Description |

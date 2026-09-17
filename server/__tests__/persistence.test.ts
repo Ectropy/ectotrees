@@ -151,6 +151,11 @@ describe('save and load', () => {
     expect(backup.sessions[0].code).toBe('ABCDEF');
   });
 
+  it.skipIf(process.platform === 'win32')('saveState writes the snapshot owner-readable only', () => {
+    saveState();
+    expect(fs.statSync(stateFile).mode & 0o777).toBe(0o600);
+  });
+
   it('scheduleSave throttles: many requests produce one deferred write', () => {
     vi.useFakeTimers();
     scheduleSave();
