@@ -51,6 +51,7 @@ import {
   APP_URL,
 } from './session.ts';
 import { initPersistence, loadState, saveState } from './persistence.ts';
+import { loadIndexTemplate, renderIndex, generateNonce } from './html.ts';
 import { validateMessage, validateAuthMessage } from './validation.ts';
 import type { Session, Member } from './session.ts';
 import { log } from './log.ts';
@@ -243,22 +244,48 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Content Security Policy ---
+//
+// Two policies share everything except script-src:
+//  - BASE_CSP goes on every response. `script-src 'self'` is enough for the
+//    Alt1 plugin page (no inline scripts) and is harmless on assets/JSON.
+//  - The dashboard's index.html needs the inline GTM bootstrap, so it gets a
+//    per-request nonce plus 'strict-dynamic' (scripts loaded by a nonced
+//    script — gtm.js and the tags it pulls in — are trusted transitively).
+//    CSP3 browsers ignore 'unsafe-inline' and the host list once a nonce is
+//    present; they remain only as the fallback for pre-CSP3 browsers.
+//
+// The WebSocket origin is derived from APP_URL rather than the bare `ws:`/`wss:`
+// schemes so an injected script cannot open a socket to an arbitrary host.
+const WS_ORIGIN = (() => {
+  const u = new URL(APP_URL);
+  return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`;
+})();
+
+const CSP_COMMON =
+  "default-src 'self'; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  `connect-src 'self' ${WS_ORIGIN} https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; ` +
+  // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
+  // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
+  "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
+  "font-src 'self'; " +
+  "frame-src https://www.googletagmanager.com; " +
+  "frame-ancestors 'self'; " +
+  "object-src 'none'; base-uri 'self'; form-action 'self'";
+
+const BASE_CSP = `${CSP_COMMON}; script-src 'self'`;
+
+function strictCsp(nonce: string): string {
+  return `${CSP_COMMON}; script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https: 'self' https://*.googletagmanager.com`;
+}
+
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '0');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://*.googletagmanager.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "connect-src 'self' ws: wss: https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; " +
-    // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
-    // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
-    "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
-    "font-src 'self'; " +
-    "frame-src https://www.googletagmanager.com; " +
-    "object-src 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', BASE_CSP);
   next();
 });
 
@@ -326,10 +353,23 @@ app.get('/api/health', (_req, res) => {
 });
 
 if (fs.existsSync(DIST_DIR)) {
+  const indexTemplate = loadIndexTemplate(DIST_DIR);
+
+  // Every HTML response gets a fresh nonce and the matching strict CSP. The
+  // service worker caches the response headers together with the body, so a
+  // cached copy still agrees with itself.
+  const renderIndexHandler = (_req: express.Request, res: express.Response) => {
+    const nonce = generateNonce();
+    res.setHeader('Content-Security-Policy', strictCsp(nonce));
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(renderIndex(indexTemplate, nonce));
+  };
+
+  // Explicit index routes must come before express.static so the raw file
+  // (with its unreplaced placeholder) is never served.
+  app.get(['/', '/index.html'], httpRateLimitMiddleware, renderIndexHandler);
   app.use(express.static(DIST_DIR));
-  app.get(/^\/(?!api|ws).*/, httpRateLimitMiddleware, (_req, res) => {
-    res.sendFile(path.join(DIST_DIR, 'index.html'));
-  });
+  app.get(/^\/(?!api|ws).*/, httpRateLimitMiddleware, renderIndexHandler);
 }
 
 // --- Error handler ---

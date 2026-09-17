@@ -8,11 +8,13 @@ server/
   session.ts            # In-memory session management, auto-transitions, expiry, restore-from-snapshot
   persistence.ts        # JSON snapshot persistence to DATA_DIR (throttled save, atomic write, .bak fallback)
   validation.ts         # Input validation for all WebSocket messages
+  html.ts               # Nonce-based CSP: loads dist/index.html once, renders a per-request nonce into it
   profanity.ts          # containsProfanity(text): boolean — wraps the obscenity library; used in validation
   log.ts                # Timestamped logging with configurable timezone (LOG_TZ)
   tsconfig.json         # Server-specific TypeScript config (target: ESNext)
   __tests__/
     validation.test.ts  # Vitest unit tests for validateMessage, validateInitializeState
+    html.test.ts        # Vitest unit tests for the CSP nonce template loader/renderer
     persistence.test.ts # Vitest unit tests for serialize/save/load round-trip and restoreSessions
 ```
 
@@ -24,6 +26,9 @@ Security response headers applied to all HTTP responses:
 - `X-Frame-Options: SAMEORIGIN`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `X-XSS-Protection: 0`
+- `Content-Security-Policy` — base policy with `script-src 'self'` (enough for the Alt1 plugin page and all assets). `connect-src` names the WebSocket origin derived from `APP_URL` rather than bare `ws:`/`wss:`.
+
+**Nonce-based CSP for the dashboard** (`html.ts`): `dist/index.html` is built with `html.cspNonce: '__CSP_NONCE__'` (vite.config.ts), which stamps that placeholder on every Vite-emitted `<script>`/`<link>`; the hand-written GTM snippet in `index.html` carries it too. `loadIndexTemplate` reads the file once at startup (and throws if the placeholder is missing), and every HTML response (`/`, `/index.html`, SPA catch-all) is rendered by `renderIndex` with a fresh 128-bit nonce plus a `script-src 'nonce-…' 'strict-dynamic'` header — so inline scripts run only with the matching nonce and `'unsafe-inline'` is gone. These routes are registered *before* `express.static` so the raw file is never served. Vite's dev server never sends a CSP, so this only applies to the built app.
 
 ## Environment Variables
 | Variable | Default | Description |
