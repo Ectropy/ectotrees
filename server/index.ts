@@ -225,6 +225,7 @@ const httpRateLimitMiddleware = rateLimit({
 // --- Express app ---
 
 const app = express();
+app.disable('x-powered-by');
 // Trust the first hop (Caddy reverse proxy) so req.ip reflects the real client IP.
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1kb' }));
@@ -286,6 +287,9 @@ app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '0');
   res.setHeader('Content-Security-Policy', BASE_CSP);
+  // Caddy does not add HSTS on its own. Browsers ignore the header over plain
+  // http, so a self-hoster without TLS is unaffected.
+  if (IS_PROD) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 
@@ -334,7 +338,17 @@ app.post('/api/session/:code/open-join', csrfMiddleware, httpRateLimitMiddleware
   res.json({ identityToken: result.identityToken });
 });
 
-app.get('/api/health', (_req, res) => {
+// Health is polled by the Docker HEALTHCHECK (2/min from loopback) and by the
+// dashboard's UpdateBanner (every 15 min), so a lenient limiter is plenty.
+const healthRateLimitMiddleware = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests.' },
+});
+
+app.get('/api/health', healthRateLimitMiddleware, (_req, res) => {
   const uptimeSeconds = Math.floor(process.uptime());
   const h = Math.floor(uptimeSeconds / 3600);
   const m = Math.floor((uptimeSeconds % 3600) / 60);
@@ -376,12 +390,18 @@ if (fs.existsSync(DIST_DIR)) {
 
 // Catches errors thrown by middleware (e.g. body-parser's 413) and returns
 // a consistent JSON response instead of Express's default HTML error page.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: { status?: number; type?: string; message?: string }, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err.status === 413 || err.type === 'entity.too.large') {
     res.status(413).json({ error: 'Request body too large.' });
     return;
   }
+  // Express's default handler must take over once headers are out; otherwise
+  // we'd try to write a second response onto the same socket.
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  log(`[http] ${req.method} ${req.path} failed: ${err.message ?? String(err)}`);
   res.status(500).json({ error: 'Internal server error.' });
 });
 
