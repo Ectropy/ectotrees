@@ -693,7 +693,8 @@ test('detail view: opens world status and back returns to grid', async ({ page }
 // Session leave confirmation panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PERSONAL_TOKEN = 'AABBCCDDEEFF12';
+// Must be a well-formed 12-char identity token — the client validates before auto-resuming.
+const PERSONAL_TOKEN = 'AABBCCDDEEFF';
 
 /**
  * Seeds localStorage with a session code so the app auto-resumes the session
