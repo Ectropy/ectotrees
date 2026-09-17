@@ -130,7 +130,8 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - `worldId` must exist in `worlds.json` (Leagues worlds included — the server has no mode concept, only the ID allowlist)
 - `initializeState`/`contributeWorlds` cap out at `worlds.json` length + 50 entries (derived, not a fixed number, so it can't silently collide as worlds are added). This is a whole-message reject, not a per-entry skip
 - `msFromNow` must be a positive integer, max 2 hours
-- Strings are sanitized (control chars stripped, max 200 chars) and checked for profanity via `containsProfanity()`
+- Strings are sanitized by `sanitizeString` (Unicode control *and* format characters stripped — bidi overrides, zero-width joiners, BOM — then trimmed, max 200 chars) and checked for profanity via `containsProfanity()`. The HTTP open-join path uses the same function.
+- `selfRegisterToken` must be the exact 32-hex value the server issued at fork time
 - Member names have a tighter cap of `MAX_MEMBER_NAME_LEN` (32, from `shared/protocol.ts`), enforced on both WS (`requireCleanText`) and HTTP open-join paths
 - `treeType` must be a known type; `treeHealth` must be 5/10/15/.../100
 

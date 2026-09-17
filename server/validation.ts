@@ -20,14 +20,21 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function sanitizeString(s: unknown): string | null {
+/**
+ * Strip control (Cc) and format (Cf) characters, trim, and cap the length.
+ * Cf covers bidi overrides (U+202E…), zero-width joiners/spaces and the BOM —
+ * invisible characters that let a display name impersonate another member's
+ * or spoof its apparent text. Returns null for non-strings or over-long input.
+ */
+export function sanitizeString(s: unknown): string | null {
   if (typeof s !== 'string') return null;
-  // Strip control characters
-  // eslint-disable-next-line no-control-regex
-  const clean = s.replace(/[\x00-\x1F\x7F]/g, '').trim();
+  const clean = s.replace(/[\p{Cc}\p{Cf}]/gu, '').trim();
   if (clean.length > MAX_STRING_LEN) return null;
   return clean;
 }
+
+// crypto.randomBytes(16).toString('hex') — see forkToManaged in session.ts
+const SELF_REGISTER_TOKEN_RE = /^[0-9a-f]{32}$/;
 
 /** Validates a required member-name field: non-empty after sanitization, within the shared length cap, no profanity. */
 function requireCleanText(raw: unknown, fieldLabel = 'Name'): string | { error: string } {
@@ -162,8 +169,10 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   if (type === 'selfRegister') {
     const name = requireCleanText(raw.name);
     if (typeof name !== 'string') return name;
-    const selfRegisterToken = sanitizeString(raw.selfRegisterToken);
-    if (!selfRegisterToken) return { error: 'Self-registration token is required.' };
+    const selfRegisterToken = raw.selfRegisterToken;
+    if (typeof selfRegisterToken !== 'string' || !SELF_REGISTER_TOKEN_RE.test(selfRegisterToken)) {
+      return { error: 'Invalid self-registration token.' };
+    }
     let identityToken: string | undefined;
     if (raw.identityToken !== undefined) {
       const pt = validateIdentityToken(raw.identityToken);
