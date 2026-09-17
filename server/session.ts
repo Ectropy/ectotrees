@@ -24,6 +24,7 @@ const SLOW_GROWTH_MS = 2 * 60 * 60 * 1000;         // +2h per update beyond that
 const TRANSITION_INTERVAL_MS = 10_000;             // 10 seconds
 const FORK_INVITE_TTL_MS = 15 * 60 * 1000;        // 15 minutes
 const FORK_COOLDOWN_MS = FORK_INVITE_TTL_MS;       // same as invite TTL — new fork allowed once invite window closes
+const STALE_ANON_MEMBER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — unconnected anonymous-session tokens are dropped after this
 
 /**
  * Usage-earned lifespan: 24h base, +24h/update for the first 10 updates,
@@ -874,6 +875,12 @@ export function requestIdentityToken(session: Session, ws: WebSocket): ServerMes
     return { type: 'error', message: 'Join with an invite link to get your identity token.' };
   }
 
+  // Same cap as the invite paths — without it, connect → request → disconnect
+  // grows members, identityTokenIndex, and the on-disk snapshot without bound.
+  if (session.members.size >= MAX_MEMBERS_PER_SESSION) {
+    return { type: 'error', message: 'Maximum members reached.' };
+  }
+
   // Anonymous session: create a lightweight member entry
   const token = generateUniqueIdentityToken();
   const member: Member = {
@@ -1257,8 +1264,34 @@ function destroySession(session: Session, closeReason: string) {
   scheduleSave();
 }
 
+/**
+ * Drop identity tokens in *anonymous* sessions that have had no connection for
+ * STALE_ANON_MEMBER_MS. These entries exist only for dashboard↔scout linking
+ * and are otherwise never removed, so the member map (and snapshot) would grow
+ * for the life of the session. Managed sessions are never touched: their tokens
+ * are the members' credentials, including the owner's recovery token.
+ * Returns the number of members removed.
+ */
+export function reapStaleAnonymousMembers(now = Date.now()): number {
+  let removed = 0;
+  for (const session of sessions.values()) {
+    if (session.managed) continue;
+    for (const [token, member] of session.members) {
+      if (member.connections.size > 0) continue;
+      if (now - member.lastSeen <= STALE_ANON_MEMBER_MS) continue;
+      session.members.delete(token);
+      identityTokenIndex.delete(token);
+      removed++;
+    }
+  }
+  if (removed > 0) scheduleSave();
+  return removed;
+}
+
 export function cleanupExpiredSessions() {
   const now = Date.now();
+  const reaped = reapStaleAnonymousMembers(now);
+  if (reaped > 0) log(`[session] Reaped ${reaped} stale anonymous member(s)`);
   for (const session of sessions.values()) {
     const inactivityTtl = inactivityTtlMs(session.mutationCount, !!session.managed);
     const emptyTtl = sessionLifespanMs(session.mutationCount, !!session.managed);
