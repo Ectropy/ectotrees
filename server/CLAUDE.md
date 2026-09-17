@@ -19,7 +19,7 @@ server/
 ```
 
 ## Overview
-Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory**, with **JSON snapshot persistence** to `DATA_DIR` (`persistence.ts`): durable state (world states, members/identity tokens, session settings) is saved with a 1s trailing throttle on every mutation plus a synchronous flush on SIGTERM/SIGINT, and restored at boot (`restoreSessions`). Ephemeral state (connections, client maps, in-flight fork windows) is rebuilt as clients reconnect. Crash-loss window is ~1s of mutations; graceful shutdowns lose nothing. On shutdown, clients are closed with WS code 1012 (Service Restart) so they reconnect immediately.
+Express 5 HTTP server with a `ws` WebSocket server attached in `noServer` mode (shares the same HTTP server via the `upgrade` event). All session state is **in-memory**, with **JSON snapshot persistence** to `DATA_DIR` (`persistence.ts`): durable state (world states, members/identity tokens, session settings) is saved with a 1s trailing throttle on every mutation plus a synchronous flush on SIGTERM/SIGINT, and restored at boot (`restoreSessions`). Ephemeral state (connections, client maps, in-flight fork windows) is rebuilt as clients reconnect. Crash-loss window is ~1s of mutations; graceful shutdowns lose nothing. On shutdown, clients are closed with WS code 1012 (Service Restart) so they reconnect immediately. `uncaughtException` / `unhandledRejection` log, flush the snapshot, and exit 1 so the container restart policy brings back a clean process.
 
 Security response headers applied to all HTTP responses:
 - `X-Content-Type-Options: nosniff`
@@ -137,6 +137,7 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 
 ## Per-Connection Protections
 - Auth timeout: 10 seconds to send an auth message after WebSocket open
+- One session per socket: an auth message on an already-authenticated socket is answered with `Already authenticated.` and ignored (re-pointing a socket would leave it registered in the old session forever)
 - Max message size: 4 KB (64 KB for `initializeState`/`contributeWorlds`). The `ws` server also enforces `maxPayload` (64 KB) at the transport layer, and the handler checks length **before** `JSON.parse`. The per-type budget keys off the parsed message `type`, not a substring match.
 - Rate limit: 10 messages/second per WebSocket connection
 - Heartbeat: server pings every 30s, closes if no pong within 90s
