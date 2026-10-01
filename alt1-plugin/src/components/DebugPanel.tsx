@@ -7,6 +7,7 @@ import { useState, useRef } from 'react';
 import 'alt1/base';
 import * as A1lib from 'alt1/base';
 import { copyToClipboard } from '@shared-browser/clipboard';
+import { findDialog } from '../scanner';
 // Vite 8's Rolldown CJS interop wraps modules whose `module.exports` already
 // has `__esModule: true` (alt1/* UMD bundles) as `{ default: <exports> }` —
 // so the actual class lives at `<import>.default` rather than `<import>` as
@@ -251,15 +252,16 @@ function DialogReaderProbe() {
     if (noAlt1()) { setResult('alt1 not defined'); return; }
     try {
       const reader = new DialogReader();
-      const found = reader.find();
-      if (!found) {
+      const upstreamFind = reader.find();
+      if (!findDialog(reader)) {
         setResult({ find: false, message: 'No dialog detected' });
         return;
       }
       const readResult = reader.read();
       const readDialogResult = reader.readDialog(null, true);
       setResult({
-        find: found,
+        'alt1 find()': upstreamFind,
+        find: reader.pos,
         'read()': readResult,
         'readDialog(null, true)': readDialogResult,
       });
