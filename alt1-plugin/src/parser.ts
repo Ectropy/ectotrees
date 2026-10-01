@@ -25,8 +25,9 @@ import type { TreeType } from '@shared/types';
  *
  * Handles:
  *   "approximately 1 hour and 10 minutes"  → 70 * 60_000
- *   "approximately 2 hours"                → 120 * 60_000
- *   "approximately 1 hour"                 → 60 * 60_000
+ *   "approximately 2 hours."               → 120 * 60_000
+ *   "approximately 1 hour."                → 60 * 60_000
+ *   "approximately 1 hour"                 → null  (truncated — see below)
  *   "approximately 45 minutes"             → 45 * 60_000
  *   "approximately 0 minutes"              → 60 * 60_000  (game quirk: 0 min means 60 min)
  */
@@ -37,8 +38,10 @@ export function parseSpawnTime(text: string): number | null {
     return (parseInt(full[1], 10) * 60 + parseInt(full[2], 10)) * 60_000;
   }
 
-  // "X hours" only (no minutes component)
-  const hoursOnly = text.match(/approximately\s+(\d+)\s+hours?(?!\s+and)/i);
+  // "X hours" only (no minutes component). The sentence must end right there:
+  // "approximately 1 hour" with nothing after it is what's left when OCR loses
+  // the "and 47 minutes." line, and accepting it would report a wrong timer.
+  const hoursOnly = text.match(/approximately\s+(\d+)\s+hours?\s*\./i);
   if (hoursOnly) {
     return parseInt(hoursOnly[1], 10) * 3_600_000;
   }
