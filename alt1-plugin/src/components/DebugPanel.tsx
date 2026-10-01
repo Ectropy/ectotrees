@@ -6,6 +6,7 @@
 import { useState, useRef } from 'react';
 import 'alt1/base';
 import * as A1lib from 'alt1/base';
+import { copyToClipboard } from '@shared-browser/clipboard';
 // Vite 8's Rolldown CJS interop wraps modules whose `module.exports` already
 // has `__esModule: true` (alt1/* UMD bundles) as `{ default: <exports> }` —
 // so the actual class lives at `<import>.default` rather than `<import>` as
@@ -454,13 +455,36 @@ function nearestMatch(haystack: ImageData, needle: ImageData) {
       if (sum < best) { best = sum; bestX = x; bestY = y; }
     }
   }
-  return { x: bestX, y: bestY, meanDiff: +(best / (pts.length / 4 * 3)).toFixed(2) };
+  // find() rejects a position when any single pixel differs by more than 30
+  // (summed over r+g+b), so a low meanDiff can still fail on a few pixels.
+  let overTolerance = 0;
+  let maxPixelDiff = 0;
+  const base = (bestX + bestY * haystack.width) * 4;
+  for (let p = 0; p < pts.length; p += 4) {
+    const i = base + pts[p];
+    const d = Math.abs(hay[i] - pts[p + 1]) + Math.abs(hay[i + 1] - pts[p + 2]) + Math.abs(hay[i + 2] - pts[p + 3]);
+    if (d > 30) overTolerance++;
+    if (d > maxPixelDiff) maxPixelDiff = d;
+  }
+  return {
+    x: bestX,
+    y: bestY,
+    meanDiff: +(best / (pts.length / 4 * 3)).toFixed(2),
+    overTolerance: `${overTolerance}/${pts.length / 4} px`,
+    maxPixelDiff,
+  };
 }
 
 function DialogDiagnosticsProbe() {
   const [result, setResult] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [cropUrl, setCropUrl] = useState<string | null>(null);
+  const [cropCopied, setCropCopied] = useState<boolean | null>(null);
+
+  async function copyCrop() {
+    if (cropUrl) setCropCopied(await copyToClipboard(cropUrl));
+  }
 
   async function run() {
     if (noAlt1()) { setResult('alt1 not defined'); return; }
@@ -477,7 +501,7 @@ function DialogDiagnosticsProbe() {
       }
 
       const templates: Record<string, unknown> = {};
-      const nearest: Record<string, { x: number; y: number; meanDiff: number }> = {};
+      const nearest: Record<string, ReturnType<typeof nearestMatch>> = {};
       for (const [name, url] of Object.entries(DIALOG_TEMPLATE_URLS)) {
         const tpl = await loadTemplate(url);
         nearest[name] = nearestMatch(screen, tpl);
@@ -498,7 +522,10 @@ function DialogDiagnosticsProbe() {
         canvas.width = crop.width;
         canvas.height = crop.height;
         canvas.getContext('2d')?.putImageData(crop, 0, 0);
-        console.log('[EctoScout] dialog diagnostics crop:', canvas.toDataURL('image/png'));
+        const dataUrl = canvas.toDataURL('image/png');
+        console.log('[EctoScout] dialog diagnostics crop:', dataUrl);
+        setCropUrl(dataUrl);
+        setCropCopied(null);
       }
 
       setResult({
@@ -531,6 +558,12 @@ function DialogDiagnosticsProbe() {
       <div className="mt-1 overflow-auto">
         <canvas ref={canvasRef} width={0} height={0} />
       </div>
+      {cropUrl && (
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-white/50">
+          <ProbeBtn onClick={copyCrop}>Copy crop as data URL</ProbeBtn>
+          {cropCopied !== null && <span>{cropCopied ? 'Copied' : 'Copy failed — see console'}</span>}
+        </div>
+      )}
     </Section>
   );
 }
