@@ -7,7 +7,7 @@ import { useState, useRef } from 'react';
 import 'alt1/base';
 import * as A1lib from 'alt1/base';
 import { copyToClipboard } from '@shared-browser/clipboard';
-import { findDialog } from '../scanner';
+import { findDialog, loadPngData, readDialogLines } from '../scanner';
 // Vite 8's Rolldown CJS interop wraps modules whose `module.exports` already
 // has `__esModule: true` (alt1/* UMD bundles) as `{ default: <exports> }` —
 // so the actual class lives at `<import>.default` rather than `<import>` as
@@ -253,7 +253,8 @@ function DialogReaderProbe() {
     try {
       const reader = new DialogReader();
       const upstreamFind = reader.find();
-      if (!findDialog(reader)) {
+      const img = A1lib.captureHoldFullRs();
+      if (!findDialog(reader, img) || !reader.pos) {
         setResult({ find: false, message: 'No dialog detected' });
         return;
       }
@@ -262,6 +263,7 @@ function DialogReaderProbe() {
       setResult({
         'alt1 find()': upstreamFind,
         find: reader.pos,
+        'readDialogLines()': readDialogLines(img, reader.pos),
         'read()': readResult,
         'readDialog(null, true)': readDialogResult,
       });
@@ -417,20 +419,6 @@ const DIALOG_TEMPLATE_URLS = {
 // find() requires boxtr exactly this far right of boxtl.
 const DIALOG_CORNER_OFFSET = 492;
 
-const PNG_DATA_URL_HEADER = 'data:image/png;base64,';
-
-// Stays on data: URLs end to end — the server CSP blocks fetch() of data: URLs
-// (connect-src) and blob: images (img-src), which rules out alt1's own
-// imageDataFromFileBuffer. Colorspace chunks are stripped so the browser
-// doesn't gamma-correct the pixels, matching how alt1 decodes its templates.
-function loadTemplate(dataUrl: string): Promise<ImageData> {
-  const bytes = Uint8Array.from(atob(dataUrl.slice(PNG_DATA_URL_HEADER.length)), c => c.charCodeAt(0));
-  A1lib.ImageDetect.clearPngColorspace(bytes);
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return A1lib.imageDataFromUrl(PNG_DATA_URL_HEADER + btoa(binary));
-}
-
 /** Closest position of needle in haystack; meanDiff 0 = identical (0–255 per channel). */
 function nearestMatch(haystack: ImageData, needle: ImageData) {
   const pts: number[] = [];
@@ -505,7 +493,7 @@ function DialogDiagnosticsProbe() {
       const templates: Record<string, unknown> = {};
       const nearest: Record<string, ReturnType<typeof nearestMatch>> = {};
       for (const [name, url] of Object.entries(DIALOG_TEMPLATE_URLS)) {
-        const tpl = await loadTemplate(url);
+        const tpl = await loadPngData(url);
         nearest[name] = nearestMatch(screen, tpl);
         templates[name] = {
           size: `${tpl.width}x${tpl.height}`,

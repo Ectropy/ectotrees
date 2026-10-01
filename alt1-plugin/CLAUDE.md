@@ -9,7 +9,7 @@ alt1-plugin/src/
   main.tsx              # Entry point: mounts React root, sets up Alt1 API
   index.css             # Base styles imported by main.tsx
   App.tsx               # Root component: orchestrates session, world, scan, and form state
-  scanner.ts            # Alt1 pixel scanning: scanSpiritTreeDialog() returns raw dialog text ({ rawText }); findDialog() locates the dialog box (alt1's DialogReader.find(), then our own corner templates); scanWorldFromFriendsList() returns current world via alt1.currentWorld (gamestate)
+  scanner.ts            # Alt1 pixel scanning: scanSpiritTreeDialog() returns raw dialog text ({ rawText }); findDialog() locates the dialog box (alt1's DialogReader.find(), then our own corner templates); readDialogLines() OCRs the body text across the full line width (alt1's readDialog() is only the fallback — it silently drops short lines); scanWorldFromFriendsList() returns current world via alt1.currentWorld (gamestate)
   dialog-templates/     # boxtl.png / boxtr.png — dialog corner templates for the current RS3 frame, used by findDialog() when alt1's bundled templates miss
   parser.ts             # Parses raw dialog text into { hours, minutes, hint }
   hooks/
