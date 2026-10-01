@@ -106,9 +106,9 @@ describe('loadWorldMode', () => {
     expect(loadWorldMode(true)).toBe('main');
   });
 
-  // Guards the post-event case: Leagues entries get deleted from worlds.json, but a
+  // Guards the post-event case: the worlds.json leaguesWindow has closed, but a
   // stored 'leagues' would otherwise strand the user on a permanently empty grid.
-  it('forces main when no leagues worlds are configured', () => {
+  it('forces main when no leagues worlds are in effect', () => {
     localStorage.setItem(WORLD_MODE_STORAGE_KEY, 'leagues');
     expect(loadWorldMode(false)).toBe('main');
   });

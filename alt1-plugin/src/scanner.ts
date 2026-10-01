@@ -3,9 +3,7 @@
  */
 
 import 'alt1/base';
-import worldsData from '@shared/worlds.json';
-
-const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
+import { isActiveWorldId } from '@shared/worlds';
 
 // DialogReader is the pre-built RS3 NPC dialog reader.
 // Vite 8's Rolldown CJS interop wraps modules that already declare
@@ -123,7 +121,7 @@ export function scanWorldFromFriendsList(): WorldScanResult | null {
   // ── Primary: native Alt1 world detection via gamestate ────────────────────
   if (alt1.permissionGameState) {
     const world = alt1.currentWorld;
-    if (VALID_WORLD_IDS.has(world)) {
+    if (isActiveWorldId(world)) {
       console.log(`[EctoScout] world scan SUCCESS (gamestate): w${world}`);
       return { world, method: 'gamestate' };
     }

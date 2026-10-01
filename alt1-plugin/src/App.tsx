@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import worldsData from '@shared/worlds.json';
-
-const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
+import { isActiveWorldId } from '@shared/worlds';
 import { hintForLocation, locationsForHint, resolveExactLocation } from '@shared/hints';
 import { useScoutSession } from './hooks/useScoutSession';
 import { useAlt1 } from './hooks/useAlt1';
@@ -191,7 +189,7 @@ export function App() {
         // Reset mode — every world has independent tree state. The next scan
         // (or default 'prespawn') determines the form for the new world.
         setMode('prespawn');
-        if (VALID_WORLD_IDS.has(w)) {
+        if (isActiveWorldId(w)) {
           setWorld(String(w));
           setIsWorldScanning(true);
           if (worldScanTimerRef.current) clearTimeout(worldScanTimerRef.current);
@@ -259,7 +257,7 @@ export function App() {
   // Derived before early returns so effects can reference it
   const canSubmit = (() => {
     const wv = parseInt(world.trim(), 10);
-    if (!VALID_WORLD_IDS.has(wv) || status !== 'connected' || submitting) return false;
+    if (!isActiveWorldId(wv) || status !== 'connected' || submitting) return false;
     if (mode === 'prespawn') {
       const h = parseInt(hours || '0', 10) || 0;
       const m = parseInt(minutes || '0', 10) || 0;
@@ -331,7 +329,7 @@ export function App() {
     if (oldWorld === world) return;
 
     const oldWorldId = parseInt(oldWorld, 10);
-    if (!VALID_WORLD_IDS.has(oldWorldId)) return;
+    if (!isActiveWorldId(oldWorldId)) return;
 
     // If a regular submit is already in flight, it's already routing the old
     // world's data — skip the flush to avoid a duplicate.
@@ -344,7 +342,7 @@ export function App() {
     const m = parseInt(minutes || '0', 10) || 0;
     const newWorldId = parseInt(world, 10);
     // World cleared to '' after a successful submit — not a real hop.
-    if (!VALID_WORLD_IDS.has(newWorldId)) return;
+    if (!isActiveWorldId(newWorldId)) return;
     const submittable = oldMode === 'prespawn'
       ? (h * 60 + m) * 60_000 > 0
       : treeType !== '' && hint.trim().length > 0;
@@ -454,7 +452,7 @@ export function App() {
   // Helpers
   function getWorldId(): number | null {
     const v = parseInt(world.trim(), 10);
-    return VALID_WORLD_IDS.has(v) ? v : null;
+    return isActiveWorldId(v) ? v : null;
   }
 
   function getTotalMs(): number {

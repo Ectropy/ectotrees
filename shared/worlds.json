@@ -1,4 +1,5 @@
 {
+  "leaguesWindow": { "start": "2026-08-10T00:00:00Z", "end": "2026-09-16T00:00:00Z" },
   "worlds": [
     { "id": 1,   "type": "P2P" },
     { "id": 2,   "type": "P2P" },

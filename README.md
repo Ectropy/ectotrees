@@ -18,7 +18,7 @@ Evil Trees spawn in waves across RS3 worlds. This tool lets you (and a group of 
 - **Sort & filter bar** (collapsible) with multiple options:
   - Sort by world number, soonest/latest spawn or end time, health, or favorites
   - Filter by favorites, P2P/F2P
-- **Leagues support** — a Main/Leagues switcher in the header gives the RS3 Leagues worlds their own grid, scouted counter, and intel export. All the usual filters (including P2P/F2P, since Leagues has both) apply within whichever set you're viewing
+- **Leagues support** — while RS3 Leagues is running, a Main/Leagues switcher in the header gives the RS3 Leagues worlds their own grid, scouted counter, and intel export. All the usual filters (including P2P/F2P, since Leagues has both) apply within whichever set you're viewing
   - **Tree type filters** — filter the grid by tree species (Unknown, Tree, Oak, Willow, Maple, Yew, Magic, Elder) so you can focus on the trees you want to cut
   - **Info filters** — tri-state chips (Intel, Hint, Location, Health) to show worlds that need a piece of information or already have it
   - **Hidden worlds filter** — tri-state chip to exclude, include, or show only hidden worlds
@@ -104,6 +104,12 @@ Add `"leagues": true` to put a world in the RS3 Leagues set instead of the main 
 
 ```json
 { "id": 233, "type": "F2P", "leagues": true }
+```
+
+Leagues is seasonal, so its worlds stay in the file and are switched on and off by date. Set `leaguesWindow` to the event's start and end; outside that window the Leagues worlds and the Main/Leagues switcher disappear on their own:
+
+```json
+{ "leaguesWindow": { "start": "2026-08-10T00:00:00Z", "end": "2026-09-16T00:00:00Z" }, "worlds": [...] }
 ```
 
 The server, client, and Alt1 plugin all read this file at build/startup, so restart the server (first), then rebuild the client and the plugin after editing it.

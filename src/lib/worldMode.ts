@@ -38,7 +38,7 @@ export function normalizeWorldMode(value: unknown): WorldMode {
 
 /**
  * `hasLeagues` guards against a stale stored 'leagues' stranding the user on a blank
- * grid after the event ends and the Leagues entries are deleted from worlds.json.
+ * grid once the event ends and the worlds.json `leaguesWindow` has closed.
  */
 export function loadWorldMode(hasLeagues: boolean): WorldMode {
   if (!hasLeagues) return 'main';

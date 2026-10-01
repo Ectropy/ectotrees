@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import worldsConfig from '../../shared/worlds.json';
+import { ALL_WORLDS } from '../../shared/worlds.ts';
 import type { WorldStates, WorldState, WorldConfig } from '../types';
 import { TREE_TYPE_SHORT } from '../constants/evilTree';
 import type { TreeType } from '../constants/evilTree';
@@ -22,8 +22,7 @@ interface Props {
   sessionInfo?: SessionInfo;
 }
 
-const worlds = worldsConfig.worlds as WorldConfig[];
-const worldConfigMap = new Map<number, WorldConfig>(worlds.map(w => [w.id, w]));
+const worldConfigMap = new Map<number, WorldConfig>(ALL_WORLDS.map(w => [w.id, w]));
 
 
 function statusLabel(state: WorldState): string {

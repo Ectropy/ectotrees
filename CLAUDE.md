@@ -122,9 +122,20 @@ Optional `"leagues": true` marks a world as part of the RS3 Leagues world set (2
 { "id": 233, "type": "F2P", "leagues": true }
 ```
 
-All three consumers import this file **statically at build/startup**, so adding or removing worlds requires all of:
-1. **Restart the server** — `VALID_WORLD_IDS` in `server/validation.ts` is a static JSON import. Do this *first*: if the client ships new IDs before the server knows them, mutations are rejected and the client does not roll back its optimistic update (`useSession.ts`), so users see phantom intel that vanishes on reconnect.
-2. **Rebuild the client.**
-3. **Rebuild `alt1-plugin`** — its `VALID_WORLD_IDS` is bundled at build time, so the scout plugin won't OCR-detect new worlds until then.
+### Leagues window (seasonal on/off)
+Leagues worlds stay in `worlds.json` year-round and are gated by the top-level `leaguesWindow`:
 
-Removing worlds leaves orphan `worldStates` keys in persisted session snapshots (`restoreSessions` copies the map in without ID validation, and there is no reaper). They're invisible to the UI and harmless, just permanent.
+```json
+"leaguesWindow": { "start": "2026-08-10T00:00:00Z", "end": "2026-09-16T00:00:00Z" }
+```
+
+Outside `start <= now < end` every consumer behaves as if the Leagues entries didn't exist: the client hides them and the `WorldModeSwitcher`, the server rejects their IDs, and the Alt1 plugin stops detecting them. A missing or malformed window means Leagues is off. For the next event, update the two dates (and the Leagues entries if the world list changed), then follow the restart/rebuild steps below.
+
+`shared/worlds.ts` is the only module that reads `worlds.json` — import `ALL_WORLDS`, `activeWorlds()`, `worldList()`, `isActiveWorldId()`, or `isLeaguesActive()` from it rather than the JSON directly. The window is evaluated **per call**, not at load, so the long-lived server and already-open tabs (`useLeaguesActive`) switch at the boundary without a restart or reload.
+
+All three consumers import this file **statically at build/startup**, so adding or removing worlds (or changing `leaguesWindow`) requires all of:
+1. **Restart the server** — `server/validation.ts` reads the world list through a static JSON import. Do this *first*: if the client ships new IDs before the server knows them, mutations are rejected and the client does not roll back its optimistic update (`useSession.ts`), so users see phantom intel that vanishes on reconnect.
+2. **Rebuild the client.**
+3. **Rebuild `alt1-plugin`** — the world list is bundled at build time, so the scout plugin won't OCR-detect new worlds until then.
+
+Removing worlds leaves orphan `worldStates` keys in persisted session snapshots (`restoreSessions` copies the map in without ID validation, and there is no reaper). They're invisible to the UI and harmless, just permanent. The same goes for Leagues intel still held when the window closes.

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { LEAGUES_WINDOW } from '../shared/worlds.ts';
 
 // World 1 is a P2P world guaranteed to exist in worlds.json
 const W = 1;
@@ -154,89 +155,129 @@ const cards = (page: Page) => page.locator('[data-testid^="world-card-"]');
 const leaguesButton = (page: Page) => page.getByRole('button', { name: 'Leagues' });
 const mainButton = (page: Page) => page.getByRole('button', { name: 'Main' });
 
-test('leagues: defaults to Main mode showing only main worlds', async ({ page }) => {
-  await page.goto('/');
-  await expect(mainButton(page)).toHaveAttribute('aria-pressed', 'true');
-  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
-  await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
-  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toHaveCount(0);
-});
-
-test('leagues: switching modes swaps the world set', async ({ page }) => {
-  await page.goto('/');
-  await leaguesButton(page).click();
-
-  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
-  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
-  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
-  // Main worlds must not leak into the Leagues grid
-  await expect(page.getByTestId(`world-card-${W}`)).toHaveCount(0);
-
-  await mainButton(page).click();
-  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
-});
-
-test('leagues: scouted counter is scoped to the active mode', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('header')).toContainText(`/${MAIN_WORLD_COUNT} worlds scouted`);
-
-  await leaguesButton(page).click();
-  await expect(page.locator('header')).toContainText(`/${LEAGUES_WORLD_COUNT} Leagues worlds scouted`);
-});
-
-// This is the check that specifically validates the orthogonal-dimension model:
-// Leagues contains both P2P and F2P worlds, so the membership filters must still
-// narrow *within* Leagues rather than being mutually exclusive with it.
-test('leagues: P2P/F2P filters still apply within Leagues mode', async ({ page }) => {
-  await page.goto('/');
-  await leaguesButton(page).click();
-  await page.getByRole('button', { name: 'F2P', exact: true }).click();
-
-  await expect(cards(page)).toHaveCount(LEAGUES_F2P_COUNT);
-  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
-  await expect(page.getByTestId(`world-card-${LEAGUES_P2P_W}`)).toHaveCount(0);
-});
-
-test('leagues: searching a Leagues world from Main auto-switches mode', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('Search worlds by number').fill(String(LEAGUES_W));
-
-  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
-});
-
-// Persistence is covered in two halves rather than with a reload: the beforeEach
-// addInitScript re-runs localStorage.clear() on every navigation, so a reload here
-// would wipe the very value under test.
-test('leagues: selecting a mode persists it', async ({ page }) => {
-  await page.goto('/');
-  await leaguesButton(page).click();
-  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
-
-  const stored = await page.evaluate(() => localStorage.getItem('evilTree_worldMode'));
-  expect(stored).toBe('leagues');
-});
-
-test('leagues: a stored Leagues preference is restored on load', async ({ page }) => {
-  // Registered after the beforeEach script, so it survives the clear()
-  await page.addInitScript(() => {
-    localStorage.setItem('evilTree_worldMode', 'leagues');
+// Leagues worlds only exist inside the worlds.json `leaguesWindow`, so these tests pin
+// the browser clock rather than depending on when the suite happens to run.
+test.describe('leagues: inside the window', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(LEAGUES_WINDOW!.start);
   });
-  await page.goto('/');
 
-  await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
-  await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+  test('leagues: defaults to Main mode showing only main worlds', async ({ page }) => {
+    await page.goto('/');
+    await expect(mainButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+    await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
+    await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toHaveCount(0);
+  });
+
+  test('leagues: switching modes swaps the world set', async ({ page }) => {
+    await page.goto('/');
+    await leaguesButton(page).click();
+
+    await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+    await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+    // Main worlds must not leak into the Leagues grid
+    await expect(page.getByTestId(`world-card-${W}`)).toHaveCount(0);
+
+    await mainButton(page).click();
+    await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+  });
+
+  test('leagues: scouted counter is scoped to the active mode', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('header')).toContainText(`/${MAIN_WORLD_COUNT} worlds scouted`);
+
+    await leaguesButton(page).click();
+    await expect(page.locator('header')).toContainText(`/${LEAGUES_WORLD_COUNT} Leagues worlds scouted`);
+  });
+
+  // This is the check that specifically validates the orthogonal-dimension model:
+  // Leagues contains both P2P and F2P worlds, so the membership filters must still
+  // narrow *within* Leagues rather than being mutually exclusive with it.
+  test('leagues: P2P/F2P filters still apply within Leagues mode', async ({ page }) => {
+    await page.goto('/');
+    await leaguesButton(page).click();
+    await page.getByRole('button', { name: 'F2P', exact: true }).click();
+
+    await expect(cards(page)).toHaveCount(LEAGUES_F2P_COUNT);
+    await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+    await expect(page.getByTestId(`world-card-${LEAGUES_P2P_W}`)).toHaveCount(0);
+  });
+
+  test('leagues: searching a Leagues world from Main auto-switches mode', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Search worlds by number').fill(String(LEAGUES_W));
+
+    await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toBeVisible();
+  });
+
+  // Persistence is covered in two halves rather than with a reload: the beforeEach
+  // addInitScript re-runs localStorage.clear() on every navigation, so a reload here
+  // would wipe the very value under test.
+  test('leagues: selecting a mode persists it', async ({ page }) => {
+    await page.goto('/');
+    await leaguesButton(page).click();
+    await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+
+    const stored = await page.evaluate(() => localStorage.getItem('evilTree_worldMode'));
+    expect(stored).toBe('leagues');
+  });
+
+  test('leagues: a stored Leagues preference is restored on load', async ({ page }) => {
+    // Registered after the beforeEach script, so it survives the clear()
+    await page.addInitScript(() => {
+      localStorage.setItem('evilTree_worldMode', 'leagues');
+    });
+    await page.goto('/');
+
+    await expect(leaguesButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(cards(page)).toHaveCount(LEAGUES_WORLD_COUNT);
+  });
+
+  test('leagues: world detail view labels a Leagues world', async ({ page }) => {
+    await page.goto('/');
+    await leaguesButton(page).click();
+    await page.getByTestId(`world-card-${LEAGUES_W}`).click();
+
+    const header = page.locator('h1').last().locator('..');
+    await expect(header).toContainText(`World ${LEAGUES_W}`);
+    await expect(header).toContainText('Leagues');
+    await expect(header).toContainText('F2P');
+  });
 });
 
-test('leagues: world detail view labels a Leagues world', async ({ page }) => {
-  await page.goto('/');
-  await leaguesButton(page).click();
-  await page.getByTestId(`world-card-${LEAGUES_W}`).click();
+test.describe('leagues: outside the window', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(LEAGUES_WINDOW!.end);
+  });
 
-  const header = page.locator('h1').last().locator('..');
-  await expect(header).toContainText(`World ${LEAGUES_W}`);
-  await expect(header).toContainText('Leagues');
-  await expect(header).toContainText('F2P');
+  test('leagues: the mode switcher is hidden and only main worlds show', async ({ page }) => {
+    await page.goto('/');
+    await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+    await expect(leaguesButton(page)).toHaveCount(0);
+    await expect(mainButton(page)).toHaveCount(0);
+    await expect(page.locator('header')).toContainText(`/${MAIN_WORLD_COUNT} worlds scouted`);
+  });
+
+  test('leagues: a stored Leagues preference falls back to Main', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('evilTree_worldMode', 'leagues');
+    });
+    await page.goto('/');
+
+    await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+    await expect(page.getByTestId(`world-card-${W}`)).toBeVisible();
+  });
+
+  test('leagues: searching a Leagues world finds nothing', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Search worlds by number').fill(String(LEAGUES_W));
+
+    await expect(page.getByTestId(`world-card-${LEAGUES_W}`)).toHaveCount(0);
+    await expect(leaguesButton(page)).toHaveCount(0);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

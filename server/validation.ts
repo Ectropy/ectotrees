@@ -2,11 +2,10 @@ import { MAX_MEMBER_NAME_LEN, type ClientMessage } from '../shared/protocol.ts';
 import { TREE_TYPES } from '../shared/types.ts';
 import type { WorldState, WorldStates, TreeType } from '../shared/types.ts';
 import { LOCATION_HINTS } from '../shared/hints.ts';
-import worldsData from '../shared/worlds.json' with { type: 'json' };
+import { ALL_WORLDS, isActiveWorldId } from '../shared/worlds.ts';
 import { warn } from './log.ts';
 import { containsProfanity } from './profanity.ts';
 
-const VALID_WORLD_IDS = new Set(worldsData.worlds.map(w => w.id));
 const VALID_TREE_TYPES = new Set<string>(TREE_TYPES);
 const MAX_STRING_LEN = 200;
 const MAX_MS_FROM_NOW = 2 * 60 * 60 * 1000; // 2 hours
@@ -65,15 +64,16 @@ function validateExactLocation(s: unknown): string | null {
 }
 
 const VALID_TREE_STATUSES = new Set(['none', 'sapling', 'mature', 'alive', 'dead']);
-// Derived rather than a fixed number so it can't silently collide as worlds are added
-// (e.g. a seasonal Leagues world set). The headroom covers stale world IDs still held
-// by older clients for worlds since removed from worlds.json. This is a whole-message
+// Derived rather than a fixed number so it can't silently collide as worlds are added.
+// Sized from every configured world — Leagues included even outside its window, since
+// clients keep Leagues intel in localStorage after the event closes — and the headroom
+// covers stale IDs for worlds since removed from worlds.json. This is a whole-message
 // reject, so an undersized cap costs the user their entire payload, not a few entries.
-const MAX_WORLDS_INITIALIZE = VALID_WORLD_IDS.size + 50;
+const MAX_WORLDS_INITIALIZE = ALL_WORLDS.length + 50;
 
 function validateWorldState(worldId: number, raw: unknown): WorldState | null {
   if (!isObject(raw)) return null;
-  if (!VALID_WORLD_IDS.has(worldId)) return null;
+  if (!isActiveWorldId(worldId)) return null;
 
   const status = raw.treeStatus;
   if (typeof status !== 'string' || !VALID_TREE_STATUSES.has(status)) return null;
@@ -285,7 +285,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
   }
 
   // All other messages require a valid worldId
-  if (typeof raw.worldId !== 'number' || !VALID_WORLD_IDS.has(raw.worldId)) {
+  if (typeof raw.worldId !== 'number' || !isActiveWorldId(raw.worldId)) {
     return { error: 'Invalid or missing worldId.' };
   }
   const worldId = raw.worldId;

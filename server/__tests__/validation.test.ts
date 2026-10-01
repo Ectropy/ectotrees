@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { validateMessage, validateInitializeState, validateSessionCode, validateIdentityToken, validateAuthMessage, sanitizeString } from '../validation.ts';
-import worldsData from '../../shared/worlds.json' with { type: 'json' };
+import { ALL_WORLDS, LEAGUES_WINDOW } from '../../shared/worlds.ts';
 
 // World IDs 1 and 2 are guaranteed to exist in worlds.json
 const W = 1;
 const MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-// A Leagues world — orthogonal to P2P/F2P, and validated like any other world ID
-const LEAGUES_W = worldsData.worlds.find(w => 'leagues' in w && w.leagues)!.id;
+// A Leagues world — orthogonal to P2P/F2P, and valid only inside the worlds.json leaguesWindow
+const LEAGUES_W = ALL_WORLDS.find(w => w.leagues)!.id;
 
 // Mirrors the derivation in validation.ts so this test can't rot when worlds are added
-const MAX_WORLDS_INITIALIZE = worldsData.worlds.length + 50;
+const MAX_WORLDS_INITIALIZE = ALL_WORLDS.length + 50;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // validateSessionCode
@@ -67,8 +67,34 @@ describe('validateMessage — structural checks', () => {
     expect(validateMessage({ type: 'markDead', worldId: 99999 })).toMatchObject({ error: expect.any(String) });
   });
 
-  it('accepts a Leagues worldId', () => {
-    expect(validateMessage({ type: 'markDead', worldId: LEAGUES_W })).not.toMatchObject({ error: expect.any(String) });
+  describe('Leagues window', () => {
+    const window = LEAGUES_WINDOW!;
+    afterEach(() => { vi.useRealTimers(); });
+
+    function at(ms: number) {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(ms);
+    }
+
+    it('accepts a Leagues worldId inside the window', () => {
+      at(window.start);
+      expect(validateMessage({ type: 'markDead', worldId: LEAGUES_W })).not.toMatchObject({ error: expect.any(String) });
+    });
+
+    it('rejects a Leagues worldId before the window opens', () => {
+      at(window.start - 1);
+      expect(validateMessage({ type: 'markDead', worldId: LEAGUES_W })).toMatchObject({ error: expect.any(String) });
+    });
+
+    it('rejects a Leagues worldId once the window has closed', () => {
+      at(window.end);
+      expect(validateMessage({ type: 'markDead', worldId: LEAGUES_W })).toMatchObject({ error: expect.any(String) });
+    });
+
+    it('keeps accepting main worlds outside the window', () => {
+      at(window.end);
+      expect(validateMessage({ type: 'markDead', worldId: W })).not.toMatchObject({ error: expect.any(String) });
+    });
   });
 
   it('returns error for invalid msgId (float)', () => {
@@ -394,7 +420,7 @@ describe('validateInitializeState', () => {
 
   it('accepts a payload covering every configured world', () => {
     const worlds: Record<string, unknown> = {};
-    for (const w of worldsData.worlds) {
+    for (const w of ALL_WORLDS) {
       worlds[w.id] = { treeStatus: 'alive' };
     }
     const result = validateInitializeState({ worlds });

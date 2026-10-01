@@ -20,9 +20,9 @@ const BUTTON_BASE = `flex-1 md:flex-none px-2 py-1 md:px-1.5 md:py-0.5 text-xs m
 /**
  * Main / Leagues mode switcher.
  *
- * Renders nothing when there are no Leagues worlds configured, so the feature can
- * ship dark before the event and disappear cleanly afterwards by deleting the
- * entries from worlds.json — no code change either way.
+ * Renders nothing when there are no Leagues worlds in effect, so the feature
+ * appears and disappears on its own as the worlds.json `leaguesWindow` opens and
+ * closes — no code change either way.
  */
 export function WorldModeSwitcher({ mode, setMode, leaguesCount, seen, className = '' }: Props) {
   if (leaguesCount === 0) return null;

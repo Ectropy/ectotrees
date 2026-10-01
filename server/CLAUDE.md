@@ -127,8 +127,8 @@ All clients connect to `ws://host/ws` (no query parameters). Authentication is m
 - **Session browser**: managed sessions can opt in to public discovery by setting `listed: true` via `updateSessionSettings` (also sets `name` and optional `description`). Listed sessions appear in `GET /api/sessions` as `SessionSummary` objects and are displayed in `SessionBrowserView`.
 
 ## Validation (`validation.ts`)
-- `worldId` must exist in `worlds.json` (Leagues worlds included — the server has no mode concept, only the ID allowlist)
-- `initializeState`/`contributeWorlds` cap out at `worlds.json` length + 50 entries (derived, not a fixed number, so it can't silently collide as worlds are added). This is a whole-message reject, not a per-entry skip
+- `worldId` must pass `isActiveWorldId` (`shared/worlds.ts`): any main world, plus Leagues worlds while the `worlds.json` `leaguesWindow` is open. The check runs per message, so Leagues IDs start being rejected at the window's end without a restart. The server has no mode concept, only the ID allowlist
+- `initializeState`/`contributeWorlds` cap out at `worlds.json` length + 50 entries (derived, not a fixed number, so it can't silently collide as worlds are added; counts Leagues worlds even outside the window). This is a whole-message reject, not a per-entry skip
 - `msFromNow` must be a positive integer, max 2 hours
 - Strings are sanitized by `sanitizeString` (Unicode control *and* format characters stripped — bidi overrides, zero-width joiners, BOM — then trimmed, max 200 chars) and checked for profanity via `containsProfanity()`. The HTTP open-join path uses the same function.
 - `selfRegisterToken` must be the exact 32-hex value the server issued at fork time

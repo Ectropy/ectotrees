@@ -2,11 +2,12 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { PanelLeft, PanelRight, Expand, X, Timer, TreeDeciduous, Skull, Settings, Copy, Check, Search, Map } from 'lucide-react';
 import { PartyHatGlasses } from './components/icons/PartyHatGlasses';
 import { SPAWN_COLOR, TREE_COLOR, DEAD_COLOR, TEXT_COLOR, FOCUS_RING } from './constants/toolColors';
-import worldsConfig from '../shared/worlds.json';
+import { ALL_WORLDS, worldList } from '../shared/worlds.ts';
 import { useWorldStates } from './hooks/useWorldStates';
 import { useSession } from './hooks/useSession';
 import { useStoredSet } from './hooks/useStoredSet';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useLeaguesActive } from './hooks/useLeaguesActive';
 import { WorldCard } from './components/WorldCard';
 import { SpawnTimerView } from './components/SpawnTimerView';
 import { TreeInfoView } from './components/TreeInfoView';
@@ -33,7 +34,7 @@ import {
 } from './lib/worldMode';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { SortMode, Filters } from './components/SortFilterBar';
-import type { WorldConfig, WorldStates } from './types';
+import type { WorldStates } from './types';
 import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
 import { NONE_STATE, worldStatesEqual } from './lib/worldState';
@@ -42,9 +43,6 @@ import { useSettings } from './hooks/useSettings';
 import { useFilteredWorlds, isActive, loadSortPrefs, loadFilters, SORT_STORAGE_KEY, FILTER_STORAGE_KEY } from './hooks/useFilteredWorlds';
 import { trackUiEvent, type UiPanel, type UiSidebarSide, type UiSurface } from './lib/analytics';
 import { useCopyFeedback } from '@shared-browser/useCopyFeedback';
-
-const allWorlds = worldsConfig.worlds as WorldConfig[];
-const { main: MAIN_WORLDS, leagues: LEAGUES_WORLDS } = partitionWorlds(allWorlds);
 
 type ActiveView =
   | { kind: 'grid' }
@@ -199,11 +197,20 @@ export default function App() {
   const [sortMode, setSortMode] = useState<SortMode>(() => loadSortPrefs().mode);
   const [sortAsc, setSortAsc] = useState(() => loadSortPrefs().asc);
   const [filters, setFilters] = useState<Filters>(loadFilters);
-  const [worldMode, setWorldMode] = useState<WorldMode>(() => loadWorldMode(LEAGUES_WORLDS.length > 0));
+  // Leagues worlds only exist inside the worlds.json `leaguesWindow`; outside it the
+  // Leagues set is empty and the mode switcher hides itself.
+  const leaguesActive = useLeaguesActive();
+  const worlds = worldList(leaguesActive);
+  const { main: mainWorlds, leagues: leaguesWorlds } = useMemo(() => partitionWorlds(worlds), [worlds]);
+  const [worldMode, setWorldMode] = useState<WorldMode>(() => loadWorldMode(leaguesWorlds.length > 0));
   const [leaguesSeen, setLeaguesSeen] = useState(loadLeaguesSeen);
   const [worldSearch, setWorldSearch] = useState('');
 
-  const modeWorlds = worldMode === 'leagues' ? LEAGUES_WORLDS : MAIN_WORLDS;
+  // The window can close while the tab is open — drop back to Main rather than
+  // leaving the user on an empty Leagues grid. Adjusted during render, not in an effect.
+  if (worldMode === 'leagues' && leaguesWorlds.length === 0) setWorldMode('main');
+
+  const modeWorlds = worldMode === 'leagues' ? leaguesWorlds : mainWorlds;
 
   const handleSetWorldMode = useCallback((mode: WorldMode) => {
     setWorldMode(mode);
@@ -248,12 +255,12 @@ export default function App() {
   }, [worldSearch]);
 
   // Auto-open sidebar detail when search matches exactly one world.
-  // Searches every world, not just the active mode's — see the mode-switch effect below.
+  // Searches both modes' worlds, not just the active one's — see the mode-switch handler below.
   const searchMatchWorld = useMemo(() => {
     const s = worldSearch.trim();
     if (!s) return null;
-    return allWorlds.find(w => String(w.id) === s) ?? null;
-  }, [worldSearch]);
+    return worlds.find(w => String(w.id) === s) ?? null;
+  }, [worldSearch, worlds]);
   const searchMatchWorldId = searchMatchWorld?.id ?? null;
 
   // Searching a world that lives in the other mode switches to it. The search
@@ -263,9 +270,9 @@ export default function App() {
   const handleWorldSearchChange = useCallback((raw: string) => {
     const next = raw.replace(/\D/g, '').slice(0, 3);
     setWorldSearch(next);
-    const match = allWorlds.find(w => String(w.id) === next);
+    const match = worlds.find(w => String(w.id) === next);
     if (match) handleSetWorldMode(worldModeFor(match));
-  }, [handleSetWorldMode]);
+  }, [handleSetWorldMode, worlds]);
 
   useEffect(() => {
     if (!settings.sidebarEnabled || isMobile) return;
@@ -289,11 +296,13 @@ export default function App() {
     setWorldSearch('');
     // Follow the scout across modes too, so the grid behind the panel matches the
     // world being shown rather than silently staying on the other world set.
-    const scoutWorld = allWorlds.find(w => w.id === currentScoutWorld);
+    // Unknown or out-of-window (e.g. Leagues after the event) worlds aren't followed.
+    const scoutWorld = worlds.find(w => w.id === currentScoutWorld);
+    if (!scoutWorld) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (scoutWorld) handleSetWorldMode(worldModeFor(scoutWorld));
+    handleSetWorldMode(worldModeFor(scoutWorld));
     setActiveView({ kind: 'detail', worldId: currentScoutWorld });
-  }, [currentScoutWorld, settings.followScout, handleSetWorldMode]);
+  }, [currentScoutWorld, settings.followScout, handleSetWorldMode, worlds]);
 
   // New identity token = new Alt1 link; opt the user back in to following the scout.
   const prevIdentityTokenRef = useRef(session.identityToken);
@@ -498,7 +507,7 @@ export default function App() {
       const { worldId } = activeView;
       // Across all worlds, not just the active mode's — a tool or detail view can be
       // open for a Leagues world (via search or follow-scout) while Main is selected.
-      const world = allWorlds.find(w => w.id === worldId)!;
+      const world = ALL_WORLDS.find(w => w.id === worldId)!;
 
       if (activeView.kind === 'spawn')
         return <SpawnTimerView
@@ -669,7 +678,7 @@ export default function App() {
           <WorldModeSwitcher
             mode={worldMode}
             setMode={handleSetWorldMode}
-            leaguesCount={LEAGUES_WORLDS.length}
+            leaguesCount={leaguesWorlds.length}
             seen={leaguesSeen}
             className="order-first basis-full md:order-2 md:basis-auto"
           />

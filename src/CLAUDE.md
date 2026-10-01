@@ -26,6 +26,7 @@ src/
     useSession.ts       # WebSocket session management: create/join/leave, reconnection
     useSettings.ts      # Visual effects + tip ticker + sidebar + follow-scout + browse-on-startup settings persisted to localStorage
     useIsMobile.ts      # Reactive matchMedia hook (< 640px) — drives sidebar mobile fallback
+    useLeaguesActive.ts # Whether the worlds.json leaguesWindow is open; re-renders at the open/close boundary via a single (overflow-capped) setTimeout, no polling
     useEscapeKey.ts     # Calls callback when Escape key is pressed (stable ref, no re-subscribe on re-render)
     useStoredSet.ts     # Generic localStorage-backed Set<number> hook; App.tsx uses it directly for favorites (evilTree_favorites) and hidden worlds (evilTree_hiddenWorlds)
     useFilteredWorlds.ts # Sort/filter logic + localStorage persistence for sort/filter preferences
@@ -127,16 +128,18 @@ All filters apply **within the active world mode** — see World Modes below.
 ## World Modes (Main / Leagues)
 A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds) and **Leagues** (68 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
 
+Leagues is **seasonal**: its worlds only exist while the `worlds.json` `leaguesWindow` is open (see "Leagues window" in the root CLAUDE.md). Outside the window the Leagues set is empty, the switcher renders nothing, and the dashboard is Main-only. `useLeaguesActive()` flips at the boundary, so a tab left open across it updates without a reload.
+
 Leagues is **orthogonal to P2P/F2P** — Leagues contains both — so the membership chips keep narrowing *within* whichever mode is active rather than competing with it.
 
-Implementation: `App.tsx` partitions the world list once at module scope via `partitionWorlds` (`lib/worldMode.ts`) and passes the selected set into `useFilteredWorlds`. Because that hook already takes the world list as a parameter, mode required no changes to the filter logic itself.
+Implementation: `App.tsx` takes `worldList(useLeaguesActive())` (`shared/worlds.ts`), partitions it via `partitionWorlds` (`lib/worldMode.ts`, memoized — the list is one of two stable arrays), and passes the selected set into `useFilteredWorlds`. Because that hook already takes the world list as a parameter, mode required no changes to the filter logic itself.
 
 - Mode lives in its own `useState` + `localStorage` key (`evilTree_worldMode`), **not** in `Filters` — otherwise "Clear filters" would yank the user out of Leagues.
-- `loadWorldMode(hasLeagues)` forces `'main'` when no Leagues worlds are configured, so deleting them post-event can't strand a user on an empty grid.
+- `loadWorldMode(hasLeagues)` forces `'main'` when no Leagues worlds are in effect, so a stored `'leagues'` can't strand a user on an empty grid after the event. If the window closes while Leagues is selected, `App.tsx` resets the mode to `'main'` during render.
 - The Leagues button shows a one-time pulsing attention dot until first use (`evilTree_leaguesSeen`).
 - **Header layout**: the switcher is a direct child of `<header>` (a sibling of the title and the action group, not nested in either) so `basis-full` can wrap it onto its own full-width row below `md`, where it reads as a prominent segmented toggle. At `md` and up, `order` classes put it back inline between the title and the actions. The `md` breakpoint is duplicated in `WorldModeSwitcher`'s button sizing — change both together.
-- Searching a world number in the other mode auto-switches to it (handled in the search `onChange`, since the search short-circuit in `useFilteredWorlds` bypasses filters but not the world list). Follow-scout does the same when the scout hops across modes.
-- Tool/detail views and `SessionJoinView` look worlds up across **all** worlds, not just the active mode — a panel can be open for a Leagues world while Main is selected. `ViewHeader` and `SessionJoinView` render a gold Leagues badge alongside the P2P/F2P badge.
+- Searching a world number in the other mode auto-switches to it (handled in the search `onChange`, since the search short-circuit in `useFilteredWorlds` bypasses filters but not the world list). Follow-scout does the same when the scout hops across modes. Both only consider worlds currently in effect, so a Leagues world number matches nothing outside the window.
+- Tool/detail views and `SessionJoinView` look worlds up in `ALL_WORLDS`, not just the active mode — a panel can be open for a Leagues world while Main is selected, and a session can still hold Leagues intel after the window closes. `ViewHeader` and `SessionJoinView` render a gold Leagues badge alongside the P2P/F2P badge.
 
 ## Tool Availability
 | Tool | Enabled when |
