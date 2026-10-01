@@ -15,6 +15,12 @@ import * as A1lib from 'alt1/base';
 import _DialogReader from 'alt1/dialog';
 import _ChatBoxReader from 'alt1/chatbox';
 import _TooltipReader from 'alt1/tooltip';
+// alt1/dialog doesn't export its corner templates, and the package's `exports`
+// map blocks deep imports, so reach the source PNGs by relative path.
+import boxtlUrl from '../../node_modules/alt1/src/dialog/imgs/boxtl.data.png?inline';
+import boxtrUrl from '../../node_modules/alt1/src/dialog/imgs/boxtr.data.png?inline';
+import boxtlLegUrl from '../../node_modules/alt1/src/dialog/imgs/boxtl_leg.data.png?inline';
+import boxtrLegUrl from '../../node_modules/alt1/src/dialog/imgs/boxtr_leg.data.png?inline';
 const DialogReader: typeof _DialogReader =
   (_DialogReader as unknown as { default?: typeof _DialogReader }).default ?? _DialogReader;
 const ChatBoxReader: typeof _ChatBoxReader =
@@ -393,6 +399,142 @@ function CaptureProbe() {
   );
 }
 
+// ── 10. Dialog Diagnostics ───────────────────────────────────────────────────
+// DialogReader.find() only reports true/false and keeps its corner templates
+// private, so this probe loads the same template PNGs and searches for each
+// one on its own: exact (what find() does) and nearest (what is on screen).
+
+const DIALOG_TEMPLATE_URLS = {
+  boxtl: boxtlUrl,
+  boxtr: boxtrUrl,
+  boxtl_leg: boxtlLegUrl,
+  boxtr_leg: boxtrLegUrl,
+};
+
+// find() requires boxtr exactly this far right of boxtl.
+const DIALOG_CORNER_OFFSET = 492;
+
+const PNG_DATA_URL_HEADER = 'data:image/png;base64,';
+
+// Stays on data: URLs end to end — the server CSP blocks fetch() of data: URLs
+// (connect-src) and blob: images (img-src), which rules out alt1's own
+// imageDataFromFileBuffer. Colorspace chunks are stripped so the browser
+// doesn't gamma-correct the pixels, matching how alt1 decodes its templates.
+function loadTemplate(dataUrl: string): Promise<ImageData> {
+  const bytes = Uint8Array.from(atob(dataUrl.slice(PNG_DATA_URL_HEADER.length)), c => c.charCodeAt(0));
+  A1lib.ImageDetect.clearPngColorspace(bytes);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return A1lib.imageDataFromUrl(PNG_DATA_URL_HEADER + btoa(binary));
+}
+
+/** Closest position of needle in haystack; meanDiff 0 = identical (0–255 per channel). */
+function nearestMatch(haystack: ImageData, needle: ImageData) {
+  const pts: number[] = [];
+  for (let y = 0; y < needle.height; y++) {
+    for (let x = 0; x < needle.width; x++) {
+      const i = (x + y * needle.width) * 4;
+      if (needle.data[i + 3] === 255) {
+        pts.push((x + y * haystack.width) * 4, needle.data[i], needle.data[i + 1], needle.data[i + 2]);
+      }
+    }
+  }
+  const hay = haystack.data;
+  let best = Infinity;
+  let bestX = -1;
+  let bestY = -1;
+  for (let y = 0; y <= haystack.height - needle.height; y++) {
+    for (let x = 0; x <= haystack.width - needle.width; x++) {
+      const base = (x + y * haystack.width) * 4;
+      let sum = 0;
+      for (let p = 0; p < pts.length && sum < best; p += 4) {
+        const i = base + pts[p];
+        sum += Math.abs(hay[i] - pts[p + 1]) + Math.abs(hay[i + 1] - pts[p + 2]) + Math.abs(hay[i + 2] - pts[p + 3]);
+      }
+      if (sum < best) { best = sum; bestX = x; bestY = y; }
+    }
+  }
+  return { x: bestX, y: bestY, meanDiff: +(best / (pts.length / 4 * 3)).toFixed(2) };
+}
+
+function DialogDiagnosticsProbe() {
+  const [result, setResult] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  async function run() {
+    if (noAlt1()) { setResult('alt1 not defined'); return; }
+    setBusy(true);
+    try {
+      const capture = A1lib.captureHoldFullRs();
+      const screen = capture.toData();
+
+      let nonBlack = 0;
+      let samples = 0;
+      for (let i = 0; i < screen.data.length; i += 4 * 16) {
+        samples++;
+        if (screen.data[i] + screen.data[i + 1] + screen.data[i + 2] > 0) nonBlack++;
+      }
+
+      const templates: Record<string, unknown> = {};
+      const nearest: Record<string, { x: number; y: number; meanDiff: number }> = {};
+      for (const [name, url] of Object.entries(DIALOG_TEMPLATE_URLS)) {
+        const tpl = await loadTemplate(url);
+        nearest[name] = nearestMatch(screen, tpl);
+        templates[name] = {
+          size: `${tpl.width}x${tpl.height}`,
+          exact: capture.findSubimage(tpl).slice(0, 5),
+          nearest: nearest[name],
+        };
+      }
+
+      // Crop around the closest modern top-left corner so the real dialog art
+      // can be compared against the template by eye.
+      const cropX = Math.max(0, Math.min(nearest.boxtl.x - 10, screen.width - 540));
+      const cropY = Math.max(0, Math.min(nearest.boxtl.y - 10, screen.height - 160));
+      const crop = capture.toData(cropX, cropY, Math.min(540, screen.width), Math.min(160, screen.height));
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = crop.width;
+        canvas.height = crop.height;
+        canvas.getContext('2d')?.putImageData(crop, 0, 0);
+        console.log('[EctoScout] dialog diagnostics crop:', canvas.toDataURL('image/png'));
+      }
+
+      setResult({
+        capture: {
+          size: `${screen.width}x${screen.height}`,
+          rsScaling: alt1.rsScaling,
+          captureMethod: alt1.captureMethod,
+          nonBlackPct: Math.round((nonBlack / samples) * 100),
+        },
+        cornerOffset: {
+          expected: DIALOG_CORNER_OFFSET,
+          nearestModern: { dx: nearest.boxtr.x - nearest.boxtl.x, dy: nearest.boxtr.y - nearest.boxtl.y },
+          nearestLegacy: { dx: nearest.boxtr_leg.x - nearest.boxtl_leg.x, dy: nearest.boxtr_leg.y - nearest.boxtl_leg.y },
+        },
+        templates,
+        crop: { x: cropX, y: cropY },
+      });
+    } catch (e) {
+      setResult({ error: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title="10. Dialog Diagnostics">
+      <div className="text-[10px] text-white/50 mb-1">Open an NPC dialog, then run. Takes a few seconds.</div>
+      <ProbeBtn onClick={run} disabled={busy}>{busy ? 'Searching...' : 'Diagnose find()'}</ProbeBtn>
+      {result !== null && <Pre value={result} />}
+      <div className="mt-1 overflow-auto">
+        <canvas ref={canvasRef} width={0} height={0} />
+      </div>
+    </Section>
+  );
+}
+
 // ── Main Panel ───────────────────────────────────────────────────────────────
 
 export function DebugPanel() {
@@ -411,6 +553,7 @@ export function DebugPanel() {
         <TooltipProbe />
         <RightClickProbe />
         <CaptureProbe />
+        <DialogDiagnosticsProbe />
       </div>
     </details>
   );
