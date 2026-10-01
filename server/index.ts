@@ -263,10 +263,15 @@ const WS_ORIGIN = (() => {
   return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`;
 })();
 
+// In dev APP_URL is the Vite origin (:5173), but the Alt1 plugin's development
+// build connects straight to this server (alt1-plugin/.env.development), so
+// that origin has to be named too.
+const WS_SOURCES = IS_PROD ? WS_ORIGIN : `${WS_ORIGIN} ws://localhost:${PORT}`;
+
 const CSP_COMMON =
   "default-src 'self'; " +
   "style-src 'self' 'unsafe-inline'; " +
-  `connect-src 'self' ${WS_ORIGIN} https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; ` +
+  `connect-src 'self' ${WS_SOURCES} https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; ` +
   // raw.githubusercontent.com hosts the RS3 map tiles (MapView.tsx); scoped to
   // the mejrs/layers_rs3 repo so the rest of the shared host stays blocked.
   "img-src 'self' data: https://raw.githubusercontent.com/mejrs/layers_rs3/ https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; " +
