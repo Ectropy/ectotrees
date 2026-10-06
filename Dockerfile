@@ -1,6 +1,6 @@
 # Digest-pinned so the tag cannot change underneath a rebuild; Dependabot's
 # docker ecosystem bumps the digest alongside the tag.
-FROM node:26-alpine@sha256:ef24c5053d50fdc3e4e56eb4e7ddb7861874ab0fdc797046ba897581deb8e868 AS build
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS build
 WORKDIR /app
 
 # Install main app deps
@@ -21,7 +21,7 @@ COPY . .
 ARG ECTOTREES_WS_BASE
 RUN if [ -n "$ECTOTREES_WS_BASE" ]; then export VITE_WS_BASE="$ECTOTREES_WS_BASE"; fi && npm run build
 
-FROM node:26-alpine@sha256:ef24c5053d50fdc3e4e56eb4e7ddb7861874ab0fdc797046ba897581deb8e868 AS runtime
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS runtime
 WORKDIR /app
 ENV PORT=3001
 
