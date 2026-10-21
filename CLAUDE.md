@@ -1,12 +1,14 @@
 # Ectotrees — Evil Tree Tracker
 
-A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion across all 137 worlds in real time.
+A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion across every world in real time.
 
 ## Tech Stack
 
-- **React 19** + **TypeScript** + **Vite 8**
+Exact versions live in `package.json` / `alt1-plugin/package.json` (and the Node version in `.nvmrc`); this list says what each dependency is for, not which version is installed.
+
+- **React** + **TypeScript** + **Vite**
 - **Tailwind CSS v4** (CSS-first config — no `tailwind.config.*`; theme tokens live in `src/index.css` under `@theme inline`, loaded via `@tailwindcss/vite`). Alongside the shadcn/ui semantic tokens, `@theme inline` carries the two Leagues brand colors (`--color-leagues-gold`, `--color-leagues-green`); the rest of the app palette is stock Tailwind referenced by class name from `shared-browser/toolColors.ts`.
-- **lucide-react** — icon library (`PanelLeft`, `PanelRight`, `Expand`, `X`, `Timer`, `TreeDeciduous`, `Skull`, `Search`, `Map` used in sidebar/fullscreen toolbars and header; `Settings`, `Star`, `EyeOff`, `Pencil`, `Lightbulb`, `Check`, `ChevronUp`, `ChevronDown` used elsewhere; `Zap` used in `HealthButtonGrid`; `Sparkles` used in `WorldModeSwitcher`; `Link2`, `Users`, `Copy`, `ExternalLink`, `HelpCircle` used in session UI; `RefreshCw` used in `SessionBrowserView`; `Circle`, `CircleX`, `LoaderCircle` used in `SessionBar`; `Link`, `Unlink` used in `Alt1TokenButton` and `SessionView`) — Note: the View nav button uses the custom `PartyHatGlasses` SVG icon (`src/components/icons/PartyHatGlasses.tsx`), not a lucide icon
+- **lucide-react** — icon library. The View nav button is the exception: it uses the custom `PartyHatGlasses` SVG (`src/components/icons/PartyHatGlasses.tsx`)
 - **obscenity** — profanity filter used server-side to sanitize member names and session descriptions (`server/profanity.ts`)
 - **@ncdai/react-wheel-picker** — scroll-wheel time picker used in `SpawnTimerView`
 - **@base-ui/react** — headless Combobox primitive used in `SelectCombobox` (hint/location pickers)
@@ -18,11 +20,11 @@ A RuneScape 3 dashboard for tracking the Evil Trees Distraction & Diversion acro
 - **leaflet** + **@types/leaflet** — interactive RS3 map in `MapView.tsx` (uses `CRS.Simple` and the community-maintained mejrs RS3 tile layer)
 - **class-variance-authority** + **clsx** + **tailwind-merge** — `cn()` helper in `lib/utils.ts`
 - **tw-animate-css** — Tailwind CSS v4 animation utilities (imported in `src/index.css` via `@import "tw-animate-css"`)
-- **Express 5** + **ws** + **express-rate-limit** — backend server for real-time multi-user sync (HTTP rate-limited per IP)
+- **Express** + **ws** + **express-rate-limit** — backend server for real-time multi-user sync (HTTP rate-limited per IP)
 - **tsx** — runs TypeScript server files directly
-- **Storybook 10** (`@storybook/react-vite`) — component playground and OG image generation source (`.storybook/`)
+- **Storybook** (`@storybook/react-vite`) — component playground and OG image generation source (`.storybook/`)
 - **husky** — git hook installer; the `prepare` script wires it up on `npm install`
-- Node 24.x LTS (`.nvmrc` pins to `24`; run `nvm use` to switch)
+- **Node** — major version pinned in `.nvmrc` (run `nvm use` to switch); CI and the `Dockerfile` base image track the same major
 
 ## Commands
 
@@ -54,11 +56,11 @@ In development, run `npm run server` and `npm run dev` in two terminals. Vite pr
 |---|---|
 | `shared/` | Pure TS shared between client and server — types, protocol, mutations, hints |
 | `shared-browser/` | Browser + React utilities shared between `src/` and `alt1-plugin/` (`toolColors.ts` — canonical UI color tokens (full Tailwind class strings); `src/constants/toolColors.ts` is a re-export shim; `clock.ts` — app-wide shared 500ms clock (`useSharedNow` via `useSyncExternalStore`); `clipboard.ts`, `sessionUrl.ts`, `useCopyFeedback.ts` — also exports keyed list variant `useKeyedCopyFeedback`, `useNow.ts`, `useCountdown.ts`, `treeLabels.ts`, `DismissableError.tsx` — click-to-dismiss inline error with X icon + hover underline; host app passes color classes via `className`). Not imported by server. |
-| `server/` | Express 5 + WebSocket backend — sessions, validation, real-time sync, JSON snapshot persistence (`DATA_DIR`) |
+| `server/` | Express + WebSocket backend — sessions, validation, real-time sync, JSON snapshot persistence (`DATA_DIR`) |
 | `src/` | React client — dashboard UI, hooks, components |
 | `alt1-plugin/` | Alt1 Toolkit scout plugin — separate Vite app served at `/alt1` |
 | `e2e/` | Playwright E2E tests |
-| `scripts/` | Build, release, and CI maintenance scripts (`update-docs.mjs`, `generate-release-notes.mjs`, `generate-og-image.mjs`, `convert-fonts.mjs`, `ghcr-cleanup-orphans.mjs` — prunes orphaned untagged GHCR container versions) |
+| `scripts/` | Build, release, and CI maintenance scripts — invoked from `package.json` scripts and `.github/workflows/` |
 | `.storybook/` | Storybook config (`main.ts`, `preview.tsx`) — stories live alongside components as `*.stories.tsx` |
 
 Each directory with a CLAUDE.md has detailed file listings and architecture docs scoped to that area.
@@ -116,7 +118,7 @@ Sapling variants allow recording the expected species during the sapling phase. 
 ## Adding/Removing Worlds
 Edit `shared/worlds.json`. Format: `{ "worlds": [{ "id": 1, "type": "P2P" }, ...] }`
 
-Optional `"leagues": true` marks a world as part of the RS3 Leagues world set (205 worlds total: 137 main + 68 Leagues). **`leagues` is orthogonal to `type`** — Leagues has both P2P and F2P worlds — so it is a separate flag, not a third `type` value:
+Optional `"leagues": true` marks a world as part of the RS3 Leagues world set. **`leagues` is orthogonal to `type`** — Leagues has both P2P and F2P worlds — so it is a separate flag, not a third `type` value:
 
 ```json
 { "id": 233, "type": "F2P", "leagues": true }
