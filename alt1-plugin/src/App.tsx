@@ -13,6 +13,7 @@ import { TooltipProvider } from './components/ui/tooltip';
 import { DebugPanel } from './components/DebugPanel';
 import { NotConnectedPrompt } from './components/NotConnectedPrompt';
 import type { TreeType } from '@shared/types';
+import { spawnMsFromReading } from '@shared/spawnTimer';
 import type { ClientMessage } from '@shared/protocol';
 
 type Mode = 'prespawn' | 'postspawn' | 'dead';
@@ -25,6 +26,11 @@ const STATUS_DURATIONS: Record<StatusKind, number> = {
   error: 15000,
   '': 0,
 };
+
+// A timer reading seen again within this long is the same dialog being re-scanned
+// (or re-opened for the same timer), so it keeps its original read time. Cleared
+// with the form on world hop / mode swap, so it can't leak to another world.
+const TIMER_READ_REUSE_MS = 60_000;
 
 export function App() {
   const { isAlt1, hasPixel, hasGameState, scanWorld, scanDialog } = useAlt1();
@@ -68,9 +74,19 @@ export function App() {
   // scout has typed/auto-detected a world.
   const applyDialogScanRef = useRef<(result: NonNullable<ReturnType<typeof scanDialog>>, prefix: string) => void>(() => {});
   type PendingSubmit =
-    | { mode: 'prespawn'; worldId: number; msFromNow: number; hintText: string }
+    // readingMs is the raw in-game timer; msFromNow is computed at send time from it
+    // and readAt, so a delayed or retried send still targets the same spawn.
+    | { mode: 'prespawn'; worldId: number; readingMs: number; readAt: number | null; hintText: string }
     | { mode: 'postspawn'; worldId: number; treeType: string; exactLocation: string; hintText: string };
   const pendingSubmitRef = useRef<PendingSubmit | null>(null);
+
+  // When the current timer reading was first OCR'd. The spawn countdown starts when
+  // the dialog is shown, but submission waits for the hint scan, the auto-submit
+  // countdown, or a world hop, so the time since the read is subtracted at send.
+  // Auto-scan re-reads an open dialog every ~300ms; `lastAt` keeps those repeats
+  // from restarting the clock, while a reading not seen for TIMER_READ_REUSE_MS
+  // counts as a fresh read.
+  const timerReadRef = useRef<{ readingMs: number; firstAt: number; lastAt: number } | null>(null);
 
   // Flush-on-world-hop state. The snapshot is anchored to whichever world the
   // data was entered for — on world change we either submit the snapshot to its
@@ -352,7 +368,8 @@ export function App() {
         ? {
             mode: 'prespawn',
             worldId: oldWorldId,
-            msFromNow: (h * 60 + m) * 60_000,
+            readingMs: (h * 60 + m) * 60_000,
+            readAt: timerReadAt((h * 60 + m) * 60_000),
             hintText: hint.trim().slice(0, 200),
           }
         : {
@@ -461,7 +478,15 @@ export function App() {
     return (h * 60 + m) * 60_000;
   }
 
+  // When `readingMs` was read from the dialog, or null if the fields hold anything
+  // else (typed by hand, or edited after the scan) — then there's no delay to undo.
+  function timerReadAt(readingMs: number): number | null {
+    const read = timerReadRef.current;
+    return read && read.readingMs === readingMs ? read.firstAt : null;
+  }
+
   function clearDataFields() {
+    timerReadRef.current = null;
     setHours('');
     setMinutes('');
     setHint('');
@@ -479,7 +504,7 @@ export function App() {
       return {
         type: 'setSpawnTimer',
         worldId: payload.worldId,
-        msFromNow: payload.msFromNow,
+        msFromNow: spawnMsFromReading(payload.readingMs, payload.readAt === null ? 0 : Date.now() - payload.readAt),
         treeInfo: payload.hintText ? { treeHint: payload.hintText } : undefined,
       };
     }
@@ -578,6 +603,12 @@ export function App() {
     if (result.hours > 0 || result.minutes > 0) {
       setHours(String(result.hours));
       setMinutes(String(result.minutes));
+      const readingMs = (result.hours * 60 + result.minutes) * 60_000;
+      const now = Date.now();
+      const prev = timerReadRef.current;
+      timerReadRef.current = prev && prev.readingMs === readingMs && now - prev.lastAt < TIMER_READ_REUSE_MS
+        ? { ...prev, lastAt: now }
+        : { readingMs, firstAt: now, lastAt: now };
       detected.push(`${result.hours}h ${result.minutes}m`);
     }
 
@@ -710,16 +741,19 @@ export function App() {
     }
 
     // prespawn
-    const msFromNow = pending?.mode === 'prespawn' ? pending.msFromNow : getTotalMs();
+    const readingMs = pending?.mode === 'prespawn' ? pending.readingMs : getTotalMs();
+    const readAt = pending?.mode === 'prespawn' ? pending.readAt : timerReadAt(readingMs);
     const hintText = pending?.mode === 'prespawn' ? pending.hintText : hint.trim().slice(0, 200);
-    if (msFromNow <= 0) return;
+    if (readingMs <= 0) return;
+    const msFromNow = spawnMsFromReading(readingMs, readAt === null ? 0 : Date.now() - readAt);
 
     setSubmitting(true);
     submittingRef.current = true;
     showStatus('Submitting...');
 
-    const h = Math.floor(msFromNow / 3_600_000);
-    const m = Math.floor((msFromNow % 3_600_000) / 60_000);
+    // From the raw reading, so the post-ack clear matches what the fields show.
+    const h = Math.floor(readingMs / 3_600_000);
+    const m = Math.floor((readingMs % 3_600_000) / 60_000);
     submittedValuesRef.current = {
       mode: 'prespawn',
       world: String(worldId),
@@ -756,6 +790,7 @@ export function App() {
   }
 
   function handleClear() {
+    timerReadRef.current = null;
     setAutoCountdown(null);
     setChatDetectedDead(false);
     setWorld('');

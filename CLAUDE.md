@@ -106,6 +106,9 @@ Client checks every 1 second (for smooth countdown display), server checks every
 
 Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by client and server.
 
+### Spawn timer readings
+The in-game "approximately N minutes" timer **rounds down** (minimum 1): the tree spawns N:00–N:59 after the dialog was shown, and "1 minute" covers 0:00–1:59 (measured by the Evil Trees RS3 plugin). Clients convert a reading with `spawnMsFromReading` (`shared/spawnTimer.ts`), which targets the middle of that window (+30 s; "1 minute" stays 1:00). The dashboard (`SpawnTimerView`) applies it to the entered value. The Alt1 plugin also subtracts the time since the timer was first OCR'd, because it submits after the hint scan, the 10 s auto-submit countdown, or a world-hop flush; it carries the raw reading and read time in `PendingSubmit` and computes `msFromNow` at send time. `setSpawnTimer.msFromNow` is therefore the client's best estimate of ms until spawn; `applySetSpawnTimer` and the server use it as-is (capped at 2 h 1 min).
+
 Health auto-transitions emit **lightning events** tracked in `useWorldStates`. These drive `LightningEffect` animations on the affected card and detail view. Event kinds: `lightning1` (10 min), `lightning2` (20 min), `death` (30 min). Death supersedes health events in the same tick. Events auto-expire after 3 seconds if not dismissed by the component.
 
 In dev mode, `window.__triggerLightning(worldId, kind?)` manually fires a lightning event for testing.

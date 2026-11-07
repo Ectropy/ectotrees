@@ -6,6 +6,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ToolView } from './ToolView';
 import { WheelPicker, WheelPickerWrapper, type WheelPickerOption } from '@ncdai/react-wheel-picker';
 import type { WorldConfig } from '../types';
+import { spawnMsFromReading } from '../../shared/spawnTimer.ts';
 import { SelectCombobox } from './ui/select-combobox';
 
 const HOUR_VALUES = Array.from({ length: 2 }, (_, i) => i);      // [0..1]
@@ -94,8 +95,9 @@ export function SpawnTimerView({ world, onSubmit, onBack }: Props) {
   function doSubmit(finalMinutes: number) {
     const totalMs = ((hours * 60) + finalMinutes) * 60 * 1000;
     if (totalMs <= 0) return;
+    // The entered value is the in-game reading, which rounds down; send the midpoint.
     // Single-location hints resolve to an exact location inside applySetSpawnTimer
-    onSubmit(totalMs, hint ? { treeHint: hint } : undefined);
+    onSubmit(spawnMsFromReading(totalMs), hint ? { treeHint: hint } : undefined);
   }
 
   function handleSubmit(e: React.FormEvent) {

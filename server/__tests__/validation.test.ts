@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { validateMessage, validateInitializeState, validateSessionCode, validateIdentityToken, validateAuthMessage, sanitizeString } from '../validation.ts';
 import { ALL_WORLDS, LEAGUES_WINDOW } from '../../shared/worlds.ts';
+import { spawnMsFromReading } from '../../shared/spawnTimer.ts';
 
 // World IDs 1 and 2 are guaranteed to exist in worlds.json
 const W = 1;
-const MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
+const MAX_MS = 2 * 60 * 60 * 1000 + 60 * 1000; // 2 hours + midpoint headroom
 
 // A Leagues world — orthogonal to P2P/F2P, and valid only inside the worlds.json leaguesWindow
 const LEAGUES_W = ALL_WORLDS.find(w => w.leagues)!.id;
@@ -158,13 +159,18 @@ describe('validateMessage — setSpawnTimer', () => {
     expect(result).toMatchObject({ type: 'setSpawnTimer', worldId: W, msFromNow: 60_000 });
   });
 
-  it('accepts msFromNow at exactly 2 hours', () => {
+  it('accepts msFromNow at exactly the 2h 1m cap', () => {
     const result = validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: MAX_MS });
     expect(result).not.toHaveProperty('error');
   });
 
-  it('rejects msFromNow above 2 hours', () => {
+  it('rejects msFromNow above the 2h 1m cap', () => {
     expect(validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow: MAX_MS + 1 })).toMatchObject({ error: expect.any(String) });
+  });
+
+  it('accepts a 2-hour reading plus the 30 s midpoint', () => {
+    const msFromNow = spawnMsFromReading(2 * 60 * 60 * 1000);
+    expect(validateMessage({ type: 'setSpawnTimer', worldId: W, msFromNow })).toMatchObject({ type: 'setSpawnTimer', msFromNow });
   });
 
   it('rejects msFromNow of zero', () => {

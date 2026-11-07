@@ -8,7 +8,9 @@ import { containsProfanity } from './profanity.ts';
 
 const VALID_TREE_TYPES = new Set<string>(TREE_TYPES);
 const MAX_STRING_LEN = 200;
-const MAX_MS_FROM_NOW = 2 * 60 * 60 * 1000; // 2 hours
+// 2 hours (the longest in-game reading) plus headroom for the +30 s midpoint
+// clients add to readings (shared/spawnTimer.ts).
+const MAX_MS_FROM_NOW = 2 * 60 * 60 * 1000 + 60 * 1000;
 const VALID_HEALTH_VALUES = new Set(
   Array.from({ length: 20 }, (_, i) => (i + 1) * 5), // 5, 10, 15, ..., 100
 );
@@ -294,7 +296,7 @@ export function validateMessage(raw: unknown): ClientMessage | { error: string }
     case 'setSpawnTimer': {
       const msFromNow = raw.msFromNow;
       if (typeof msFromNow !== 'number' || msFromNow <= 0 || msFromNow > MAX_MS_FROM_NOW || !Number.isInteger(msFromNow)) {
-        return { error: 'msFromNow must be a positive integer up to 2 hours.' };
+        return { error: 'msFromNow must be a positive integer up to 2 hours 1 minute.' };
       }
       let treeInfo: { treeHint?: string } | undefined;
       if (isObject(raw.treeInfo)) {
