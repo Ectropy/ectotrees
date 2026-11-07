@@ -85,7 +85,7 @@ export const WorldCard = memo(function WorldCard({ world, state, isFavorite, isH
     >
       <div className="flex items-center justify-between px-1.5 pt-1 shrink-0">
         <div className="flex items-center gap-1">
-          <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}</span>
+          <span className={`text-[11px] font-bold ${TEXT_COLOR.prominent}`}>w{world.id}{world.beta && ' (Beta)'}</span>
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(world.id); }}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}

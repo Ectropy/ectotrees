@@ -943,7 +943,18 @@ test('beta: a beta world with intel appears in the grid and counter', async ({ p
   await page.goto('/');
 
   await expect(page.getByTestId(`world-card-${BETA_P2P_W}`)).toBeVisible();
+  await expect(page.getByTestId(`world-card-${BETA_P2P_W}`)).toContainText(`w${BETA_P2P_W} (Beta)`);
   await expect(page.getByTestId(`world-card-${BETA_F2P_W}`)).toHaveCount(0);
   await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT + 1);
   await expect(page.locator('header')).toContainText(`1/${MAIN_WORLD_COUNT + 1} worlds scouted`);
+});
+
+test('beta: detail view labels a beta world', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Search worlds by number').fill(String(BETA_F2P_W));
+  await page.getByTestId(`world-card-${BETA_F2P_W}`).click();
+
+  const header = page.locator('h1').last().locator('..');
+  await expect(header).toContainText(`World ${BETA_F2P_W} (Beta)`);
+  await expect(header).toContainText('F2P');
 });

@@ -181,7 +181,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
           >
             <WorldList items={toContribute.map(({ id, state }) => (
               <li key={id} className="flex items-center gap-1.5 text-[11px]">
-                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}{worldConfigMap.get(id)?.beta && ' (Beta)'}</span>
                 <WorldTypeBadge worldId={id} />
                 <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
               </li>
@@ -199,7 +199,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
           >
             <WorldList items={conflicts.map(({ id, state }) => (
               <li key={id} className="flex items-center gap-1.5 text-[11px] flex-wrap">
-                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}{worldConfigMap.get(id)?.beta && ' (Beta)'}</span>
                 <WorldTypeBadge worldId={id} />
                 <span className={TEXT_COLOR.muted}>
                   <span className="line-through opacity-60">{statusLabel(state)}</span>
@@ -221,7 +221,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
           >
             <WorldList items={alreadySynced.map(({ id, state }) => (
               <li key={id} className="flex items-center gap-1.5 text-[11px]">
-                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}{worldConfigMap.get(id)?.beta && ' (Beta)'}</span>
                 <WorldTypeBadge worldId={id} />
                 <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
               </li>
@@ -239,7 +239,7 @@ export function SessionJoinView({ codeOrToken, localWorldStates, serverWorlds, m
           >
             <WorldList items={serverGains.map(({ id, state }) => (
               <li key={id} className="flex items-center gap-1.5 text-[11px]">
-                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}</span>
+                <span className={`font-mono ${TEXT_COLOR.prominent}`}>W{id}{worldConfigMap.get(id)?.beta && ' (Beta)'}</span>
                 <WorldTypeBadge worldId={id} />
                 <span className={TEXT_COLOR.muted}>{statusLabel(state)}</span>
               </li>

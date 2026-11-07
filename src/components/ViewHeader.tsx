@@ -18,7 +18,7 @@ export function ViewHeader({ icon, title, world, children, subtitleAction }: Pro
       </h1>
       <p className={`text-sm ${TEXT_COLOR.muted} flex items-center justify-between`}>
         <span>
-          World {world.id} ·{' '}
+          World {world.id}{world.beta && ' (Beta)'} ·{' '}
           {/* Leagues worlds still have a real membership type, so the badge is additive */}
           {world.leagues && (
             <span className={`text-xs font-semibold px-1 py-px rounded me-1 ${LEAGUES_COLOR.badge}`}>Leagues</span>
