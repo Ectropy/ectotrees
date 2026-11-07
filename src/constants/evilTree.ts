@@ -1,6 +1,6 @@
 import { LOCATION_HINTS, LOCATION_COORDS } from '../../shared/hints.ts';
 
-export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS } from '../../shared/types.ts';
+export { TREE_TYPES, SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, DEAD_CLEAR_LABEL } from '../../shared/types.ts';
 export type { TreeType } from '../../shared/types.ts';
 export {
   LOCATION_HINTS,

@@ -9,7 +9,7 @@ import {
   applyClearWorld,
   applyReportLightning,
 } from '../mutations.ts';
-import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from '../types.ts';
+import { SAPLING_MATURE_MS, ALIVE_DEAD_MS, DEAD_CLEAR_MS, DEAD_CLEAR_LABEL, LIGHTNING_1_MS, LIGHTNING_2_MS, HEALTH_LIGHTNING_1, HEALTH_LIGHTNING_2 } from '../types.ts';
 
 // Baseline timestamp — arbitrary fixed point in time
 const T = 1_700_000_000_000;
@@ -120,6 +120,11 @@ describe('applyTransitions', () => {
     };
     const result = applyTransitions(states, matureAt + ALIVE_DEAD_MS);
     expect(result[1].treeHealth).toBeUndefined();
+  });
+
+  it('reward window is 9:06', () => {
+    expect(DEAD_CLEAR_MS).toBe(546_000);
+    expect(DEAD_CLEAR_LABEL).toBe('9:06');
   });
 
   it('dead → none at deadAt + DEAD_CLEAR_MS', () => {

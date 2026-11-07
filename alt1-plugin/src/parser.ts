@@ -126,7 +126,7 @@ export function parseHint(text: string): string | null {
  *      another evil tree for a long time."
  *
  * This text only appears between the previous tree's death and the moment a
- * new spawn timer becomes known to the game (the 10-minute fallen-tree
+ * new spawn timer becomes known to the game (the 9:06 fallen-tree
  * reward window). Crucially, parseSpawnTime returns null in this case —
  * there's no "approximately X minutes" — so the two parsers never conflict.
  *

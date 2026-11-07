@@ -25,7 +25,11 @@ export const ALIVE_TREE_TYPES: ReadonlySet<string> = new Set([
 
 export const SAPLING_MATURE_MS  = 5 * 60 * 1000;
 export const ALIVE_DEAD_MS      = 30 * 60 * 1000;
-export const DEAD_CLEAR_MS      = 10 * 60 * 1000;
+// Death → fade-out of the fallen trunk (reward window). Measured to the second as 9:06
+// on three trees by the Evil Trees RS3 plugin (W204/W205 beta worlds, Nov 2026).
+export const DEAD_CLEAR_MS      = 9 * 60 * 1000 + 6 * 1000;
+/** DEAD_CLEAR_MS as "m:ss" for UI copy, e.g. "9:06". */
+export const DEAD_CLEAR_LABEL   = `${Math.floor(DEAD_CLEAR_MS / 60_000)}:${String((DEAD_CLEAR_MS / 1000) % 60).padStart(2, '0')}`;
 export const LIGHTNING_1_MS     = 10 * 60 * 1000; // 10 min from matureAt → 50% cap
 export const LIGHTNING_2_MS     = 20 * 60 * 1000; // 20 min from matureAt → 25% cap
 export const HEALTH_LIGHTNING_1 = 50;

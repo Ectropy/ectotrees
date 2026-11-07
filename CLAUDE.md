@@ -101,7 +101,7 @@ Client checks every 1 second (for smooth countdown display), server checks every
 - **Health cap at 50%**: 10 minutes after `matureAt` (`LIGHTNING_1_MS`) — if health is undefined or >50%, it is capped to 50
 - **Health cap at 25%**: 20 minutes after `matureAt` (`LIGHTNING_2_MS`) — if health is undefined or >25%, it is capped to 25
 - **Mature/Alive → Dead**: 30 minutes after `matureAt`
-- **Dead → None**: 10 minutes after `deadAt` (fallen tree reward window)
+- **Dead → None**: 9:06 after `deadAt` (fallen tree reward window; `DEAD_CLEAR_MS`, measured to the second by the Evil Trees RS3 plugin)
 - **Spawn timer fires**: when `now >= nextSpawnTarget`, the world transitions to `treeStatus: 'sapling'` (treeType `sapling`, treeSetAt = nextSpawnTarget)
 
 Transition logic lives in `shared/mutations.ts` (`applyTransitions`), shared by client and server.

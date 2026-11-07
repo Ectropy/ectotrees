@@ -1,5 +1,6 @@
 import { Skull } from 'lucide-react';
 import { LOCATION_HINTS } from '@shared/hints';
+import { DEAD_CLEAR_LABEL } from '@shared/types';
 import { DEAD_COLOR } from '@shared-browser/toolColors';
 import { SelectCombobox } from './ui/combobox';
 import { StatusLine } from './StatusLine';
@@ -33,7 +34,7 @@ export function DeadForm({
   return (
     <section className="px-3 py-2">
       <p className="text-[11px] text-muted-foreground mb-3">
-        Marks this world&apos;s tree as dead and starts the 10-minute fallen tree reward window.
+        Marks this world&apos;s tree as dead and starts the {DEAD_CLEAR_LABEL} fallen tree reward window.
       </p>
 
       <div className="flex flex-col mb-2">
