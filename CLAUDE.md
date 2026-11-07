@@ -124,7 +124,7 @@ Optional `"leagues": true` marks a world as part of the RS3 Leagues world set. *
 { "id": 233, "type": "F2P", "leagues": true }
 ```
 
-Optional `"beta": true` marks a Beta world (currently 203 F2P, 204 P2P, 205 P2P). Beta worlds are ordinary Main worlds to the server and the Alt1 plugin (accepted and OCR-detected), but the client grid hides them unless they carry intel (`isActive`) or the search box holds their exact number. Favorites, the hidden filter, and "needs intel" never surface an empty one, and they don't count toward the "worlds scouted" denominator until they have intel. The gate is `gateBetaWorlds` (`src/lib/betaWorlds.ts`). Wherever a Beta world's name is shown (card, view header, session-join lists) it is suffixed with "(Beta)".
+Optional `"beta": true` marks a Beta world (currently 203 F2P, 204 P2P, 205 P2P). Beta worlds are ordinary Main worlds to the server and the Alt1 plugin (accepted and OCR-detected), but the client grid hides them unless they carry intel (`isActive`) or the search box holds their exact number. Favorites, the hidden filter, and "needs intel" never surface an empty one, and they don't count toward the "worlds scouted" denominator until they have intel. The gate is `gateBetaWorlds` (`src/lib/betaWorlds.ts`). Wherever a Beta world's name is shown (card, view header, session-join lists, Discord intel copy) it is suffixed with "(Beta)".
 
 ### Leagues window (seasonal on/off)
 Leagues worlds stay in `worlds.json` year-round and are gated by the top-level `leaguesWindow`:

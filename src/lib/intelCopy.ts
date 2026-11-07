@@ -21,7 +21,7 @@ function buildWorldLine(world: WorldConfig, state: WorldState): string {
 
   if (!label || ts === undefined) return '';
 
-  const parts: string[] = [`World \`${world.id}\``];
+  const parts: string[] = [`World \`${world.id}\`${world.beta ? ' (Beta)' : ''}`];
 
   if (state.treeType && state.treeStatus !== 'dead') {
     parts.push(TREE_TYPE_SHORT[state.treeType]);
