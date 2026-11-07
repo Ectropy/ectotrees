@@ -909,3 +909,41 @@ test('leave panel: managed owner session shows owner warning with identity link'
   const linkInput = page.locator('input[readonly]');
   await expect(linkInput).toHaveValue(new RegExp(`#identity=${PERSONAL_TOKEN}`));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Beta worlds (hidden unless they carry intel or are searched)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BETA_F2P_W = 203;
+const BETA_P2P_W = 204;
+
+test('beta: beta worlds are hidden by default', async ({ page }) => {
+  await page.goto('/');
+  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT);
+  await expect(page.getByTestId(`world-card-${BETA_F2P_W}`)).toHaveCount(0);
+  await expect(page.locator('header')).toContainText(`/${MAIN_WORLD_COUNT} worlds scouted`);
+});
+
+test('beta: an exact search shows a beta world, clearing hides it again', async ({ page }) => {
+  await page.goto('/');
+  const search = page.getByLabel('Search worlds by number');
+  await search.fill(String(BETA_F2P_W));
+  await expect(page.getByTestId(`world-card-${BETA_F2P_W}`)).toBeVisible();
+
+  await search.fill('');
+  await expect(page.getByTestId(`world-card-${BETA_F2P_W}`)).toHaveCount(0);
+});
+
+test('beta: a beta world with intel appears in the grid and counter', async ({ page }) => {
+  await page.addInitScript((id) => {
+    localStorage.setItem('evilTree_worldStates', JSON.stringify({
+      [id]: { treeStatus: 'none', nextSpawnTarget: Date.now() + 10 * 60 * 1000 },
+    }));
+  }, BETA_P2P_W);
+  await page.goto('/');
+
+  await expect(page.getByTestId(`world-card-${BETA_P2P_W}`)).toBeVisible();
+  await expect(page.getByTestId(`world-card-${BETA_F2P_W}`)).toHaveCount(0);
+  await expect(cards(page)).toHaveCount(MAIN_WORLD_COUNT + 1);
+  await expect(page.locator('header')).toContainText(`1/${MAIN_WORLD_COUNT + 1} worlds scouted`);
+});

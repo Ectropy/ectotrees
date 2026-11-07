@@ -51,6 +51,11 @@ export interface WorldConfig {
   type: 'P2P' | 'F2P';
   /** Present only on Leagues worlds. Orthogonal to `type` — Leagues has both P2P and F2P worlds. */
   leagues?: boolean;
+  /**
+   * Present only on Beta worlds. Valid everywhere (server, Alt1), but the client grid
+   * hides them unless they carry intel or are searched by exact number.
+   */
+  beta?: boolean;
 }
 
 export interface TreeInfoPayload {

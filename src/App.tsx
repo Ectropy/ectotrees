@@ -37,6 +37,7 @@ import type { SortMode, Filters } from './components/SortFilterBar';
 import type { WorldStates } from './types';
 import type { SessionInfo } from '../shared/protocol.ts';
 import { buildDiscordMessage } from './lib/intelCopy';
+import { gateBetaWorlds } from './lib/betaWorlds';
 import { NONE_STATE, worldStatesEqual } from './lib/worldState';
 import { validateSessionCode } from './lib/sessionUrl';
 import { useSettings } from './hooks/useSettings';
@@ -319,7 +320,18 @@ export default function App() {
   const isPreviewingJoin = activeView.kind === 'session-join' && previewWorlds !== null;
   const displayWorldStates = isPreviewingJoin ? previewWorlds : worldStates;
 
-  const sortedFilteredWorlds = useFilteredWorlds(modeWorlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
+  // Beta worlds stay out of the grid and the scouted counter until they carry intel;
+  // the grid list also lets an exact search through so a beta world can be opened.
+  const gridWorlds = useMemo(
+    () => gateBetaWorlds(modeWorlds, displayWorldStates, worldSearch),
+    [modeWorlds, displayWorldStates, worldSearch],
+  );
+  const countedWorlds = useMemo(
+    () => gateBetaWorlds(modeWorlds, displayWorldStates, ''),
+    [modeWorlds, displayWorldStates],
+  );
+
+  const sortedFilteredWorlds = useFilteredWorlds(gridWorlds, displayWorldStates, favorites, hiddenWorlds, sortMode, sortAsc, filters, worldSearch);
 
   const handleOpenTool = useCallback((worldId: number, tool: 'spawn' | 'tree' | 'dead') => {
     if (isPreviewingJoin) return;
@@ -706,7 +718,7 @@ export default function App() {
             </div>
             <span className={`flex items-center gap-1 text-xs ${TEXT_COLOR.prominent}`}>
               <TreeDeciduous className="h-3.5 w-3.5 shrink-0" />
-              <span>{modeWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{modeWorlds.length} {worldMode === 'leagues' ? 'Leagues ' : ''}worlds scouted</span></span>
+              <span>{countedWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE)).length}<span className="hidden sm:inline">/{countedWorlds.length} {worldMode === 'leagues' ? 'Leagues ' : ''}worlds scouted</span></span>
             </span>
             {(() => {
               const intelWorlds = sortedFilteredWorlds.filter(w => isActive(displayWorldStates[w.id] ?? NONE_STATE));

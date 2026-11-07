@@ -17,6 +17,7 @@ src/
     relativeTime.ts     # relativeTime(ts): short "just now"/"5m ago"/"3h ago"/"2d ago" formatter (used by SessionMetaRow)
     worldMode.ts        # WorldMode ('main' | 'leagues') + partitionWorlds/worldModeFor/normalizeWorldMode/loadWorldMode/loadLeaguesSeen. Mode is a world-list *input swap* into useFilteredWorlds, not a filter — deliberately outside Filters so "Clear filters" can't change world set
     sessionUrl.ts       # extractSessionCode(raw), buildSessionUrl(code), validateSessionCode(code) — #join=CODE fragment URL parsing/generation. For identity-token URL handling, see shared-browser/sessionUrl.ts (buildIdentityUrl, extractIdentityToken — shared with alt1-plugin)
+    betaWorlds.ts       # gateBetaWorlds(worlds, worldStates, search): drops `beta: true` worlds unless they have intel or exactly match the search. App applies it to the grid list (with search) and the scouted counter (with '')
     intelCopy.ts        # buildWorldIntel(world, state): string and buildDiscordMessage(filteredWorlds, worldStates): string — formats intel for Discord using <t:UNIX:R> relative timestamps
     __tests__/
       analytics.test.ts # Vitest unit tests for analytics helpers
@@ -126,13 +127,13 @@ All sort/filter preferences are persisted to `localStorage` (`evilTree_sort`, `e
 All filters apply **within the active world mode** — see World Modes below.
 
 ## World Modes (Main / Leagues)
-A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds) and **Leagues** (68 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
+A `WorldModeSwitcher` in the header splits the dashboard into two independent world sets: **Main** (137 worlds, plus 3 Beta worlds shown only when they have intel or are searched) and **Leagues** (68 RS3 Leagues worlds, flagged `"leagues": true` in `worlds.json`). Each mode has its own grid, its own scouted counter, and its own Discord intel export.
 
 Leagues is **seasonal**: its worlds only exist while the `worlds.json` `leaguesWindow` is open (see "Leagues window" in the root CLAUDE.md). Outside the window the Leagues set is empty, the switcher renders nothing, and the dashboard is Main-only. `useLeaguesActive()` flips at the boundary, so a tab left open across it updates without a reload.
 
 Leagues is **orthogonal to P2P/F2P** — Leagues contains both — so the membership chips keep narrowing *within* whichever mode is active rather than competing with it.
 
-Implementation: `App.tsx` takes `worldList(useLeaguesActive())` (`shared/worlds.ts`), partitions it via `partitionWorlds` (`lib/worldMode.ts`, memoized — the list is one of two stable arrays), and passes the selected set into `useFilteredWorlds`. Because that hook already takes the world list as a parameter, mode required no changes to the filter logic itself.
+Implementation: `App.tsx` takes `worldList(useLeaguesActive())` (`shared/worlds.ts`), partitions it via `partitionWorlds` (`lib/worldMode.ts`, memoized — the list is one of two stable arrays), and passes the selected set into `useFilteredWorlds`. Because that hook already takes the world list as a parameter, mode required no changes to the filter logic itself. Before that, the mode's set passes through `gateBetaWorlds` (`lib/betaWorlds.ts`), which hides Beta worlds without intel unless searched by exact number. Search-to-world matching, mode auto-switch, and follow-scout use the ungated list, so search and Alt1 can still reach a Beta world.
 
 - Mode lives in its own `useState` + `localStorage` key (`evilTree_worldMode`), **not** in `Filters` — otherwise "Clear filters" would yank the user out of Leagues.
 - `loadWorldMode(hasLeagues)` forces `'main'` when no Leagues worlds are in effect, so a stored `'leagues'` can't strand a user on an empty grid after the event. If the window closes while Leagues is selected, `App.tsx` resets the mode to `'main'` during render.
